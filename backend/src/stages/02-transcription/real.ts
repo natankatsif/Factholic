@@ -1,6 +1,7 @@
 import { config } from "../../config.ts";
 import { PipelineError, type Stage } from "../../pipeline/context.ts";
 import type { AudioChunk } from "../01-ingest/types.ts";
+import { ocrImage } from "./ocr.ts";
 import { toLanguageCode, whisperTranscribe } from "./openai.ts";
 import { cuesToWords, textToSegments, wordsToSegments } from "./sentences.ts";
 import type { TranscriptSegment, TranscriptionInput, TranscriptionOutput, TranscriptWord } from "./types.ts";
@@ -9,6 +10,7 @@ import type { TranscriptSegment, TranscriptionInput, TranscriptionOutput, Transc
  * REAL-РЕАЛИЗАЦИЯ (STAGE_TRANSCRIPTION=real)
  *  captions → ASR не вызываем: cues → слова → предложения
  *  text     → статья / вставленный текст: просто режем на предложения (таймкодов нет, 0–0)
+ *  image    → OCR (vision-модель, LLM_* из .env) → предложения
  *  audio    → ASR (сейчас поддержан ASR_PROVIDER=openai, модель whisper-1) с пословными таймкодами,
  *             все времена сдвигаем на chunk.range.start (время куска → время видео)
  */
@@ -31,6 +33,22 @@ export const transcribeReal: Stage<TranscriptionInput, TranscriptionOutput> = as
       language: chunk.language ?? input.languageHint ?? "und",
       origin: "text",
       segments: textToSegments(chunk.text, chunk.seq),
+    };
+  }
+
+  if (chunk.kind === "image") {
+    const ocr = await ocrImage(chunk, ctx.signal);
+    ctx.log(
+      `02: OCR — ${ocr.text.length} символов, язык ${ocr.language}${ocr.author ? `, автор ${ocr.author}` : ""}`,
+    );
+    // автор и дата с картинки («Канал X · 14 марта») — первой строкой: этап 03 увидит, кто и когда это написал
+    const header = [ocr.author, ocr.date].filter(Boolean).join(" · ");
+    const text = header ? `${header}\n\n${ocr.text}` : ocr.text;
+    return {
+      ...base,
+      language: input.languageHint ?? (/^[a-z]{2}$/.test(ocr.language) ? ocr.language : "und"),
+      origin: "ocr",
+      segments: textToSegments(text, chunk.seq),
     };
   }
 

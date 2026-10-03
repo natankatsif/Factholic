@@ -40,7 +40,7 @@ export interface TranscriptionOutput {
   seq: number;
   range: TimeRange;
   language: LanguageCode;
-  /** asr — распознали сами, captions — взяли субтитры платформы, text — статья или вставленный текст */
-  origin: "asr" | "captions" | "text";
+  /** asr — распознали сами, captions — взяли субтитры платформы, text — статья или вставленный текст, ocr — текст с картинки */
+  origin: "asr" | "captions" | "text" | "ocr";
   segments: TranscriptSegment[];
 }

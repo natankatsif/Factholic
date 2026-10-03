@@ -162,6 +162,7 @@ export class JobStore {
 export function videoKeyOf(request: StartAnalysisRequest): string {
   // вставленный текст: ключ по содержимому (у всех текстов может быть одинаковый pageUrl-заглушка)
   if (request.text?.trim()) return `text:${createHash("sha256").update(request.text.trim()).digest("hex")}`;
+  if (request.imageDataUrl) return `image:${createHash("sha256").update(request.imageDataUrl).digest("hex")}`;
   const { platform, platformVideoId, pageUrl } = request.video;
   return platformVideoId ? `${platform}:${platformVideoId}` : `url:${pageUrl}`;
 }

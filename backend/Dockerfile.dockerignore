@@ -1,0 +1,10 @@
+# Для docker build -f backend/Dockerfile . — что НЕ отправлять в образ
+**/node_modules
+.env
+.env.*
+!.env.example
+.git
+web/.next
+**/dist
+**/*.log
+**/*.tsbuildinfo

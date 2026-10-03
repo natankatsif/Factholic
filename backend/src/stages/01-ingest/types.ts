@@ -41,7 +41,7 @@ export interface IngestOutput {
   chunks: AsyncIterable<MediaChunk>;
 }
 
-export type MediaChunk = AudioChunk | CaptionsChunk | TextChunk;
+export type MediaChunk = AudioChunk | CaptionsChunk | TextChunk | ImageChunk;
 
 /** Кусок звука, который надо распознать */
 export interface AudioChunk {
@@ -83,4 +83,16 @@ export interface TextChunk {
   /** article — вытащили со страницы по ссылке, pasted — пользователь вставил сам */
   origin: "article" | "pasted";
   text: string;
+}
+
+/** Картинка (скриншот поста, фото текста) — этап 02 распознаёт на ней текст (OCR). Таймкодов нет: 0–0. */
+export interface ImageChunk {
+  kind: "image";
+  jobId: JobId;
+  seq: number;
+  range: TimeRange;
+  mimeType: string;
+  data: Uint8Array;
+  /** url — скачали по ссылке, upload — пользователь загрузил файл */
+  origin: "url" | "upload";
 }

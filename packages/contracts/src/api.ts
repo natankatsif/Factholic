@@ -35,6 +35,11 @@ export interface StartAnalysisRequest {
    * video.pageUrl (туда можно положить ссылку на оригинал поста, если она есть; platform: "generic").
    */
   text?: string;
+  /**
+   * Загруженная картинка (скриншот поста, фото газеты) как data URL: "data:image/png;base64,…".
+   * Бэкенд распознаёт текст (OCR) и анализирует его как статью. Ссылку на картинку можно передать и в video.pageUrl.
+   */
+  imageDataUrl?: string;
 }
 
 export interface StartAnalysisResponse {

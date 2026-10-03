@@ -5,6 +5,7 @@ import { cutWav, downloadAudio, SAMPLE_RATE } from "./audio.ts";
 import { groupCues, loadCues, pickCaptionTrack, type YtMeta } from "./captions.ts";
 import { run } from "./process.ts";
 import type { AudioChunk, IngestInput, IngestOutput, LiveAudioChunk, MediaChunk } from "./types.ts";
+import type { StartAnalysisRequest } from "@news/contracts";
 
 /**
  * REAL-РЕАЛИЗАЦИЯ (STAGE_INGEST=real)
@@ -42,6 +43,16 @@ async function ingestRemote(input: IngestInput, ctx: StageContext): Promise<Inge
       durationSec: 0,
       language,
     });
+  }
+
+  // 0b. Картинка: загруженный скриншот или ссылка прямо на изображение → этап 02 сделает OCR
+  if (request.imageDataUrl) {
+    ctx.log("ingest: загруженная картинка");
+    return imageOutput(jobId, "upload", decodeDataUrl(request.imageDataUrl), ref, request.languageHint);
+  }
+  if (IMAGE_URL.test(ref.pageUrl)) {
+    ctx.log("ingest: ссылка на картинку");
+    return imageOutput(jobId, "url", await fetchImage(ref.pageUrl, ctx.signal), ref, request.languageHint);
   }
 
   // 1. Метаданные через yt-dlp
@@ -293,4 +304,71 @@ function knownVideoSite(err: unknown): boolean {
   const text = (err as Error | undefined)?.message ?? "";
   const extractor = text.match(/\[([\w:.-]+)\]/)?.[1]?.toLowerCase();
   return !!extractor && extractor !== "generic" && !/Unsupported URL/i.test(text);
+}
+
+// ---------- картинки ----------
+
+/** Ссылка прямо на файл изображения */
+const IMAGE_URL = /\.(png|jpe?g|webp|gif)(\?|#|$)/i;
+/** OpenAI принимает картинки до 20 МБ; скриншоту больше и не нужно */
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+
+interface ImageData {
+  mimeType: string;
+  data: Uint8Array;
+}
+
+function imageOutput(
+  jobId: string,
+  origin: "url" | "upload",
+  image: ImageData,
+  ref: StartAnalysisRequest["video"],
+  languageHint: LanguageCode | undefined,
+): IngestOutput {
+  return {
+    video: {
+      pageUrl: ref.pageUrl,
+      platform: ref.platform,
+      title: ref.title ?? (origin === "upload" ? "Скриншот" : "Изображение"),
+      durationSec: 0,
+      language: languageHint ?? "und",
+    },
+    chunks: (async function* (): AsyncIterable<MediaChunk> {
+      yield { kind: "image", jobId, seq: 0, range: { start: 0, end: 0 }, origin, ...image };
+    })(),
+  };
+}
+
+/** "data:image/png;base64,iVBOR…" → байты */
+function decodeDataUrl(dataUrl: string): ImageData {
+  const m = dataUrl.match(/^data:(image\/[\w.+-]+);base64,(.+)$/s);
+  if (!m)
+    throw new PipelineError(
+      "UNSUPPORTED_PLATFORM",
+      "Загруженный файл — не картинка (ожидается PNG, JPEG или WebP)",
+    );
+  const data = new Uint8Array(Buffer.from(m[2]!, "base64"));
+  if (data.length > MAX_IMAGE_BYTES) throw new PipelineError("UNSUPPORTED_PLATFORM", "Картинка больше 15 МБ");
+  return { mimeType: m[1]!, data };
+}
+
+async function fetchImage(url: string, signal: AbortSignal): Promise<ImageData> {
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]) });
+  } catch (err) {
+    throw new PipelineError("VIDEO_UNAVAILABLE", "Не удалось скачать картинку — проверь ссылку", {
+      cause: err,
+    });
+  }
+  const mimeType = res.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
+  if (!res.ok || !mimeType.startsWith("image/")) {
+    throw new PipelineError(
+      "VIDEO_UNAVAILABLE",
+      `Не удалось скачать картинку (HTTP ${res.status}, ${mimeType || "неизвестный тип"})`,
+    );
+  }
+  const data = new Uint8Array(await res.arrayBuffer());
+  if (data.length > MAX_IMAGE_BYTES) throw new PipelineError("UNSUPPORTED_PLATFORM", "Картинка больше 15 МБ");
+  return { mimeType, data };
 }

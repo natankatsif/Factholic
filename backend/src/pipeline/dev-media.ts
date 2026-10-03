@@ -67,7 +67,7 @@ for await (const chunk of source) {
   const t = Date.now();
   const out = await transcribeReal({ chunk }, ctx);
   console.log(
-    `━━ кусок #${chunk.seq} [${formatRange(chunk.range)}] · ${chunk.kind === "captions" ? `субтитры ${chunk.origin}` : chunk.kind === "text" ? `текст (${chunk.origin})` : "звук → Whisper"} · ${Date.now() - t} мс`,
+    `━━ кусок #${chunk.seq} [${formatRange(chunk.range)}] · ${chunk.kind === "captions" ? `субтитры ${chunk.origin}` : chunk.kind === "text" ? `текст (${chunk.origin})` : chunk.kind === "image" ? "картинка → OCR" : "звук → Whisper"} · ${Date.now() - t} мс`,
   );
   for (const s of out.segments) {
     console.log(`  ${formatRange(s)}  ${s.text}   (слов: ${s.words?.length ?? 0})`);
