@@ -1,76 +1,60 @@
 import React from "react";
 
+/**
+ * Декоративные плашки поверх толпы смайликов. Координаты и постоянный наклон — относительно EmojiCrowd (740×524).
+ * Наклон задан сразу на контейнере (без скачков и задержек при загрузке страницы).
+ * Внутри — плавное вертикальное покачивание (pill-bob) с отрицательным сдвигом фазы (сразу в движении).
+ */
+const PILLS = [
+  {
+    name: "Pill Lie",
+    label: "Ложь",
+    value: "12%",
+    dot: "#E2353F",
+    wrapperClass: "left-[-20px] top-[192px] [transform:rotate(6deg)] [transform-origin:top_left]",
+    floatAnimation: "pill-bob 4.2s ease-in-out infinite 0s",
+  },
+  {
+    name: "Pill True",
+    label: "Правда",
+    value: "95%",
+    dot: "#1DA57A",
+    wrapperClass: "left-[380px] top-[215px] [transform:rotate(-5deg)] [transform-origin:top_left]",
+    floatAnimation: "pill-bob 4.8s ease-in-out infinite -1.6s",
+  },
+  {
+    name: "Pill Disputed",
+    label: "Спорно",
+    value: "32%",
+    dot: "#FFC20E",
+    wrapperClass: "left-[450px] top-[40px] [transform:rotate(-4deg)] [transform-origin:top_left]",
+    floatAnimation: "pill-bob 4.5s ease-in-out infinite -3.0s",
+  },
+];
+
 export function FloatingPills() {
   return (
     <>
-      {/* Pill Lie (12%) */}
-      <div
-        data-pencil-name="Pill Lie"
-        className="box-border w-fit h-fit [transform:rotate(6deg)] [transform-origin:top_left] [box-shadow:0px_8px_24px_#4A33331F] absolute left-[56%] xl:left-[770px] bottom-[170px] xl:bottom-[210px] flex flex-row gap-[10px] p-[8px_16px_8px_12px] xl:p-[10px_18px_10px_12px] justify-start items-center bg-[#FBF8F7] rounded-[100px] z-[5] select-none pointer-events-none hover:scale-105 transition-transform"
-      >
+      {PILLS.map((p) => (
         <div
-          data-pencil-name="Dot"
-          className="box-border w-[12px] shrink-0 h-[12px] bg-[#E2353F] rounded-full"
-        />
-        <div
-          data-pencil-name="Label"
-          className="text-sm xl:text-[17px] leading-normal box-border text-[#4A3333] font-extrabold text-left whitespace-nowrap"
+          key={p.name}
+          data-pencil-name={p.name}
+          className={`absolute z-10 hidden w-fit lg:block ${p.wrapperClass} pointer-events-auto`}
         >
-          Ложь
+          <div
+            style={{ animation: p.floatAnimation }}
+            className="flex w-fit items-center gap-[10px] rounded-[100px] bg-[#FBF8F7] p-[10px_18px_10px_12px] [box-shadow:0px_8px_24px_#4A33331F] cursor-default select-none transition-transform duration-300 hover:scale-105"
+          >
+            <div className="h-[12px] w-[12px] shrink-0 rounded-full" style={{ backgroundColor: p.dot }} />
+            <div className="whitespace-nowrap text-[17px] font-extrabold leading-normal text-[#4A3333]">
+              {p.label}
+            </div>
+            <div className="whitespace-nowrap text-[17px] font-extrabold leading-normal text-[#A27C7A]">
+              {p.value}
+            </div>
+          </div>
         </div>
-        <div
-          data-pencil-name="Value"
-          className="text-sm xl:text-[17px] leading-normal box-border text-[#A27C7A] font-extrabold text-left whitespace-nowrap"
-        >
-          12%
-        </div>
-      </div>
-
-      {/* Pill True (95%) */}
-      <div
-        data-pencil-name="Pill True"
-        className="box-border w-fit h-fit [transform:rotate(-5deg)] [transform-origin:top_left] [box-shadow:0px_8px_24px_#4A33331F] absolute right-[50px] xl:left-[1160px] bottom-[145px] xl:bottom-[180px] flex flex-row gap-[10px] p-[8px_16px_8px_12px] xl:p-[10px_18px_10px_12px] justify-start items-center bg-[#FBF8F7] rounded-[100px] z-[6] select-none pointer-events-none hover:scale-105 transition-transform"
-      >
-        <div
-          data-pencil-name="Dot"
-          className="box-border w-[12px] shrink-0 h-[12px] bg-[#1DA57A] rounded-full"
-        />
-        <div
-          data-pencil-name="Label"
-          className="text-sm xl:text-[17px] leading-normal box-border text-[#4A3333] font-extrabold text-left whitespace-nowrap"
-        >
-          Правда
-        </div>
-        <div
-          data-pencil-name="Value"
-          className="text-sm xl:text-[17px] leading-normal box-border text-[#A27C7A] font-extrabold text-left whitespace-nowrap"
-        >
-          95%
-        </div>
-      </div>
-
-      {/* Pill Disputed (32%) */}
-      <div
-        data-pencil-name="Pill Disputed"
-        className="box-border w-fit h-fit [transform:rotate(-4deg)] [transform-origin:top_left] [box-shadow:0px_8px_24px_#4A33331F] absolute right-[30px] xl:left-[1220px] bottom-[310px] xl:bottom-[355px] flex flex-row gap-[10px] p-[8px_16px_8px_12px] xl:p-[10px_18px_10px_12px] justify-start items-center bg-[#FBF8F7] rounded-[100px] z-[7] select-none pointer-events-none hover:scale-105 transition-transform"
-      >
-        <div
-          data-pencil-name="Dot"
-          className="box-border w-[12px] shrink-0 h-[12px] bg-[#FFC20E] rounded-full"
-        />
-        <div
-          data-pencil-name="Label"
-          className="text-sm xl:text-[17px] leading-normal box-border text-[#4A3333] font-extrabold text-left whitespace-nowrap"
-        >
-          Спорно
-        </div>
-        <div
-          data-pencil-name="Value"
-          className="text-sm xl:text-[17px] leading-normal box-border text-[#A27C7A] font-extrabold text-left whitespace-nowrap"
-        >
-          32%
-        </div>
-      </div>
+      ))}
     </>
   );
 }

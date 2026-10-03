@@ -3,15 +3,35 @@ import React, { useState } from "react";
 export interface LinkInputCardProps {
   onCheck: (urlOrText: string, isUrl: boolean) => void;
   isLoading?: boolean;
-  defaultValue?: string;
+  onTypingChange?: (isTyping: boolean, text: string) => void;
 }
 
 export function LinkInputCard({
   onCheck,
   isLoading = false,
-  defaultValue = "",
+  onTypingChange,
 }: LinkInputCardProps) {
-  const [inputValue, setInputValue] = useState(defaultValue);
+  const [inputValue, setInputValue] = useState("");
+  const typingTimerRef = React.useRef<NodeJS.Timeout>();
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputValue(val);
+    onTypingChange?.(true, val);
+
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      onTypingChange?.(false, val);
+    }, 1200);
+  };
+
+  const handleFocus = () => {
+    onTypingChange?.(true, inputValue);
+  };
+
+  const handleBlur = () => {
+    onTypingChange?.(false, inputValue);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +73,9 @@ export function LinkInputCard({
       <input
         type="text"
         value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
+        onChange={handleInputChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         placeholder="Вставь тезис или новость для проверки…"
         data-pencil-name="Placeholder"
         className="text-sm sm:text-lg xl:text-[20px] leading-normal box-border flex-1 text-[#4A3333] placeholder-[#A27C7A] font-semibold text-left bg-transparent border-none outline-none min-w-0"

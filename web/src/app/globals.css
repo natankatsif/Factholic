@@ -30,3 +30,130 @@ body {
   background: #d6d3d1;
   border-radius: 9999px;
 }
+
+/* ==========================================================================
+   Living Emoji Crowd Animations
+   ========================================================================== */
+
+@keyframes blob-breathe-1 {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1, 1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.018, 0.985);
+  }
+}
+
+@keyframes blob-breathe-2 {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1, 1) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.015, 0.988) rotate(-0.8deg);
+  }
+}
+
+@keyframes blob-breathe-3 {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1, 1) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.02, 0.98) rotate(1deg);
+  }
+}
+
+@keyframes blob-breathe-4 {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1, 1);
+  }
+  50% {
+    transform: translateY(-4.5px) scale(1.012, 0.99);
+  }
+}
+
+@keyframes eye-blink-1 {
+  0%,
+  93%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.08);
+  }
+}
+
+@keyframes eye-blink-2 {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  94.5% {
+    transform: scaleY(0.08);
+  }
+}
+
+@keyframes eye-blink-3 {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.08);
+  }
+}
+
+@keyframes eye-blink-4 {
+  0%,
+  95%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.08);
+  }
+}
+
+@keyframes eye-squint {
+  0%,
+  91%,
+  100% {
+    transform: scale(1, 1);
+  }
+  94.5% {
+    transform: scale(0.9, 0.25);
+  }
+}
+
+@keyframes blob-poke {
+  0% {
+    transform: scale(1, 1);
+  }
+  20% {
+    transform: scale(1.15, 0.85);
+  }
+  45% {
+    transform: scale(0.9, 1.12);
+  }
+  70% {
+    transform: scale(1.05, 0.97);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes pill-bob {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}

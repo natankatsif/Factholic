@@ -1,115 +1,42 @@
 import React from "react";
 
+const STEPS = [
+  { n: 1, color: "#FFC20E", title: "Вставь тезис", sub: "или ссылку на видео / новость" },
+  { n: 2, color: "#0AA6C2", title: "Разбор аргументов", sub: "факты, таймлайн и контекст" },
+  { n: 3, color: "#E0368A", title: "Читай вердикт", sub: "за, против и первоисточники" },
+];
+
+/**
+ * На десктопе шаги стоят внизу слева, а справа внизу — толпа смайликов (EmojiCrowd).
+ * Чтобы они не пересекались, ширина ряда ограничена: экран минус видимая часть толпы до красного смайлика
+ * (620px × --crowd-scale), зазор 24px, отступ 80px и поле по краям, когда экран шире контейнера 1440px.
+ * Не влезают в одну строку — переносятся на следующую, а не залезают под смайлики.
+ */
 export function HowItWorks() {
   return (
     <div
       data-pencil-name="How It Works"
-      className="box-border w-fit h-fit shrink-0 flex flex-col sm:flex-row gap-3 sm:gap-6 lg:gap-[32px] justify-start items-start relative z-10"
+      className="box-border flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-4 lg:max-w-[calc(100vw_-_620px*var(--crowd-scale)_-_104px_-_max(0px,(100vw_-_1440px)/2))] lg:gap-x-6"
     >
-      {/* Step 1 */}
-      <div
-        data-pencil-name="Step 1"
-        className="box-border w-fit shrink-0 h-fit flex flex-row gap-3 sm:gap-[14px] justify-start items-center"
-      >
-        <div
-          data-pencil-name="Num"
-          className="box-border w-10 h-10 sm:w-[44px] sm:h-[44px] shrink-0 flex flex-row justify-center items-center bg-[#FFC20E] rounded-full"
-        >
-          <span
-            data-pencil-name="N"
-            className="text-lg sm:text-[20px] leading-normal box-border text-[#FFFFFF] font-black text-left whitespace-nowrap"
+      {STEPS.map((s) => (
+        <div key={s.n} data-pencil-name={`Step ${s.n}`} className="flex items-center gap-3 sm:gap-[14px]">
+          <div
+            data-pencil-name="Num"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full sm:h-[44px] sm:w-[44px]"
+            style={{ backgroundColor: s.color }}
           >
-            1
-          </span>
+            <span className="text-lg font-black leading-normal text-white sm:text-[20px]">{s.n}</span>
+          </div>
+          <div data-pencil-name="Text" className="flex flex-col">
+            <span className="whitespace-nowrap text-base font-extrabold leading-normal text-[#4A3333] sm:text-[18px]">
+              {s.title}
+            </span>
+            <span className="text-xs font-semibold leading-snug text-[#A27C7A] sm:text-[15px] lg:max-w-[140px] lg:[text-wrap:balance]">
+              {s.sub}
+            </span>
+          </div>
         </div>
-        <div
-          data-pencil-name="Text"
-          className="box-border w-fit shrink-0 h-fit flex flex-col justify-start items-start"
-        >
-          <span
-            data-pencil-name="Title"
-            className="text-base sm:text-[18px] leading-normal box-border text-[#4A3333] font-extrabold text-left whitespace-nowrap"
-          >
-            Вставь тезис
-          </span>
-          <span
-            data-pencil-name="Sub"
-            className="text-xs sm:text-[15px] leading-normal box-border text-[#A27C7A] font-semibold text-left whitespace-nowrap"
-          >
-            или ссылку на видео / новость
-          </span>
-        </div>
-      </div>
-
-      {/* Step 2 */}
-      <div
-        data-pencil-name="Step 2"
-        className="box-border w-fit shrink-0 h-fit flex flex-row gap-3 sm:gap-[14px] justify-start items-center"
-      >
-        <div
-          data-pencil-name="Num"
-          className="box-border w-10 h-10 sm:w-[44px] sm:h-[44px] shrink-0 flex flex-row justify-center items-center bg-[#0AA6C2] rounded-full"
-        >
-          <span
-            data-pencil-name="N"
-            className="text-lg sm:text-[20px] leading-normal box-border text-[#FFFFFF] font-black text-left whitespace-nowrap"
-          >
-            2
-          </span>
-        </div>
-        <div
-          data-pencil-name="Text"
-          className="box-border w-fit shrink-0 h-fit flex flex-col justify-start items-start"
-        >
-          <span
-            data-pencil-name="Title"
-            className="text-base sm:text-[18px] leading-normal box-border text-[#4A3333] font-extrabold text-left whitespace-nowrap"
-          >
-            Разбор аргументов
-          </span>
-          <span
-            data-pencil-name="Sub"
-            className="text-xs sm:text-[15px] leading-normal box-border text-[#A27C7A] font-semibold text-left whitespace-nowrap"
-          >
-            факты, таймлайн и контекст
-          </span>
-        </div>
-      </div>
-
-      {/* Step 3 */}
-      <div
-        data-pencil-name="Step 3"
-        className="box-border w-fit shrink-0 h-fit flex flex-row gap-3 sm:gap-[14px] justify-start items-center"
-      >
-        <div
-          data-pencil-name="Num"
-          className="box-border w-10 h-10 sm:w-[44px] sm:h-[44px] shrink-0 flex flex-row justify-center items-center bg-[#E0368A] rounded-full"
-        >
-          <span
-            data-pencil-name="N"
-            className="text-lg sm:text-[20px] leading-normal box-border text-[#FFFFFF] font-black text-left whitespace-nowrap"
-          >
-            3
-          </span>
-        </div>
-        <div
-          data-pencil-name="Text"
-          className="box-border w-fit shrink-0 h-fit flex flex-col justify-start items-start"
-        >
-          <span
-            data-pencil-name="Title"
-            className="text-base sm:text-[18px] leading-normal box-border text-[#4A3333] font-extrabold text-left whitespace-nowrap"
-          >
-            Читай вердикт
-          </span>
-          <span
-            data-pencil-name="Sub"
-            className="text-xs sm:text-[15px] leading-normal box-border text-[#A27C7A] font-semibold text-left whitespace-nowrap"
-          >
-            за, против и первоисточники
-          </span>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }
