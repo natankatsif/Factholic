@@ -8,6 +8,7 @@
  *
  *  Раунд 1: до 3 запросов о событии (ro/ru/en, приоритет молдавских сайтов)
  *  Раунд 2: «самое раннее упоминание» — тот же поиск с end_date раньше самой старой найденной копии
+ *  Фильтр: LLM убирает копии про другое событие того же типа (same-event.ts)
  */
 import type { ISODateString } from "@news/contracts";
 import { config } from "../../config.ts";
@@ -16,6 +17,7 @@ import type { Claim } from "../03-claim-extraction/types.ts";
 import { normalizeHost } from "./domains.ts";
 import { limited, type Candidate } from "./engines.ts";
 import type { PlannedQuery } from "./queries.ts";
+import { filterSameEvent } from "./same-event.ts";
 import { dedupe, enrich, registrableDomain, type Enriched } from "./select.ts";
 import { cleanText, hits, keywordStems, stemSet } from "./text.ts";
 import type { SourceCopy } from "./types.ts";
@@ -80,7 +82,12 @@ export async function findCopies(
   const relevant = candidates
     .map((c) => enrich(c, stems))
     .filter((e): e is Enriched => e !== null)
-    .filter((e) => isPublication(e, stems, linksByUrl.get(e.candidate.url)?.earliest ?? false));
+    .filter((e) => isPublication(e, stems, linksByUrl.get(e.candidate.url)?.earliest ?? false))
+    // раннее упоминание должно говорить о том же: если в утверждении есть числа — те же числа
+    // («8 млрд» в 2022, а не «7 млрд» в 2011 или «+1 млрд к 2030» — это другие утверждения)
+    .filter(
+      (e) => !linksByUrl.get(e.candidate.url)?.earliest || mentionsClaimNumbers(e, claimNumbers(claim)),
+    );
 
   const retrievedAt = new Date().toISOString();
   const copies = relevant
@@ -90,13 +97,18 @@ export async function findCopies(
 
   await fillDatesFromPages(copies, ctx);
 
-  copies.sort((a, b) => (a.publishedAt ?? "9999").localeCompare(b.publishedAt ?? "9999"));
-  copies.forEach((c, i) => (c.id = `${claim.id}_c${i + 1}`));
+  // временные id — чтобы LLM могла сослаться на копию; окончательные — после сортировки по дате
+  copies.forEach((c, i) => (c.id = `k${i + 1}`));
+  // другое событие того же типа (старое землетрясение, прошлогодняя сделка) — не копия этого утверждения
+  const kept = await filterSameEvent(claim, copies, ctx);
+
+  kept.sort((a, b) => (a.publishedAt ?? "9999").localeCompare(b.publishedAt ?? "9999"));
+  kept.forEach((c, i) => (c.id = `${claim.id}_c${i + 1}`));
   ctx.log(
-    `04 copies: ${claim.id}: найдено ${candidates.length}, по теме ${copies.length}, ` +
-      `с датой ${copies.filter((c) => c.publishedAt).length}, самая ранняя ${copies[0]?.publishedAt ?? "—"}`,
+    `04 copies: ${claim.id}: найдено ${candidates.length}, по теме ${kept.length}, ` +
+      `с датой ${kept.filter((c) => c.publishedAt).length}, самая ранняя ${kept[0]?.publishedAt ?? "—"}`,
   );
-  return copies;
+  return kept;
 }
 
 // ---------- Tavily в режиме копий ----------
@@ -175,6 +187,21 @@ function isPublication(e: Enriched, claimStems: string[], earliest: boolean): bo
   return best >= (earliest ? 2 : 1);
 }
 
+/** Числа утверждения (без годов — год это время, а не величина): «8 миллиардов» → ["8"], «3,5 млн» → ["3.5"] */
+export function claimNumbers(claim: Claim): string[] {
+  const sources = claim.structure?.numbers.length
+    ? claim.structure.numbers.map((n) => n.value)
+    : [claim.normalized];
+  const found = sources.flatMap((text) => text.match(/\d+(?:[.,]\d+)?/g) ?? []);
+  return [...new Set(found.map((n) => n.replace(",", ".")).filter((n) => !/^(19|20)\d{2}$/.test(n)))];
+}
+
+function mentionsClaimNumbers(e: Enriched, numbers: string[]): boolean {
+  if (!numbers.length) return true;
+  const text = `${e.candidate.title} ${e.excerpt}`.replace(/(\d),(\d)/g, "$1.$2");
+  return numbers.some((n) => new RegExp(`(?<![\\d.])${n.replace(".", "\\.")}(?![\\d]|\\.\\d)`).test(text));
+}
+
 /** "/", "/ru/", "/sections/news/" — главная или рубрика; у статьи обычно длинный адрес или число */
 function isFrontPage(url: string): boolean {
   try {
@@ -186,8 +213,10 @@ function isFrontPage(url: string): boolean {
 }
 
 function toCopy(e: Enriched, hit: CopyHit | undefined, retrievedAt: string): SourceCopy {
-  const fromSearch = toIso(e.candidate.publishedAt);
-  const fromUrl = fromSearch ? undefined : dateFromUrl(e.candidate.url);
+  // у Википедии и счётчиков поисковик отдаёт дату последней правки — это не дата публикации
+  const living = isLivingDocument(e.candidate.url);
+  const fromSearch = living ? undefined : toIso(e.candidate.publishedAt);
+  const fromUrl = fromSearch || living ? undefined : dateFromUrl(e.candidate.url);
   return {
     id: "",
     url: e.candidate.url,
@@ -211,7 +240,9 @@ function toCopy(e: Enriched, hit: CopyHit | undefined, retrievedAt: string): Sou
 
 /** Даты без даты в поиске и в адресе — ищем в разметке страницы (JSON-LD, meta-теги) */
 async function fillDatesFromPages(copies: SourceCopy[], ctx: StageContext): Promise<void> {
-  const undated = copies.filter((c) => !c.publishedAt).slice(0, MAX_PAGE_DATE_FETCHES);
+  const undated = copies
+    .filter((c) => !c.publishedAt && !isLivingDocument(c.url))
+    .slice(0, MAX_PAGE_DATE_FETCHES);
   await Promise.all(
     undated.map(async (c) => {
       try {
@@ -230,21 +261,42 @@ async function fillDatesFromPages(copies: SourceCopy[], ctx: StageContext): Prom
   );
 }
 
+/**
+ * «Живые документы» — Википедия, викисклад, счётчики: страница правится годами, у неё нет даты публикации факта.
+ * Дата создания статьи («Население Земли», 2011) дала бы ложный «старый контент» верному утверждению о 2022 годе.
+ */
+const LIVING_DOC_HOST = /wiki|(^|\.)(fandom\.com|worldometers\.info|britannica\.com|dic\.academic\.ru)$/i;
+/** Опубликовано и изменено различаются больше чем на год — постоянно правящаяся страница, её дате не верим */
+const LIVING_DOC_GAP_MS = 365 * 86_400_000;
+
+export function isLivingDocument(url: string): boolean {
+  try {
+    return LIVING_DOC_HOST.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** JSON-LD datePublished → meta article:published_time и аналоги → <time datetime> → dateModified */
 export function dateFromHtml(html: string): ISODateString | undefined {
+  const published = toIso(html.match(/"datePublished"\s*:\s*"([^"]+)"/)?.[1]);
+  const modified = toIso(html.match(/"dateModified"\s*:\s*"([^"]+)"/)?.[1]);
+  if (published && modified && Date.parse(modified) - Date.parse(published) > LIVING_DOC_GAP_MS) {
+    return undefined;
+  }
+  if (published) return published;
+
   const patterns = [
-    /"datePublished"\s*:\s*"([^"]+)"/,
     /<meta[^>]+(?:property|name|itemprop)=["'](?:article:published_time|og:published_time|datePublished|pubdate|publishdate|publish-date|date|DC\.date\.issued)["'][^>]*content=["']([^"']+)["']/i,
     /<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name|itemprop)=["'](?:article:published_time|datePublished|pubdate)["']/i,
     /<time[^>]+datetime=["']([^"']+)["']/i,
-    // запасной вариант: даты публикации нет, есть только «изменено» (например, point.md)
-    /"dateModified"\s*:\s*"([^"]+)"/,
   ];
   for (const re of patterns) {
     const iso = toIso(html.match(re)?.[1]);
     if (iso) return iso;
   }
-  return undefined;
+  // запасной вариант: даты публикации нет, есть только «изменено» (например, point.md)
+  return modified;
 }
 
 /** /2023/03/14/, /2023-03-14-, /20230314/ в адресе — многие сайты кладут дату публикации в URL */
@@ -280,10 +332,10 @@ function minDate(dates: Array<string | undefined>): ISODateString | undefined {
 
 /** Кнопки «поделиться», медиафайлы, служебные страницы — это не первоисточники */
 const JUNK_LINK =
-  /\/(share|sharer|intent|login|signup|subscribe|tag|tags|category|author|search)(\/|\?|$)|\.(jpe?g|png|gif|webp|svg|pdf|mp3|m4a|mp4|wav|ogg|webm|mov|zip)(\?|$)/i;
+  /\/(share|sharer|intent|login|signup|subscribe|tag|tags|hashtag|category|author|search|user|channel)(\/|\?|$)|\.(jpe?g|png|gif|webp|svg|pdf|mp3|m4a|mp4|wav|ogg|webm|mov|zip)(\?|$)/i;
 /** Счётчики, агрегаторы, магазины приложений, хостинги подкастов */
 const JUNK_HOST =
-  /(^|\.)(google\.com|top\.mail\.ru|yandex\.ru|google-analytics\.com|googletagmanager\.com|doubleclick\.net|news\.google\.com|play\.google\.com|apps\.apple\.com|podtrac\.com|byspotify\.com|simplecastaudio\.com|bit\.ly)$/i;
+  /(^|\.)(google\.com|top\.mail\.ru|fbcdn\.net|commons\.wikimedia\.org|yandex\.ru|google-analytics\.com|googletagmanager\.com|doubleclick\.net|news\.google\.com|play\.google\.com|apps\.apple\.com|podtrac\.com|byspotify\.com|simplecastaudio\.com|bit\.ly)$/i;
 
 /** Внешние ссылки из markdown (на другие сайты): [текст](url) и голые https://… */
 export function extractLinks(markdown: string, pageUrl: string): string[] {

@@ -4,6 +4,8 @@
  *
  *   npx tsx backend/src/pipeline/dev-client.ts "<ссылка>" [с какой секунды] [язык UI]
  *
+ * Вместо ссылки можно передать текст в кавычках — уйдёт как вставленный пост/статья.
+ *
  * Пример:
  *   npx tsx backend/src/pipeline/dev-client.ts "https://www.youtube.com/watch?v=8S0FDjFBj8o" 60
  */
@@ -27,8 +29,13 @@ if (!url) {
 
 const base = `http://localhost:${config.port}`;
 const youtubeId = url.match(/[?&]v=([\w-]{11})/)?.[1];
+const isUrl = /^https?:\/\//.test(url);
 const request: StartAnalysisRequest = {
-  video: { pageUrl: url, platform: youtubeId ? "youtube" : "generic", platformVideoId: youtubeId },
+  // не ссылка — значит вставленный текст (как вкладка «Текст» на сайте)
+  ...(isUrl ? {} : { text: url }),
+  video: isUrl
+    ? { pageUrl: url, platform: youtubeId ? "youtube" : "generic", platformVideoId: youtubeId }
+    : { pageUrl: "text://pasted", platform: "generic" },
   mode: "remote",
   startFrom: Number(fromArg),
   uiLanguage,

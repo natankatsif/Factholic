@@ -52,12 +52,15 @@ const shiftedTime = (before: string, after: string) => [
 // ---------- числа ----------
 
 describe("compareNumbers: порог 10% от числа родителя", () => {
-  it("ровно 10% — то же самое, больше — inflated / deflated", () => {
+  it("ровно 10% — то же самое; 10–50% — changed (расхождение); в 1,5 раза и больше — inflated / deflated", () => {
     assert.equal(compareNumbers(100, 100), "same");
     assert.equal(compareNumbers(100, 110), "same");
-    assert.equal(compareNumbers(100, 111), "inflated");
+    assert.equal(compareNumbers(100, 111), "changed");
+    assert.equal(compareNumbers(100, 149), "changed");
+    assert.equal(compareNumbers(100, 150), "inflated");
     assert.equal(compareNumbers(100, 90), "same");
-    assert.equal(compareNumbers(100, 89), "deflated");
+    assert.equal(compareNumbers(100, 89), "changed");
+    assert.equal(compareNumbers(150, 100), "deflated");
     // плавающая точка: 0.33 / 0.3 − 1 = 0.10000000000000009
     assert.equal(compareNumbers(0.3, 0.33), "same");
     assert.equal(compareNumbers(5000, 50000), "inflated");
@@ -478,12 +481,12 @@ describe("diffAttribution", () => {
     assert.deepEqual(diffAttribution(attr(" "), attr(null), "ru"), []);
   });
 
-  it("ссылку добавили, убрали или заменили → changed", () => {
+  it("ссылку добавили → added, убрали → removed, заменили → changed", () => {
     assert.deepEqual(diffAttribution(attr(null), attr("ВОЗ"), "ru"), [
-      { field: "attribution", before: "без ссылки на источник", after: "ВОЗ", direction: "changed" },
+      { field: "attribution", before: "без ссылки на источник", after: "ВОЗ", direction: "added" },
     ]);
     assert.deepEqual(diffAttribution(attr("ВОЗ"), attr(null), "en"), [
-      { field: "attribution", before: "ВОЗ", after: "no attribution", direction: "changed" },
+      { field: "attribution", before: "ВОЗ", after: "no attribution", direction: "removed" },
     ]);
     assert.deepEqual(diffAttribution(attr("ВОЗ"), attr("Минздрав"), "ru"), [
       { field: "attribution", before: "ВОЗ", after: "Минздрав", direction: "changed" },
@@ -561,7 +564,7 @@ describe("diffStructures", () => {
         ["place", "changed"],
         ["time", "shifted"],
         ["certainty", "inflated"],
-        ["attribution", "changed"],
+        ["attribution", "added"],
       ],
     );
   });
@@ -593,5 +596,24 @@ describe("templateNote", () => {
       templateNote({ field: "time", direction: "shifted", before: "2021", after: "вчера" }, "ru"),
       "Событие сдвинуто во времени: «2021» → «вчера».",
     );
+  });
+});
+
+describe("diffNumbers: множитель в about", () => {
+  it("«2 365,6» + «тысяч жителей» → 2 365 600, рост на 2,4% — не мутация", () => {
+    assert.deepEqual(
+      diffNumbers(
+        [{ value: "2 365,6", about: "тысяч жителей" }],
+        [{ value: "2.423.287", about: "жителей" }],
+        "ru",
+      ),
+      [],
+    );
+  });
+});
+
+describe("parseNumber: составные числа", () => {
+  it("«2 млн 401 тысячу» = 2 401 000", () => {
+    assert.equal(parseNumber("2 млн 401 тысячу жителей")?.value, 2_401_000);
   });
 });

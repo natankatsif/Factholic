@@ -13,6 +13,8 @@ import type { ClaimMutation } from "./types.ts";
 
 /** Число изменилось больше чем на эту долю от числа у родителя — раздули / преуменьшили; иначе то же самое */
 export const NUMBER_CHANGE_THRESHOLD = 0.1;
+/** Во сколько раз число должно вырасти (упасть), чтобы это было «раздуто» («преуменьшено») */
+export const INFLATION_RATIO = 1.5;
 
 /** Сутки события у родителя и потомка расходятся больше чем на столько — время изменилось */
 export const TIME_TOLERANCE_DAYS = 1;
@@ -107,7 +109,11 @@ export function compareNumbers(before: number, after: number): Direction | "same
   if (from === 0) return "inflated";
   // 1e-9 — чтобы 100 → 110 не стало «больше 10%» из-за плавающей точки
   if (Math.abs(to - from) / from <= NUMBER_CHANGE_THRESHOLD + 1e-9) return "same";
-  return to > from ? "inflated" : "deflated";
+  // «раздуто» / «преуменьшено» — только в разы (2 → 200, 10 → 50 см); 10–50% — расхождение источников
+  // (статистика разных лет и методик: 2,37 млн → 2,68 млн), а не преувеличение
+  if (to >= from * INFLATION_RATIO) return "inflated";
+  if (to * INFLATION_RATIO <= from) return "deflated";
+  return "changed";
 }
 
 /** Места — множества без регистра (и без различия е/ё); разные множества — один кандидат со списками целиком */
@@ -178,7 +184,8 @@ export function diffCertainty(
 }
 
 /**
- * Атрибуция (changed): на кого ссылается утверждение, без регистра и знаков.
+ * Атрибуция: на кого ссылается утверждение, без регистра и знаков.
+ * added — ссылки не было, появилась; removed — была, исчезла; changed — источник подменён.
  * Потомок, который ссылается на самого родителя («по данным DW» в перепечатке Deutsche Welle), — не кандидат.
  */
 export function diffAttribution(
@@ -191,7 +198,9 @@ export function diffAttribution(
   if (nameKey(before ?? "") === nameKey(after ?? "")) return [];
   if (after && refersTo(after, parent)) return [];
   const none = textsFor(uiLanguage).noAttribution;
-  return [{ field: "attribution", before: before ?? none, after: after ?? none, direction: "changed" }];
+  // added — перепечатка сослалась на источник (честнее), removed — ссылку убрала, changed — подменила источник
+  const direction = !before ? "added" : !after ? "removed" : "changed";
+  return [{ field: "attribution", before: before ?? none, after: after ?? none, direction }];
 }
 
 // ===================== ЧИСЛА =====================
@@ -363,6 +372,13 @@ function withSuffix(n: number, rest: string[]): ParsedNumber {
     value *= multiplier;
     i++;
     skipFillers();
+    // составное число: «2 млн 401 тысяча» = 2 401 000 (младший разряд с меньшим множителем)
+    const tail = /^\d+$/.test(rest[i] ?? "") ? multiplierOf(rest[i + 1] ?? "") : null;
+    if (tail !== null && tail < multiplier) {
+      value += Number(rest[i]) * tail;
+      i += 2;
+      skipFillers();
+    }
   }
   const unit = i < rest.length ? UNITS.find(([re]) => re.test(rest[i])) : undefined;
   return unit ? { value, dim: unit[1], base: value * unit[2] } : { value, dim: null, base: value };
@@ -401,7 +417,8 @@ function numberItem(n: StructureNumber): NumberItem {
   return {
     value,
     text: about ? `${value} ${about}` : value,
-    parsed: parseNumber(value),
+    // множитель часто уходит в about: { value: "2 365,6", about: "тысяч жителей" } — это 2 365 600, а не 2 365,6
+    parsed: parseNumber(about ? `${value} ${about}` : value),
     about: aboutWords(about),
   };
 }

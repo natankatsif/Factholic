@@ -86,7 +86,11 @@ export function toFactCheck(input: ReportInput): ReportOutput {
       const { stances, provenance } = input;
       const flags = buildFlags(provenance?.rootDate, provenance?.mutations);
       const { consensus, consensusSummary } = buildConsensus(stances.consensus.status, flags);
-      const keyFinding = buildKeyFinding(flags, provenance?.rootDate);
+      const keyFinding = buildKeyFinding(
+        flags,
+        provenance?.rootDate,
+        claim.structure?.time?.relative ?? true,
+      );
 
       const byId = new Map(stances.sourceAssessments.map((a) => [a.sourceId, a]));
       const sources = input.sources
@@ -122,28 +126,95 @@ function buildFlags(
       severity: "warning",
     });
   }
-  for (const m of mutations?.mutations ?? []) {
-    if (m.direction === "inflated") {
-      flags.push({
-        type: "exaggerated",
-        label: "Раздуто",
-        detail: `${m.before} → ${m.after}`,
-        severity: "danger",
-      });
-    } else if (m.direction === "shifted" || m.direction === "changed" || m.direction === "added") {
-      // «added» — перепечатка добавила то, чего не было у источника (например, цифры пострадавших)
-      flags.push({
-        type: "distortion",
-        label: "Искажение",
-        detail: `${m.before} → ${m.after}`,
-        severity: "warning",
-      });
-    }
+
+  // Флаги — как утверждение изменилось на пути к проверяемому материалу (рёбра в узел "video", включая
+  // корень → video). Различия между самими копиями (одна добавила подробность другой) — в дереве, не во флагах.
+  const all = (mutations?.mutations ?? []).filter((m) => m.toId === VIDEO_NODE_ID);
+  // ссылку на источник убрали — и поэтому подано «как факт»: это одно событие, флаг про ссылку
+  const sourceRemovedOn = new Set(
+    all
+      .filter((m) => m.field === "attribution" && m.direction === "removed")
+      .map((m) => `${m.fromId}>${m.toId}`),
+  );
+  for (const m of all) {
+    const flag = mutationFlag(m, sourceRemovedOn.has(`${m.fromId}>${m.toId}`));
+    if (flag) flags.push(flag);
   }
-  return flags;
+
+  // одна и та же мутация встречается на нескольких рёбрах дерева — показываем один раз
+  const seen = new Set<string>();
+  const unique = flags.filter((f) => {
+    const key = `${f.type}|${f.label}|${f.detail}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  // в карточке — самые важные: старый контент, раздуто, затем остальное (sort стабильный — порядок дерева сохраняется)
+  return unique.sort((a, b) => FLAG_PRIORITY[a.type] - FLAG_PRIORITY[b.type]).slice(0, MAX_FLAGS);
 }
 
-function buildKeyFinding(flags: ClaimFlag[], rootDate: RootDateOutput | undefined): KeyFinding | undefined {
+const MAX_FLAGS = 5;
+
+/** Серьёзные флаги: старое за новое, цифры в разы, сдвиг места/времени/цифр. Остальные — пояснения */
+function isMajorFlag(f: ClaimFlag): boolean {
+  return f.type === "outdated" || f.type === "exaggerated" || f.label === "Искажение";
+}
+const FLAG_PRIORITY: Record<ClaimFlag["type"], number> = {
+  outdated: 0,
+  exaggerated: 1,
+  distortion: 2,
+  other: 3,
+};
+
+/**
+ * Мутация → флаг. «Раздуто» — только выросшие цифры; уверенность и источник — свои флаги:
+ * «со ссылкой на источник → как факт» — не преувеличение, а смена подачи.
+ */
+function mutationFlag(
+  m: MutationsOutput["mutations"][number],
+  sourceRemovedOnEdge: boolean,
+): ClaimFlag | null {
+  const detail = `${m.before} → ${m.after}`;
+  switch (m.field) {
+    case "numbers":
+      // inflated — выросло в разы (этап 06: ≥ 1,5×)
+      if (m.direction === "inflated")
+        return { type: "exaggerated", label: "Раздуто", detail, severity: "danger" };
+      // changed — разошлось на 10–50% или записано иначе: источники приводят разные цифры
+      if (m.direction === "changed")
+        return { type: "distortion", label: "Расхождение в цифрах", detail, severity: "info" };
+      // added — у первоисточника этой цифры нет: могла прийти из другого источника, поэтому мягкий флаг
+      if (m.direction === "added")
+        return { type: "other", label: "Цифра не из первоисточника", detail, severity: "info" };
+      if (m.direction === "shifted")
+        return { type: "distortion", label: "Искажение", detail, severity: "warning" };
+      return null;
+    case "place":
+    case "time":
+      // added — перепечатка добавила место/время, о которых источник молчал: это подробность, а не искажение
+      if (m.direction === "shifted" || m.direction === "changed")
+        return { type: "distortion", label: "Искажение", detail, severity: "warning" };
+      return null;
+    case "certainty":
+      if (m.direction !== "inflated" || sourceRemovedOnEdge) return null;
+      return { type: "distortion", label: "Подано увереннее", detail, severity: "warning" };
+    case "attribution":
+      // сослались на источник — честнее, не флаг
+      if (m.direction === "added") return null;
+      if (m.direction === "removed")
+        return { type: "distortion", label: "Убрана ссылка на источник", detail, severity: "warning" };
+      return { type: "distortion", label: "Подменён источник", detail, severity: "warning" };
+    default:
+      return null;
+  }
+}
+
+function buildKeyFinding(
+  flags: ClaimFlag[],
+  rootDate: RootDateOutput | undefined,
+  /** «вчера» / «сейчас» — подано как недавнее; явная дата («в 2023 году») — указана более поздняя дата */
+  relativeTime: boolean,
+): KeyFinding | undefined {
   if (rootDate?.flag && rootDate.rootPublishedAt && rootDate.claimedAt) {
     const rootMs = Date.parse(rootDate.rootPublishedAt);
     const claimedMs = Date.parse(rootDate.claimedAt);
@@ -160,13 +231,15 @@ function buildKeyFinding(flags: ClaimFlag[], rootDate: RootDateOutput | undefine
     }
     return {
       title: timeAgo,
-      subtitle: "в видео подано как недавнее",
+      subtitle: relativeTime ? "в видео подано как недавнее" : "а в видео указана более поздняя дата",
     };
   }
-  if (flags.length > 0) {
+  // заголовок карточки — только серьёзный флаг: «Убрана ссылка на источник» не главный вывод о верном утверждении
+  const major = flags.find(isMajorFlag);
+  if (major) {
     return {
-      title: flags[0].label,
-      subtitle: flags[0].detail,
+      title: major.label,
+      subtitle: major.detail,
     };
   }
   return undefined;
@@ -176,14 +249,18 @@ function buildConsensus(
   status: ConsensusStatus,
   flags: ClaimFlag[],
 ): { consensus: ClaimConsensus; consensusSummary: string } {
-  if (flags.length > 0) {
+  // источники утверждению возражают — это главное, флаги остаются в карточке, но вывод «против»
+  if (status === "mostly_against") return { consensus: "against", consensusSummary: "источники возражают" };
+  // итог меняют только серьёзные флаги; мягкие (ссылка на источник, уверенность, расхождение цифр) — только в карточке
+  const major = flags.filter(isMajorFlag);
+  if (major.length > 0) {
     const hasOutdated = flags.some((f) => f.type === "outdated");
     const hasExaggerated = flags.some((f) => f.type === "exaggerated");
     let summary: string;
     if (hasOutdated && hasExaggerated) summary = "раздуто • старое";
     else if (hasOutdated) summary = "старый контент";
     else if (hasExaggerated) summary = "раздуто";
-    else summary = flags[0].label.toLowerCase();
+    else summary = major[0].label.toLowerCase();
     return { consensus: "flagged", consensusSummary: summary };
   }
 
@@ -192,8 +269,6 @@ function buildConsensus(
       return { consensus: "converge", consensusSummary: "позиции совпадают" };
     case "split":
       return { consensus: "split", consensusSummary: "мнения расходятся" };
-    case "mostly_against":
-      return { consensus: "against", consensusSummary: "источники возражают" };
     case "few_sources":
     default:
       return { consensus: "unverifiable", consensusSummary: "мало источников" };

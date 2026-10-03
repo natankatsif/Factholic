@@ -15,6 +15,8 @@ export interface Article {
 }
 
 const TIMEOUT_MS = 15_000;
+/** Страницы, которые правятся годами: своей даты публикации у них нет (тот же список, что в этапе 04) */
+const LIVING_DOC_HOST = /wiki|(^|\.)(fandom\.com|worldometers\.info|britannica\.com|dic\.academic\.ru)$/i;
 /** Меньше — это не статья (страница-заглушка, капча, пустая лента) */
 export const MIN_ARTICLE_CHARS = 300;
 
@@ -27,7 +29,10 @@ export async function fetchArticle(url: string, signal: AbortSignal): Promise<Ar
   });
   if (!res.ok) throw new Error(`страница: HTTP ${res.status}`);
   const html = await res.text();
-  return parseArticle(html);
+  const article = parseArticle(html);
+  // Википедия и подобные «живые документы»: дата в разметке — создание статьи, а не публикация факта
+  if (LIVING_DOC_HOST.test(new URL(res.url || url).hostname)) delete article.publishedAt;
+  return article;
 }
 
 /** Отдельно от fetch — чтобы можно было проверить на сохранённом HTML */
@@ -65,7 +70,11 @@ type Doc = ReturnType<typeof parseHTML>["document"];
 function findPublishedAt(document: Doc): ISODateString | undefined {
   for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
     try {
-      const found = findInJsonLd(JSON.parse(script.textContent ?? ""));
+      const raw = script.textContent ?? "";
+      const found = findInJsonLd(JSON.parse(raw));
+      // опубликовано и изменено различаются больше чем на год — постоянно правящаяся страница, дате не верим
+      const modified = toIso(raw.match(/"dateModified"\s*:\s*"([^"]+)"/)?.[1]);
+      if (found && modified && Date.parse(modified) - Date.parse(found) > 365 * 86_400_000) return undefined;
       if (found) return found;
     } catch {
       // битый JSON-LD — не редкость, идём дальше

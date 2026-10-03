@@ -582,3 +582,72 @@ describe("searchSourcesReal: copies (все перепечатки для дер
     assert.deepEqual(out.copies, []);
   });
 });
+
+describe("searchSourcesReal: copies — «то же событие?»", () => {
+  const PAGES_SAME = [
+    {
+      url: "https://zz-a.md/2023/02/06/zemletryasenie-v-turcii",
+      title: "Землетрясение в Турции магнитудой 7,8 — Новости",
+      score: 0.8,
+      raw_content:
+        "Землетрясение в Турции магнитудой 7,8 разрушило города, погибли тысячи человек. Война в Украине тоже.",
+    },
+    {
+      url: "https://zz-b.md/2011/10/23/zemletryasenie-van",
+      title: "Землетрясение в Турции (Ван) — Новости",
+      score: 0.7,
+      raw_content: "Землетрясение в Турции в провинции Ван, магнитуда 7,2. Война в Украине тоже упоминается.",
+    },
+    {
+      url: "https://zz-c.md/2023/02/07/turciya-zhertvy",
+      title: "Турция: число жертв землетрясения растёт — Новости",
+      score: 0.6,
+      raw_content: "Число жертв землетрясения в Турции растёт. Война в Украине тоже.",
+    },
+  ];
+  let verdicts: Record<string, "same" | "different" | "unclear"> = {};
+  const quake = {
+    ...input,
+    claim: {
+      ...input.claim,
+      quote: "в Турции произошло землетрясение магнитудой 7,8",
+      normalized: "В Турции произошло землетрясение магнитудой 7,8.",
+      entities: ["Турция", "землетрясение"],
+      structure: undefined,
+    },
+  };
+
+  beforeEach(() => {
+    respondTavily = (req) =>
+      req.body.include_raw_content === "markdown"
+        ? json({ results: req.body.end_date ? [] : PAGES_SAME })
+        : json({ results: PAGES[String(req.body.query)] ?? [] });
+    respondLlm = (req) => {
+      if (!/ТОМ ЖЕ событии/.test(req.instructions)) return llmQueries(LLM_QUERIES);
+      // id в промпте — k1, k2… в порядке отбора; вердикт выбираем по домену из строки публикации
+      const ids = [...req.input.matchAll(/\[(k\d+)\] [^·]+· (\S+)/g)].map((m) => [m[1], m[2]] as const);
+      return llmJson({ verdicts: ids.map(([id, domain]) => ({ id, verdict: verdicts[domain] ?? "same" })) });
+    };
+  });
+
+  it("копия про другое событие того же типа убирается, «same» и «unclear» остаются", async () => {
+    verdicts = { "zz-a.md": "same", "zz-b.md": "different", "zz-c.md": "unclear" };
+    const out = await searchSourcesReal(quake, makeCtx());
+    assert.deepEqual((out.copies ?? []).map((c) => c.domain).sort(), ["zz-a.md", "zz-c.md"]);
+  });
+
+  it("в промпте сказано не судить по дате — иначе пропал бы старый контент", async () => {
+    verdicts = {};
+    await searchSourcesReal(quake, makeCtx());
+    const req = llmRequests.find((r) => /ТОМ ЖЕ событии/.test(r.instructions));
+    assert.ok(req);
+    assert.match(req.instructions, /дату из утверждения НЕ используй/);
+  });
+
+  it("LLM не ответила на проверку — копии остаются все", async () => {
+    respondLlm = (req) =>
+      /ТОМ ЖЕ событии/.test(req.instructions) ? httpError(500) : llmQueries(LLM_QUERIES);
+    const out = await searchSourcesReal(quake, makeCtx());
+    assert.equal(out.copies?.length, 3);
+  });
+});

@@ -55,7 +55,7 @@ describe("09-report toFactCheck", () => {
           mutations: [
             {
               fromId: "src_05_2",
-              toId: "src_05_3",
+              toId: "video",
               field: "numbers",
               before: "10",
               after: "100",
@@ -87,5 +87,197 @@ describe("09-report toFactCheck", () => {
     assert.ok(res.provenance.nodes.length > 0);
     assert.ok(res.provenance.edges.length > 0);
     assert.ok(res.provenance.pathSummary.length > 0);
+  });
+});
+
+describe("09-report: флаги из мутаций", () => {
+  type M = {
+    fromId: string;
+    toId: string;
+    field: "numbers" | "place" | "time" | "certainty" | "attribution";
+    before: string;
+    after: string;
+    direction: "inflated" | "deflated" | "shifted" | "added" | "removed" | "changed";
+  };
+  const flagsFor = (mutations: M[]) =>
+    toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: mockSourceSearchOutput.sources,
+      stances: mockStancesOutput,
+      provenance: {
+        tree: mockProvenanceTree,
+        mutations: { claimId: mockClaim.id, mutations: mutations.map((m) => ({ ...m, note: "" })) },
+        rootDate: { ...mockRootDateOutput, flag: null },
+      },
+    }).flags.map((f) => `${f.label}: ${f.detail}`);
+  const m = (
+    field: M["field"],
+    direction: M["direction"],
+    before: string,
+    after: string,
+    edge = "a>video",
+  ): M => {
+    const [fromId, toId] = edge.split(">") as [string, string];
+    return { fromId, toId, field, before, after, direction };
+  };
+
+  it("«со ссылкой на источник → как факт» — не «Раздуто», а «Подано увереннее»", () => {
+    assert.deepEqual(flagsFor([m("certainty", "inflated", "со ссылкой на источник", "как факт")]), [
+      "Подано увереннее: со ссылкой на источник → как факт",
+    ]);
+  });
+
+  it("перепечатка добавила ссылку на источник — флага нет; убрала — «Убрана ссылка на источник»", () => {
+    assert.deepEqual(flagsFor([m("attribution", "added", "без ссылки на источник", "ООН")]), []);
+    assert.deepEqual(flagsFor([m("attribution", "removed", "мэрия", "без ссылки на источник")]), [
+      "Убрана ссылка на источник: мэрия → без ссылки на источник",
+    ]);
+  });
+
+  it("ссылку убрали и поэтому «как факт» на том же ребре — один флаг, а не два", () => {
+    assert.deepEqual(
+      flagsFor([
+        m("certainty", "inflated", "со ссылкой на источник", "как факт"),
+        m("attribution", "removed", "мэрия", "без ссылки на источник"),
+      ]),
+      ["Убрана ссылка на источник: мэрия → без ссылки на источник"],
+    );
+  });
+
+  it("одна и та же мутация на нескольких рёбрах — один флаг", () => {
+    assert.deepEqual(
+      flagsFor([
+        m("numbers", "inflated", "2", "200", "a>video"),
+        m("numbers", "inflated", "2", "200", "b>video"),
+        m("numbers", "inflated", "2", "200", "c>video"),
+      ]),
+      ["Раздуто: 2 → 200"],
+    );
+  });
+});
+
+describe("09-report: итог и шум", () => {
+  const withMutations = (mutations: Array<Record<string, string>>, status?: string) =>
+    toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: mockSourceSearchOutput.sources,
+      stances: status
+        ? { ...mockStancesOutput, consensus: { ...mockStancesOutput.consensus, status } }
+        : mockStancesOutput,
+      provenance: {
+        tree: mockProvenanceTree,
+        mutations: {
+          claimId: mockClaim.id,
+          mutations: mutations.map((m) => ({ fromId: "a", toId: "video", note: "", ...m })),
+        },
+        rootDate: { ...mockRootDateOutput, flag: null },
+      },
+    } as never);
+
+  it("перепечатка добавила место или время, о которых источник молчал, — не искажение", () => {
+    const res = withMutations([
+      { field: "place", direction: "added", before: "—", after: "Донбасс" },
+      { field: "time", direction: "added", before: "—", after: "2014 год" },
+    ]);
+    assert.deepEqual(res.flags, []);
+  });
+
+  it("источники возражают — итог «против», даже если есть флаги", () => {
+    const res = withMutations(
+      [{ field: "numbers", direction: "inflated", before: "2", after: "200" }],
+      "mostly_against",
+    );
+    assert.equal(res.consensus, "against");
+    assert.equal(res.flags.length, 1);
+  });
+
+  it("не больше 5 флагов, «раздуто» — раньше искажений", () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({
+      field: "place",
+      direction: "changed",
+      before: `место ${i}`,
+      after: `другое ${i}`,
+    }));
+    const res = withMutations([
+      ...many,
+      { field: "numbers", direction: "inflated", before: "2", after: "200" },
+    ]);
+    assert.equal(res.flags.length, 5);
+    assert.equal(res.flags[0].label, "Раздуто");
+  });
+});
+
+describe("09-report: флаги — только путь к проверяемому материалу", () => {
+  const report = (mutations: Array<Record<string, string>>) =>
+    toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: mockSourceSearchOutput.sources,
+      stances: mockStancesOutput,
+      provenance: {
+        tree: mockProvenanceTree,
+        mutations: { claimId: mockClaim.id, mutations: mutations.map((m) => ({ note: "", ...m })) },
+        rootDate: { ...mockRootDateOutput, flag: null },
+      },
+    } as never);
+
+  it("различия между копиями (одна добавила подробность другой) — не флаг утверждения", () => {
+    const res = report([
+      { fromId: "a", toId: "b", field: "numbers", direction: "added", before: "—", after: "2014 год" },
+      { fromId: "a", toId: "b", field: "numbers", direction: "inflated", before: "2", after: "200" },
+    ]);
+    assert.deepEqual(res.flags, []);
+  });
+
+  it("только мягкий флаг (не сослались на источник) — итог не «с флагами», заголовок не он", () => {
+    const res = report([
+      {
+        fromId: "a",
+        toId: "video",
+        field: "attribution",
+        direction: "removed",
+        before: "ООН",
+        after: "без ссылки",
+      },
+    ]);
+    assert.equal(res.flags.length, 1);
+    assert.notEqual(res.consensus, "flagged");
+    assert.notEqual(res.keyFinding?.title, "Убрана ссылка на источник");
+  });
+});
+
+describe("09-report: цифра, которой нет у первоисточника", () => {
+  it("мягкий флаг «Цифра не из первоисточника», итог не «с флагами»", () => {
+    const res = toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: mockSourceSearchOutput.sources,
+      stances: mockStancesOutput,
+      provenance: {
+        tree: mockProvenanceTree,
+        mutations: {
+          claimId: mockClaim.id,
+          mutations: [
+            {
+              fromId: "a",
+              toId: "video",
+              field: "numbers",
+              direction: "added",
+              before: "—",
+              after: "2,5 млн",
+              note: "",
+            },
+          ],
+        },
+        rootDate: { ...mockRootDateOutput, flag: null },
+      },
+    } as never);
+    assert.deepEqual(
+      res.flags.map((f) => f.label),
+      ["Цифра не из первоисточника"],
+    );
+    assert.notEqual(res.consensus, "flagged");
   });
 });

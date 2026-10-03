@@ -37,8 +37,13 @@ const RELATIVE_TOLERANCE_DAYS = 3;
 const VAGUE_TOLERANCE_DAYS = 14;
 const VAGUE_WORDS: RelativeWord[] = ["this_week", "recently"];
 
-/** Допуск для явной даты («24 февраля 2022») — она точнее относительного времени */
-const EXPLICIT_DATE_TOLERANCE_DAYS = 2;
+/**
+ * Допуск для явной даты («в ноябре 2022», «24 февраля 2022»). Большой — год: раньше заявленной даты почти всегда
+ * выходят прогнозы, анонсы и разборы («ООН: население достигнет 8 млрд», июнь–июль 2022). Старый контент
+ * с явной датой — это «в декабре 2024» о событии 2021 года, а не публикация за несколько месяцев до события.
+ * Для «вчера» / «сейчас» допуски остаются маленькими — там и подмена «старое за новое».
+ */
+const EXPLICIT_DATE_TOLERANCE_DAYS = 365;
 
 /** Как слово звучит в note: «…а в видео это подано как вчерашнее событие» */
 const RELATIVE_PHRASE: Record<RelativeWord, string> = {
@@ -88,13 +93,31 @@ export function checkRootDate(input: RootDateInput): RootDateOutput {
 
   const claimedAt = claimed ? toIso(claimed.at) : null;
   let flag: OldContentFlag | null = null;
-  if (claimed && claimedAt && rootPublishedAt && rootMs !== null) {
+  if (
+    claimed &&
+    claimedAt &&
+    rootPublishedAt &&
+    rootMs !== null &&
+    !rootAnticipates(root?.structure, claimed)
+  ) {
     if (claimed.at - rootMs > toleranceDays(claimed) * DAY_MS) {
       flag = { type: "old_content", rootPublishedAt, claimedAt, note: oldContentNote(rootMs, claimed) };
     }
   }
 
   return { claimId: claim.id, claimedAt, rootPublishedAt, flag };
+}
+
+/**
+ * Корень сам говорит о заявленной дате или более поздней — это прогноз или анонс, а не старый контент:
+ * «ООН: население достигнет 8 млрд 15 ноября» (июль 2022) → «население превысило 8 млрд в ноябре 2022».
+ * Сравниваем с точностью заявленной даты: «в ноябре 2022» покрывает «15 ноября 2022».
+ */
+function rootAnticipates(rootStructure: ClaimStructure | null | undefined, claimed: Claimed): boolean {
+  const date = rootStructure?.time?.date;
+  const rootEvent = date ? parseEventDate(date) : null;
+  if (!rootEvent) return false;
+  return rootEvent.at >= claimed.at - toleranceDays(claimed) * DAY_MS;
 }
 
 function claimedTime(structure: ClaimStructure, anchor: () => number): Claimed | null {

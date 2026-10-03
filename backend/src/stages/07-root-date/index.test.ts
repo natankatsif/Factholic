@@ -54,6 +54,8 @@ interface Case {
   claimStructure?: ClaimStructure | null;
   /** structure узла "video" (по умолчанию — как у claim) */
   videoStructure?: ClaimStructure | null;
+  /** structure.time корня — как утверждение подано в первоисточнике (по умолчанию время не названо) */
+  rootTime?: Time;
 }
 
 function makeInput(c: Case): RootDateInput {
@@ -66,7 +68,7 @@ function makeInput(c: Case): RootDateInput {
     claimId: "clm_t",
     rootId: rootAt === null ? null : "src_root",
     nodes: [
-      ...(rootAt === null ? [] : [node("src_root", rootAt, structure)]),
+      ...(rootAt === null ? [] : [node("src_root", rootAt, { ...structure, time: c.rootTime ?? null })]),
       node(VIDEO_NODE_ID, c.videoAt ?? VIDEO_AT, videoStructure),
     ],
     voteGroups: {},
@@ -269,12 +271,12 @@ describe("checkRootDate: допуски на границе (больше доп
       edge: "2026-09-11T00:00:00Z",
       past: "2026-09-10T23:59:59Z",
     },
-    // явная дата 2024-12-20 → допуск 2 дня
+    // явная дата 2024-12-20 → допуск год (раньше выходят прогнозы и анонсы)
     {
-      name: "явная дата — 2 дня",
+      name: "явная дата — год",
       c: { time: abs("2024-12-20") },
-      edge: "2024-12-18T00:00:00Z",
-      past: "2024-12-17T23:59:59Z",
+      edge: "2023-12-21T00:00:00Z",
+      past: "2023-12-20T23:59:59Z",
     },
   ];
   for (const { name, c, edge, past } of cases) {
@@ -386,5 +388,42 @@ describe("checkRootDate: откуда берётся структура", () => 
     const input = makeInput({ claimStructure: null, videoStructure: yesterday });
     input.tree.nodes = input.tree.nodes.filter((n) => n.id !== VIDEO_NODE_ID);
     assert.equal(checkRootDate(input).claimedAt, null);
+  });
+});
+
+describe("checkRootDate: корень-прогноз — не старый контент", () => {
+  it("публикация за полгода до явной даты (разбор прогноза, июнь → ноябрь) — флага нет", () => {
+    assert.equal(
+      checkRootDate(makeInput({ time: abs("2022-11", "в ноябре 2022"), rootAt: "2022-06-08T00:00:00Z" }))
+        .flag,
+      null,
+    );
+  });
+
+  it("корень заранее называет ту же дату (прогноз ООН в июле о 15 ноября) — флага нет", () => {
+    const out = checkRootDate(
+      makeInput({
+        time: abs("2022-11", "в ноябре 2022"),
+        rootAt: "2022-07-11T00:00:00Z",
+        rootTime: abs("2022-11-15", "15 ноября"),
+      }),
+    );
+    assert.equal(out.flag, null);
+  });
+
+  it("корень о событии своего времени (2021), а видео заявляет 2024 — старый контент остаётся", () => {
+    const out = checkRootDate(
+      makeInput({
+        time: abs("2024-12", "в декабре 2024"),
+        rootAt: "2021-01-14T00:00:00Z",
+        rootTime: abs("2021-01", "в январе"),
+      }),
+    );
+    assert.equal(out.flag?.type, "old_content");
+  });
+
+  it("«вчера» в видео, а корень 2023 года без даты события — старый контент остаётся", () => {
+    const out = checkRootDate(makeInput({ time: rel("вчера"), rootAt: "2023-03-14T00:00:00Z" }));
+    assert.equal(out.flag?.type, "old_content");
   });
 });

@@ -20,6 +20,7 @@ import {
   pickForExtraction,
   shingles,
   shingleSimilarity,
+  siteLinkEdges,
   siteName,
   type CopyFacts,
   type Similarity,
@@ -634,5 +635,50 @@ describe("похожесть текстов", () => {
     ];
     assert.deepEqual(pickForExtraction(sources, [0.99, 0.1, 0.5, 0.3], 2), [2, 3]);
     assert.deepEqual(pickForExtraction(sources, [0.99, 0.1, 0.5, 0.3], 10), [0, 1, 2, 3]);
+  });
+});
+
+describe("связи: названия крупных источников на разных языках", () => {
+  const un = { publisher: "United Nations", domain: "www.un.org" };
+  it("«по данным ООН», «conform Națiunilor Unite», «according to the United Nations» → un.org", () => {
+    for (const cite of ["По данным ООН", "conform Națiunilor Unite", "according to the United Nations"]) {
+      assert.ok(citeMatches(cite, un), cite);
+    }
+    assert.ok(citeMatches("По данным ЮНФПА", { publisher: "UNFPA", domain: "kyrgyzstan.unfpa.org" }));
+  });
+  it("румынское «un» (один) и посторонние источники — не ООН", () => {
+    assert.ok(!citeMatches("un raport al poliției", un));
+    assert.ok(!citeMatches("По данным мэрии", un));
+  });
+});
+
+describe("siteLinkEdges: ссылка на другую страницу сайта из копий", () => {
+  it("pravda → un.org/…/8-billion, в копиях un.org/en/dayof8billion → ребро к un.org", () => {
+    const copies = [
+      copy("un", {
+        url: "https://www.un.org/en/dayof8billion",
+        domain: "un.org",
+        publishedAt: "2022-11-15T00:00:00Z",
+      }),
+      copy("pravda", {
+        url: "https://www.pravda.com.ua/news/2022/11/15/1",
+        domain: "pravda.com.ua",
+        publishedAt: "2022-11-15T12:00:00Z",
+        outboundLinks: ["https://www.un.org/en/desa/world-population-reach-8-billion-15-november-2022"],
+      }),
+    ];
+    assert.deepEqual(siteLinkEdges(copies), [{ parent: 0, child: 1, via: "link", confidence: "probable" }]);
+  });
+  it("ссылка на свой же сайт и на более позднюю копию — не ребро", () => {
+    const copies = [
+      copy("a", { url: "https://a.md/1", domain: "a.md", publishedAt: "2022-11-16T00:00:00Z" }),
+      copy("b", {
+        url: "https://b.md/1",
+        domain: "b.md",
+        publishedAt: "2022-11-15T00:00:00Z",
+        outboundLinks: ["https://b.md/2", "https://a.md/other"],
+      }),
+    ];
+    assert.deepEqual(siteLinkEdges(copies), []);
   });
 });

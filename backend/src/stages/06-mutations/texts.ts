@@ -59,7 +59,11 @@ const TEXTS: Record<string, Texts> = {
         deflated: "Подано осторожнее",
         changed: "Изменилась уверенность",
       },
-      attribution: { changed: "Изменилось, на кого ссылаются" },
+      attribution: {
+        added: "Появилась ссылка на источник",
+        removed: "Убрана ссылка на источник",
+        changed: "Изменилось, на кого ссылаются",
+      },
     },
   },
   uk: {
@@ -96,7 +100,11 @@ const TEXTS: Record<string, Texts> = {
         deflated: "Подано обережніше",
         changed: "Змінилася впевненість",
       },
-      attribution: { changed: "Змінилося, на кого посилаються" },
+      attribution: {
+        added: "З'явилося посилання на джерело",
+        removed: "Прибрано посилання на джерело",
+        changed: "Змінилося, на кого посилаються",
+      },
     },
   },
   en: {
@@ -133,7 +141,11 @@ const TEXTS: Record<string, Texts> = {
         deflated: "Presented with less certainty",
         changed: "The certainty changed",
       },
-      attribution: { changed: "The attributed source changed" },
+      attribution: {
+        added: "A source attribution appeared",
+        removed: "The source attribution was dropped",
+        changed: "The attributed source changed",
+      },
     },
   },
 };

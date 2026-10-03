@@ -270,8 +270,53 @@ export function citeMatches(cite: string, source: Pick<SourceCopy, "publisher" |
   const domain = source.domain.replace(/^www\./i, "");
   return (
     [phrase(source.publisher), phrase(domain)].some((t) => containsPhrase(t, c) || containsPhrase(c, t)) ||
-    namesSite(cite, siteName(domain))
+    namesSite(cite, siteName(domain)) ||
+    aliasMatches(cite, domain)
   );
+}
+
+/**
+ * Крупные источники называют по-разному на ru / ro / en: «по данным ЮНФПА», «conform Națiunilor Unite»,
+ * «according to the United Nations» — всё это un.org / unfpa.org, хотя ни имя, ни домен в тексте не совпадают.
+ * Ключ — сайт (без поддоменов), значение — как его называют.
+ */
+// границы слова через \p{L}: в JS-регулярках \b не работает с кириллицей («ООН» не нашлось бы)
+const ORG_ALIASES: Record<string, RegExp> = {
+  "un.org":
+    /(?<![\p{L}\p{N}])(?:UN|U\.N\.|United Nations|ONU|Națiunil\p{L}* Unite|Natiunil\p{L}* Unite|ООН|Организаци\p{L}* Объединённых Наций|Организаци\p{L}* Объединенных Наций)(?![\p{L}\p{N}])/u,
+  "unfpa.org": /(?<![\p{L}\p{N}])(?:UNFPA|ЮНФПА|Фонд\p{L}* ООН в области народонаселения)(?![\p{L}\p{N}])/u,
+  "who.int":
+    /(?<![\p{L}\p{N}])(?:WHO|World Health Organi[sz]ation|OMS|Organizați\p{L}* Mondial\p{L}* a Sănătății|ВОЗ|Всемирн\p{L}* организаци\p{L}* здравоохранения)(?![\p{L}\p{N}])/u,
+  "nytimes.com": /(?<![\p{L}\p{N}])(?:NYT|New York Times|Нью-Йорк таймс)(?![\p{L}\p{N}])/iu,
+  "reuters.com": /(?<![\p{L}\p{N}])(?:Reuters|Рейтер\p{L}*)(?![\p{L}\p{N}])/iu,
+  "apnews.com": /(?<![\p{L}\p{N}])(?:AP|Associated Press|Ассошиэйтед Пресс)(?![\p{L}\p{N}])/u,
+  "dw.com": /(?<![\p{L}\p{N}])(?:DW|Deutsche Welle|Немецк\p{L}* волн\p{L}*)(?![\p{L}\p{N}])/u,
+  "bbc.com": /(?<![\p{L}\p{N}])(?:BBC|Би-би-си)(?![\p{L}\p{N}])/u,
+  "tass.ru": /(?<![\p{L}\p{N}])(?:ТАСС|TASS)(?![\p{L}\p{N}])/u,
+  "ria.ru": /(?<![\p{L}\p{N}])(?:РИА Новости|RIA Novosti)(?![\p{L}\p{N}])/u,
+  "moldpres.md": /(?<![\p{L}\p{N}])(?:Moldpres|Молдпрес)(?![\p{L}\p{N}])/iu,
+  "gov.md":
+    /(?<![\p{L}\p{N}])(?:Guvernul|Guvern\p{L}*|Правительств\p{L}* (?:Молдовы|Республики Молдова))(?![\p{L}\p{N}])/u,
+  "statistica.md":
+    /(?<![\p{L}\p{N}])(?:BNS|Biroul Național de Statistică|НБС|Национальн\p{L}* бюро статистики)(?![\p{L}\p{N}])/u,
+};
+
+function aliasMatches(cite: string, domain: string): boolean {
+  const base = baseDomain(domain);
+  const re = ORG_ALIASES[base] ?? (base.endsWith(".gov.md") ? ORG_ALIASES["gov.md"] : undefined);
+  return !!re && re.test(cite.normalize("NFKC"));
+}
+
+/** news.un.org → un.org, www.bbc.co.uk → bbc.co.uk, msmps.gov.md → gov.md-подобные оставляем целиком */
+export function baseDomain(domain: string): string {
+  const labels = domain
+    .toLowerCase()
+    .replace(/^www\./, "")
+    .split(".")
+    .filter(Boolean);
+  if (labels.length <= 2) return labels.join(".");
+  const take = SECOND_LEVEL.has(labels[labels.length - 2]) ? 3 : 2;
+  return labels.slice(-take).join(".");
 }
 
 /**
@@ -320,6 +365,36 @@ export function linkEdges(copies: CopyFacts[]): Edge[] {
     return [...parents]
       .sort((a, b) => hasClaim(b) - hasClaim(a) || latest(b) - latest(a) || a - b)
       .map((parent): Edge => ({ parent, child, via: "link", confidence: "confirmed" }));
+  });
+}
+
+/**
+ * siteLink: копия ссылается на ДРУГУЮ страницу сайта, который есть среди копий (pravda.com.ua → un.org/…/8-billion,
+ * а в копиях — un.org/en/dayof8billion) → probable. Ссылки на свой же сайт не считаются.
+ * Родитель обязательно с датой и не позже потомка; из нескольких страниц сайта — с утверждением, самая ранняя.
+ */
+export function siteLinkEdges(copies: CopyFacts[]): Edge[] {
+  const dates = copies.map((c) => validDate(c.source.publishedAt));
+  const sites = copies.map((c) => baseDomain(c.source.domain || domainOf(c.source.url)));
+  return copies.flatMap((c, child) => {
+    const linked = new Set(
+      c.source.outboundLinks.map((l) => baseDomain(domainOf(l))).filter((d) => d && d !== sites[child]),
+    );
+    return copies
+      .map((_, p) => p)
+      .filter((p) => {
+        if (p === child || !linked.has(sites[p])) return false;
+        const pd = dates[p];
+        const cd = dates[child];
+        return !!pd && !(cd && compareDates(pd, cd) > 0);
+      })
+      .sort(
+        (a, b) =>
+          (copies[b].structure ? 1 : 0) - (copies[a].structure ? 1 : 0) ||
+          dateMs(dates[a]) - dateMs(dates[b]) ||
+          a - b,
+      )
+      .map((parent): Edge => ({ parent, child, via: "link", confidence: "probable" }));
   });
 }
 
@@ -439,6 +514,7 @@ export function buildTree({ claimId, copies, video, similarity }: BuildTreeParam
   const parents = chooseParents(copies.length, order, [
     linkEdges(copies),
     attributionEdges(copies),
+    siteLinkEdges(copies),
     duplicateEdges(copies, similarity),
   ]);
   const idOf = (i: number): SourceId => copies[i].source.id;
