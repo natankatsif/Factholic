@@ -1,0 +1,29 @@
+{
+  "name": "news-factcheck",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "backend",
+    "extension"
+  ],
+  "scripts": {
+    "dev:mock": "npm run dev:mock -w backend",
+    "dev": "npm run dev -w backend",
+    "build:ext": "npm run build -w extension",
+    "check": "node scripts/check.mjs",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.71.0"
+  }
+}

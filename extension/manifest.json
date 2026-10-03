@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "FactCheck Video",
+  "version": "0.1.0",
+  "description": "Проверка фактов в видео в реальном времени",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_title": "FactCheck Video"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["http://localhost:8787/*"]
+}

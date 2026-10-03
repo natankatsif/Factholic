@@ -1,0 +1,19 @@
+{
+  "name": "@news/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:mock": "MOCK=1 tsx watch src/server.ts"
+  },
+  "dependencies": {
+    "@news/contracts": "*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.12",
+    "tsx": "^4.19.0"
+  }
+}

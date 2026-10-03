@@ -1,0 +1,79 @@
+import { mockClaim } from "../03-claim-extraction/mock.ts";
+import type { SourceSearchInput, SourceSearchOutput } from "./types.ts";
+
+export const mockSourceSearchInput: SourceSearchInput = {
+  claim: mockClaim,
+  maxSources: 5,
+  searchLanguages: ["ru", "en"],
+};
+
+// Ссылки выдуманы
+export const mockSourceSearchOutput: SourceSearchOutput = {
+  claimId: "clm_05",
+  queries: [
+    { text: "война в Украине", language: "ru", engine: "tavily" },
+    { text: "war in Ukraine latest UN", language: "en", engine: "tavily" },
+    { text: "Ukraine war", language: "en", engine: "factcheck_api" },
+  ],
+  sources: [
+    {
+      id: "src_05_1",
+      url: "https://www.ohchr.org/en/countries/ukraine",
+      title: "Ukraine — UN Human Rights Office",
+      publisher: "Управление ООН по правам человека",
+      domain: "ohchr.org",
+      sourceType: "international_org",
+      language: "en",
+      excerpt:
+        "The Office continues to document civilian casualties resulting from the armed conflict in Ukraine, which escalated with the full-scale armed attack in February 2022…",
+      snippet:
+        "The Office continues to document civilian casualties resulting from the armed conflict in Ukraine.",
+      domainReliability: 0.95,
+      retrievedAt: "2026-10-03T10:01:50Z",
+    },
+    {
+      id: "src_05_2",
+      url: "https://www.reuters.com/world/europe/",
+      title: "Ukraine war latest",
+      publisher: "Reuters",
+      domain: "reuters.com",
+      sourceType: "news",
+      publishedAt: "2026-10-02T08:00:00Z",
+      language: "en",
+      country: "GB",
+      excerpt:
+        "Fighting continued along the front line overnight, officials said, as both sides reported drone attacks…",
+      snippet: "Fighting continued along the front line overnight, officials said.",
+      domainReliability: 0.92,
+      retrievedAt: "2026-10-03T10:01:51Z",
+    },
+    {
+      id: "src_05_3",
+      url: "https://www.dw.com/ru/",
+      title: "Война в Украине: главное за сутки",
+      publisher: "Deutsche Welle",
+      domain: "dw.com",
+      sourceType: "news",
+      publishedAt: "2026-10-02T18:00:00Z",
+      language: "ru",
+      country: "DE",
+      excerpt: "Боевые действия продолжаются на нескольких направлениях, сообщают военные обеих сторон…",
+      snippet: "Боевые действия продолжаются на нескольких направлениях.",
+      domainReliability: 0.88,
+      retrievedAt: "2026-10-03T10:01:51Z",
+    },
+    {
+      id: "src_05_4",
+      url: "https://ru.wikipedia.org/wiki/Вторжение_России_в_Украину",
+      title: "Вторжение России в Украину (с 2022) — Википедия",
+      publisher: "Википедия",
+      domain: "ru.wikipedia.org",
+      sourceType: "encyclopedia",
+      language: "ru",
+      excerpt: "Военные действия начались 24 февраля 2022 года…",
+      snippet: "Военные действия начались 24 февраля 2022 года.",
+      domainReliability: 0.8,
+      retrievedAt: "2026-10-03T10:01:52Z",
+    },
+  ],
+};

@@ -1,0 +1,17 @@
+{
+  "name": "@news/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/background/service-worker.ts --bundle --format=esm --outfile=dist/background.js && esbuild src/content/index.ts --bundle --format=iife --outfile=dist/content.js && cp manifest.json dist/",
+    "watch": "npm run build -- --watch"
+  },
+  "dependencies": {
+    "@news/contracts": "*"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "esbuild": "^0.24.0"
+  }
+}
