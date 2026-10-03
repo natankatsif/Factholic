@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  cleanText,
   coverage,
   detectLanguage,
   hits,
   keywordStems,
   pickExcerpt,
   pickSnippet,
+  proseShare,
   stemSet,
   tokenize,
 } from "./text.ts";
@@ -204,5 +206,41 @@ describe("detectLanguage", () => {
       detectLanguage("The war in Ukraine is the largest conflict in Europe and the toll is rising.", "de"),
       "en",
     );
+  });
+});
+
+describe("мусор со страниц: меню, заголовки, невидимые символы", () => {
+  const stems = keywordStems("Война в Украине продолжается");
+  const menu =
+    "Live Все публикации Лучшее с YouTube Эксклюзив ТСН Украина Политика Война Гламур Проспорт Леди Здоровье";
+  const article =
+    "Боевые действия в Украине продолжаются на нескольких направлениях, сообщают военные обеих сторон.";
+
+  it("меню сайта не попадает в excerpt, даже если в нём много ключевых слов", () => {
+    const excerpt = pickExcerpt(`${menu}\n\n${article}`, stems);
+    assert.ok(!excerpt.includes("Гламур"), excerpt);
+    assert.ok(excerpt.includes("Боевые действия"));
+  });
+
+  it("в snippet — законченное предложение, а не заголовок", () => {
+    const headline = "Украина и война: главное за сутки о продолжении боевых действий";
+    assert.equal(pickSnippet(`${headline} … ${article}`, stems), article);
+  });
+
+  it("proseShare: статья ≈ 1, список заголовков = 0", () => {
+    assert.equal(proseShare(article), 1);
+    assert.equal(
+      proseShare("Украина и Южная Корея: скандал с пленными … Война в Украине: главное за сутки"),
+      0,
+    );
+  });
+
+  it("cleanText убирает невидимые символы, которые вставляет Reuters", () => {
+    assert.equal(cleanText("the \u200bUkrainian capital \u2060of Kyiv"), "the Ukrainian capital of Kyiv");
+  });
+
+  it("знаки ударения не разрывают слова и убираются из цитаты", () => {
+    assert.deepEqual(tokenize("Гражда\u0301нская война\u0301"), ["гражданская", "война"]);
+    assert.equal(cleanText("Гражда\u0301нская война\u0301"), "Гражданская война");
   });
 });

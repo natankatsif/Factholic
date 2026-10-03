@@ -22,6 +22,7 @@ const STEM = 5;
 export function tokenize(text: string): string[] {
   return text
     .toLowerCase()
+    .replace(/\u0300|\u0301/g, "") // знаки ударения из Википедии: «Гражда́нская» → «гражданская»
     .replace(/ё/g, "е")
     .split(/[^\p{L}\p{N}]+/u)
     .filter(Boolean);
@@ -54,12 +55,43 @@ export function coverage(text: string, stems: string[]): number {
   return stems.length ? hits(stemSet(text), stems) / stems.length : 0;
 }
 
+/**
+ * Невидимые символы (Reuters и др. вставляют их в текст), мягкие переносы и знаки ударения (Википедия) —
+ * в цитате они только мешают
+ */
+export function cleanText(text: string): string {
+  return text.replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, "").replace(/\u0300|\u0301/g, "");
+}
+
+const SENTENCE_END = /[.!?…]/;
+
+/** Есть ли в куске законченное предложение: у статьи есть, у меню и списка заголовков — нет */
+function isProse(text: string): boolean {
+  return SENTENCE_END.test(text);
+}
+
+/** Меню сайта: много слов подряд с заглавной буквы и ни одной точки («Главная Политика Война Спорт …») */
+function looksLikeNavigation(text: string): boolean {
+  const words = text.split(" ").filter((w) => /\p{L}/u.test(w));
+  if (words.length < 6 || isProse(text)) return false;
+  return words.filter((w) => /^\p{Lu}/u.test(w)).length / words.length >= 0.4;
+}
+
+/** Доля текста в законченных предложениях: страница-рубрика из одних заголовков даёт почти 0 */
+export function proseShare(text: string): number {
+  const parts = text.split(" … ").filter(Boolean);
+  if (!parts.length) return 0;
+  const prose = parts.filter(isProse).reduce((sum, p) => sum + p.length, 0);
+  return prose / parts.reduce((sum, p) => sum + p.length, 0);
+}
+
 /** Куски текста ~ по абзацам, длинные абзацы режем по предложениям. */
 function passages(text: string, target = 400): string[] {
   const out: string[] = [];
-  for (const paragraph of text.split(/\n\s*\n|\n/)) {
+  for (const paragraph of cleanText(text).split(/\n\s*\n|\n/)) {
     const p = paragraph.replace(/\s+/g, " ").trim();
-    if (p.length < 40) continue; // меню, подписи, кнопки
+    if (p.length < 40) continue; // подписи, кнопки
+    if (looksLikeNavigation(p)) continue;
     if (p.length <= target * 1.5) {
       out.push(p);
       continue;
@@ -82,7 +114,12 @@ function passages(text: string, target = 400): string[] {
  * Это то, что читает LLM на этапе 05, поэтому лучше чуть больше контекста, чем меньше.
  */
 export function pickExcerpt(text: string, stems: string[], maxChars = 2000): string {
-  const scored = passages(text.slice(0, 200_000)).map((p, i) => ({ p, i, score: coverage(p, stems) }));
+  // заголовки без точки тоже могут пригодиться, но связный текст важнее
+  const scored = passages(text.slice(0, 200_000)).map((p, i) => ({
+    p,
+    i,
+    score: coverage(p, stems) * (isProse(p) ? 1 : 0.5),
+  }));
   const picked: typeof scored = [];
   let length = 0;
   for (const item of scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score)) {
@@ -95,7 +132,7 @@ export function pickExcerpt(text: string, stems: string[], maxChars = 2000): str
     .sort((a, b) => a.i - b.i)
     .map((s) => s.p)
     .join(" … ");
-  return truncate(excerpt || text.replace(/\s+/g, " ").trim(), maxChars);
+  return truncate(excerpt || cleanText(text).replace(/\s+/g, " ").trim(), maxChars);
 }
 
 /** 1–2 предложения для карточки во фронте: самое релевантное предложение excerpt'а. */
@@ -105,7 +142,10 @@ export function pickSnippet(excerpt: string, stems: string[], maxChars = 280): s
     .map((s) => s.trim())
     .filter((s) => s.length >= 20);
   if (!sentences.length) return truncate(excerpt, maxChars);
-  const best = sentences.reduce((a, b) => (coverage(b, stems) > coverage(a, stems) ? b : a));
+  // в карточку — законченное предложение, а не заголовок или обрывок
+  const score = (sentence: string) =>
+    coverage(sentence, stems) * (isProse(sentence) && sentence.split(" ").length >= 6 ? 1 : 0.5);
+  const best = sentences.reduce((a, b) => (score(b) > score(a) ? b : a));
   return truncate(best, maxChars);
 }
 

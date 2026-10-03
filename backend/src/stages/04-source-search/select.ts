@@ -5,7 +5,16 @@
 import type { LanguageCode } from "@news/contracts";
 import { lookupDomain, normalizeHost, type DomainInfo } from "./domains.ts";
 import type { Candidate } from "./engines.ts";
-import { detectLanguage, hits, keywordStems, pickExcerpt, pickSnippet, stemSet } from "./text.ts";
+import {
+  cleanText,
+  detectLanguage,
+  hits,
+  keywordStems,
+  pickExcerpt,
+  pickSnippet,
+  proseShare,
+  stemSet,
+} from "./text.ts";
 import type { FoundSource } from "./types.ts";
 
 /** Страницы, где совпало меньше этой доли ключевых слов, считаем не по теме */
@@ -14,6 +23,9 @@ const MIN_MATCH = 0.25;
 const MIN_HITS = 2;
 /** Бонус за «опровергающий» запрос — только странице, которая точно про этот тезис */
 const REFUTE_BONUS_MIN_MATCH = 0.5;
+/** Штраф странице, где почти нет связного текста: рубрика, лента, список заголовков, а не статья */
+const LISTING_PENALTY = 0.15;
+const MIN_PROSE_SHARE = 0.3;
 /** Больше текста не разбираем: дальше обычно комментарии и подвал, а время — синхронное */
 const MAX_TEXT = 200_000;
 
@@ -79,7 +91,11 @@ export function enrich(c: Candidate, claimStems: string[]): Enriched | null {
     excerpt,
     snippet,
     match,
-    base: 0.45 * clamp01(c.relevance) + 0.35 * info.reliability + 0.2 * match,
+    base:
+      0.45 * clamp01(c.relevance) +
+      0.35 * info.reliability +
+      0.2 * match -
+      (!c.preset && proseShare(excerpt) < MIN_PROSE_SHARE ? LISTING_PENALTY : 0),
   };
 }
 
@@ -121,7 +137,7 @@ export function toFoundSource(e: Enriched, id: string, retrievedAt: string): Fou
   return {
     id,
     url: e.candidate.url,
-    title: e.candidate.title || e.info.publisher,
+    title: cleanText(e.candidate.title) || e.info.publisher,
     publisher: e.info.publisher,
     domain: e.domain,
     sourceType: e.info.type,
