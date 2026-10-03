@@ -25,7 +25,8 @@ Chrome-расширение: на любом сайте находит виде�
 
 ```
 packages/contracts/    общие типы бэк↔фронт + МОКИ ДЛЯ ДИЗАЙНА            [все трое, менять по договорённости]
-backend/src/stages/    по папке на этап: README, types.ts (вход/выход), mock.ts, index.ts
+backend/src/stages/    по папке на этап: README, types.ts (вход/выход), mock.ts, real.ts, index.ts
+backend/src/config.ts  единый конфиг бэкенда (mock/real по этапам, ключи) из корневого .env
 backend/src/pipeline/  оркестратор, связывающий этапы
 extension/             Chrome MV3                                          [frontend]
 ```
@@ -41,7 +42,7 @@ extension/             Chrome MV3                                          [fron
 | **frontend** — Расширение и дизайн | _____ | `extension/`                                                                                                           |
 | общее, только по договорённости    | все   | `packages/contracts/`, корневые конфиги, `scripts/`                                                                    |
 
-Каждый этап — отдельная функция с типизированным входом/выходом. Пока этап не готов, его `index.ts` возвращает мок,
+Каждый этап — отдельная функция с типизированным входом/выходом. Каждый этап включается в `mock` или `real` отдельно через `.env`,
 поэтому весь пайплайн запускается end-to-end с первого дня, и никто никого не ждёт.
 
 ### 🎬 backend-1 — Медиа и платформа
@@ -127,7 +128,8 @@ frontend ◀──ServerEvent/FactCheck── backend-1 ◀──Claim, Sources,
 npm install         # заодно ставит git-хук pre-commit (husky)
 npm run check       # tsc + eslint по всем юнитам, отчёт ✅/❌ по каждому
 npm run check -- 03 # только юниты, где в id есть "03"
-npm run dev:mock    # бэкенд, проигрывающий мок-события
+cp .env.example .env # настройки: mock/real по этапам, ключи API, режим расширения
+npm run dev:mock    # бэкенд, проигрывающий мок-события (SERVER_MODE=replay)
 npm run dev         # бэкенд с реальным пайплайном
 npm run build:ext   # собрать расширение в extension/dist
 ```

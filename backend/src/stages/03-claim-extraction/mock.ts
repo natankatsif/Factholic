@@ -1,3 +1,4 @@
+import type { Stage } from "../../pipeline/context.ts";
 import { mockTranscriptionOutput } from "../02-transcription/mock.ts";
 import type { Claim, ClaimExtractionInput, ClaimExtractionOutput } from "./types.ts";
 
@@ -33,4 +34,10 @@ export const mockClaim: Claim = {
 export const mockClaimExtractionOutput: ClaimExtractionOutput = {
   // "и это влияет на цены на всё" — слишком размыто, не извлечено
   claims: [mockClaim],
+};
+
+// ===================== MOCK-РЕАЛИЗАЦИЯ (STAGE_CLAIM_EXTRACTION=mock) =====================
+
+export const extractClaimsMock: Stage<ClaimExtractionInput, ClaimExtractionOutput> = async (input) => {
+  return { claims: mockClaimExtractionOutput.claims.map((c) => ({ ...c, jobId: input.jobId })) };
 };

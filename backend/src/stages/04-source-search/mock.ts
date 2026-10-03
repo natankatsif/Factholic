@@ -1,3 +1,4 @@
+import type { Stage } from "../../pipeline/context.ts";
 import { mockClaim } from "../03-claim-extraction/mock.ts";
 import type { SourceSearchInput, SourceSearchOutput } from "./types.ts";
 
@@ -76,4 +77,10 @@ export const mockSourceSearchOutput: SourceSearchOutput = {
       retrievedAt: "2026-10-03T10:01:52Z",
     },
   ],
+};
+
+// ===================== MOCK-РЕАЛИЗАЦИЯ (STAGE_SOURCE_SEARCH=mock) =====================
+
+export const searchSourcesMock: Stage<SourceSearchInput, SourceSearchOutput> = async (input) => {
+  return { ...mockSourceSearchOutput, claimId: input.claim.id };
 };

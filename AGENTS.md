@@ -103,9 +103,11 @@ packages/contracts/        общие типы бэк ↔ фронт + моки 
   src/common.ts              TimeRange, VideoRef, VideoInfo, formatRange()
   src/mocks/                 MOCK_VIDEO_REPORT (8 тезисов во всех состояниях), MOCK_EVENTS
 backend/
-  src/server.ts              HTTP + WS; MOCK=1 → проигрывает MOCK_EVENTS
+  src/config.ts              ЕДИНЫЙ конфиг: читает .env, mock/real по этапам, ключи провайдеров
+  src/server.ts              HTTP + WS; SERVER_MODE=replay → проигрывает MOCK_EVENTS
   src/pipeline/              context.ts (Stage, StageContext), orchestrator.ts
-  src/stages/NN-*/           README.md · types.ts (вход/выход) · mock.ts (пример) · index.ts (реализация) · tsconfig.json
+  src/stages/NN-*/           README.md · types.ts (вход/выход) · mock.ts (примеры + mock-реализация) ·
+                             real.ts (настоящая реализация) · index.ts (выбор mock/real) · tsconfig.json
 extension/                 Chrome MV3: background/service-worker.ts, content/*, shared/messages.ts
 scripts/units.mjs          реестр юнитов: пути, владельцы, правила проверки
 scripts/check.mjs          проверка по юнитам (npm run check)
@@ -154,10 +156,12 @@ scripts/check.mjs          проверка по юнитам (npm run check)
 
 1. Определи юнит. Прочитай его `README.md`, `types.ts`, `mock.ts` и `AGENTS.md` зоны.
 2. Входные данные этапа смотри в `mock.ts` **предыдущего** этапа, выход должен совпадать по форме с `mock.ts` своего.
-3. Реализуй в `index.ts` (можно добавлять файлы в папку этапа). Сигнатуру экспортируемой функции не менять.
+3. Реализуй в `real.ts` (можно добавлять файлы в папку этапа). Сигнатуру экспортируемой функции не менять.
+   Проверяй со своим этапом в `real`, остальными в `mock` (см. «Mock и real»).
 4. Не трогай `types.ts`, если задача этого не требует. Если требует — см. раздел 5.
 5. Запусти `npm run check -- <юнит>`; для бэкенда end-to-end — `npm run dev` и подключись к WS.
-6. Секреты (API-ключи ASR/LLM/поиска) — только через `process.env`, в `.env` (он в `.gitignore`). Никогда в код.
+6. Секреты (API-ключи ASR/LLM/поиска) — только в `.env` (он в `.gitignore`), читаются только через `backend/src/config.ts`.
+   Никогда в код, никогда в `.env.example`.
 7. В отчёте: что сделано, какие юниты/контракты затронуты, что осталось TODO.
 8. Если работа логически закончена и `npm run check` зелёный — **предложи коммит** (см. следующий раздел).
 
@@ -198,7 +202,9 @@ git commit -m "03: извлечение тезисов через LLM со struc
   отдельно (`export { X } from "./types.ts"`).
 - Комментарии и документация — **на русском**. Идентификаторы — на английском.
 - Форматирование — prettier (`printWidth: 110`), не спорим, хук всё отформатирует сам.
-- `index.ts` этапа, который ещё не реализован, возвращает данные из `mock.ts` и помечен `TODO(<владелец>)`.
+- `index.ts` этапа содержит только `selectImpl(...)`; логика — в `mock.ts` (mock) и `real.ts` (real).
+- `real.ts` ещё не реализованного этапа бросает понятную ошибку и помечен `TODO(<владелец>)`.
+- `process.env` в бэкенде — только в `src/config.ts` (eslint `no-restricted-properties`).
 - Внешние вызовы (LLM, ASR, поиск) принимают `ctx.signal` для отмены, когда пользователь ушёл со страницы.
 - Тестов пока нет; эталоном формы данных служат `mock.ts`.
 
@@ -231,13 +237,41 @@ npm run check -- 03 extension  # выбранные юниты (по подст�
 нужно) → добавь юнит в `scripts/units.mjs` и `tsconfig.json` для него.
 Обходить хук (`--no-verify`) нельзя, кроме аварийных случаев с явным согласия команды.
 
+## Mock и real: единая конфигурация
+
+Всё переключается в **одном корневом `.env`** (шаблон с комментариями — `.env.example`, сам `.env` в git не попадает).
+Переменные из командной строки имеют приоритет над `.env`.
+
+| Что                        | Переменная                                                                                                   | Значения                | Читается в                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------- | ------------------------------------------------- |
+| режим сервера              | `SERVER_MODE`                                                                                                | `pipeline` / `replay`   | `backend/src/config.ts`                           |
+| все этапы по умолчанию     | `STAGES_DEFAULT`                                                                                             | `mock` / `real`         | `backend/src/config.ts`                           |
+| конкретный этап            | `STAGE_INGEST`, `STAGE_TRANSCRIPTION`, `STAGE_CLAIM_EXTRACTION`, `STAGE_SOURCE_SEARCH`, `STAGE_VERIFICATION` | `mock` / `real`         | `backend/src/config.ts`                           |
+| ключи провайдеров          | `ASR_*`, `LLM_*`, `SEARCH_*`                                                                                 | строки                  | `backend/src/config.ts`                           |
+| источник данных расширения | `EXT_DATA_SOURCE`, `EXT_BACKEND_URL`                                                                         | `mock` / `backend`, URL | `extension/build.mjs` → `extension/src/config.ts` |
+
+Уровни моков:
+
+1. **Расширение без бэкенда** — `EXT_DATA_SOURCE=mock`: события из `MOCK_EVENTS` прямо в расширении.
+2. **Бэкенд-реплей** — `SERVER_MODE=replay` (`npm run dev:mock`): настоящий HTTP/WS, но события из `MOCK_EVENTS`.
+3. **Пайплайн на моках** — `SERVER_MODE=pipeline`, этапы в `mock`: настоящий оркестратор, данные из `stages/*/mock.ts`.
+4. **Смешанный** — свой этап в `real`, остальные в `mock`. Так каждый разработчик проверяет свой этап на живых API,
+   не дожидаясь соседей. Пример для backend-2: `STAGE_CLAIM_EXTRACTION=real` + `LLM_*`.
+5. **Всё real** — `STAGES_DEFAULT=real` + все ключи.
+
+Защита: если этап включён в `real`, а нужных ключей нет, сервер **не стартует** и пишет, чего не хватает.
+Опечатка в значении (`STAGE_INGEST=reall`) — тоже ошибка при старте. При запуске сервер печатает, какой этап в каком режиме.
+Данные моков лежат рядом с типами каждого этапа (`stages/*/mock.ts`) намеренно: это часть контракта этапа и
+принадлежит его владельцу. Централизован только **переключатель**.
+
 ## 9. Команды
 
 ```bash
 npm install          # зависимости + git-хук
 npm run check        # проверки по юнитам
-npm run dev:mock     # бэкенд проигрывает MOCK_EVENTS — для разработки фронта
-npm run dev          # бэкенд с реальным пайплайном (сейчас этапы 01–05 — заглушки на моках)
+cp .env.example .env # один раз: свои настройки и ключи
+npm run dev:mock     # SERVER_MODE=replay: бэкенд проигрывает MOCK_EVENTS — для разработки фронта
+npm run dev          # пайплайн, mock/real каждого этапа — по .env (по умолчанию все mock)
 npm run build:ext    # extension/dist → chrome://extensions → «Загрузить распакованное»
 npm run lint         # eslint по всему репо
 npm run format       # prettier по всему репо
@@ -248,12 +282,12 @@ npm run format       # prettier по всему репо
 | Часть                                                                 | Состояние                                                              |
 | --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | Контракты + моки                                                      | ✅ готовы                                                              |
-| Оркестратор, сервер, WS                                               | ✅ работают end-to-end на заглушках; `GET /api/jobs/:id` только в MOCK |
-| 01 ingest                                                             | ⏳ заглушка (нужно: yt-dlp, субтитры, ffmpeg, live-режим)              |
-| 02 transcription                                                      | ⏳ заглушка (нужно: ASR с word timestamps)                             |
-| 03 claim-extraction                                                   | ⏳ заглушка (нужно: LLM structured output)                             |
-| 04 source-search                                                      | ⏳ заглушка (нужно: поисковый API, загрузка страниц, разнообразие)     |
-| 05 verification                                                       | ⏳ заглушка (нужно: LLM, шкала score↔label)                            |
+| Оркестратор, сервер, WS                                               | ✅ работают end-to-end; `GET /api/jobs/:id` только в replay            |
+| 01 ingest                                                             | mock ✅ · real ⏳ (yt-dlp, субтитры, ffmpeg, live-режим)               |
+| 02 transcription                                                      | mock ✅ · real ⏳ (ASR с word timestamps)                              |
+| 03 claim-extraction                                                   | mock ✅ · real ⏳ (LLM structured output)                              |
+| 04 source-search                                                      | mock ✅ · real ⏳ (поисковый API, загрузка страниц, разнообразие)      |
+| 05 verification                                                       | mock ✅ · real ⏳ (LLM, шкала score↔label)                             |
 | 06 delivery                                                           | ✅ реализован (`toFactCheck`)                                          |
 | Расширение                                                            | ⏳ каркас: детект видео, WS, хранение FactCheck; **UI оверлея — TODO** |
 | Обработка `playback` (перемотка), кэш по видео, хранилище результатов | ⏳ TODO (backend-core)                                                 |

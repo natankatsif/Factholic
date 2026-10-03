@@ -1,3 +1,4 @@
+import type { Stage } from "../../pipeline/context.ts";
 import { mockClaim } from "../03-claim-extraction/mock.ts";
 import { mockSourceSearchOutput } from "../04-source-search/mock.ts";
 import type { VerificationInput, VerificationOutput } from "./types.ts";
@@ -26,4 +27,10 @@ export const mockVerificationOutput: VerificationOutput = {
   ],
   model: "mock",
   checkedAt: "2026-10-03T10:02:05Z",
+};
+
+// ===================== MOCK-РЕАЛИЗАЦИЯ (STAGE_VERIFICATION=mock) =====================
+
+export const verifyMock: Stage<VerificationInput, VerificationOutput> = async (input) => {
+  return { ...mockVerificationOutput, claimId: input.claim.id };
 };

@@ -9,12 +9,8 @@ import {
   type StartAnalysisResponse,
 } from "@news/contracts";
 import { MOCK_EVENTS } from "@news/contracts/mocks";
-import {
-  BACKEND_URL,
-  USE_MOCK,
-  type BackgroundToContent,
-  type ContentToBackground,
-} from "../shared/messages.ts";
+import { EXT_CONFIG } from "../config.ts";
+import type { BackgroundToContent, ContentToBackground } from "../shared/messages.ts";
 
 const sockets = new Map<number, WebSocket>();
 
@@ -24,7 +20,7 @@ chrome.runtime.onMessage.addListener((msg: ContentToBackground, sender) => {
 
   switch (msg.type) {
     case "analysis.start":
-      void (USE_MOCK ? playMock(tabId) : start(tabId, msg.request));
+      void (EXT_CONFIG.dataSource === "mock" ? playMock(tabId) : start(tabId, msg.request));
       break;
     case "playback":
       send(tabId, { type: "playback", currentTime: msg.currentTime, playing: msg.playing, rate: msg.rate });
@@ -43,7 +39,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 async function start(tabId: number, request: StartAnalysisRequest) {
-  const res = await fetch(BACKEND_URL + API_ROUTES.startJob, {
+  const res = await fetch(EXT_CONFIG.backendUrl + API_ROUTES.startJob, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(request),

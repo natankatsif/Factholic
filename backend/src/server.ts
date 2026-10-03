@@ -1,7 +1,8 @@
 /**
  * HTTP + WebSocket сервер.
- *   npm run dev       — реальный пайплайн (сейчас этапы — заглушки на моках)
- *   npm run dev:mock  — проигрывает MOCK_EVENTS из @news/contracts (для фронта)
+ * Режим и mock/real по этапам — в корневом .env (шаблон .env.example), читается в config.ts.
+ *   npm run dev       — как в .env (по умолчанию SERVER_MODE=pipeline, все этапы mock)
+ *   npm run dev:mock  — SERVER_MODE=replay: проигрывает MOCK_EVENTS из @news/contracts (для фронта)
  */
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
@@ -15,10 +16,17 @@ import {
   type StartAnalysisResponse,
 } from "@news/contracts";
 import { MOCK_EVENTS, MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
+import { config, configErrors, describeConfig } from "./config.ts";
 import { runPipeline } from "./pipeline/orchestrator.ts";
 
-const PORT = Number(process.env.PORT ?? 8787);
-const MOCK = process.env.MOCK === "1";
+const errors = configErrors();
+if (errors.length) {
+  console.error("Ошибка конфигурации (.env):\n  " + errors.join("\n  "));
+  process.exit(1);
+}
+
+const PORT = config.port;
+const REPLAY = config.serverMode === "replay";
 
 interface Job {
   request: StartAnalysisRequest;
@@ -45,7 +53,7 @@ const server = createServer(async (req, res) => {
   }
 
   const getMatch = req.method === "GET" && req.url?.match(/^\/api\/jobs\/([^/]+)$/);
-  if (getMatch && MOCK) {
+  if (getMatch && REPLAY) {
     res.setHeader("content-type", "application/json");
     return res.end(JSON.stringify({ ...MOCK_VIDEO_REPORT, jobId: getMatch[1] }));
   }
@@ -76,7 +84,7 @@ function handleJobSocket(ws: WebSocket, jobId: JobId, job: Job) {
   });
   ws.on("close", () => abort.abort());
 
-  if (MOCK) {
+  if (REPLAY) {
     const timers = MOCK_EVENTS.map(({ atMs, event }) =>
       setTimeout(() => emit({ ...event, jobId } as ServerEvent), atMs),
     );
@@ -99,4 +107,4 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-server.listen(PORT, () => console.log(`backend on :${PORT}${MOCK ? " (MOCK)" : ""}`));
+server.listen(PORT, () => console.log(`backend on :${PORT}\n${describeConfig()}`));

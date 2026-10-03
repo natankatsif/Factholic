@@ -4,11 +4,13 @@
 
 Для одного тезиса находит несколько независимых источников. Вызывается параллельно для всех тезисов куска.
 
-|        | Тип                                               | Файл       |
-| ------ | ------------------------------------------------- | ---------- |
-| Вход   | `SourceSearchInput` (`Claim` + лимиты)            | `types.ts` |
-| Выход  | `SourceSearchOutput` (`FoundSource[]` + запросы)  | `types.ts` |
-| Пример | `mockSourceSearchInput`, `mockSourceSearchOutput` | `mock.ts`  |
+|        | Тип                                                                                      | Файл       |
+| ------ | ---------------------------------------------------------------------------------------- | ---------- |
+| Вход   | `SourceSearchInput` (`Claim` + лимиты)                                                   | `types.ts` |
+| Выход  | `SourceSearchOutput` (`FoundSource[]` + запросы)                                         | `types.ts` |
+| Пример | `mockSourceSearchInput`, `mockSourceSearchOutput`                                        | `mock.ts`  |
+| Mock   | `STAGE_SOURCE_SEARCH=mock` → mock-функция в конце `mock.ts`                              | `mock.ts`  |
+| Real   | `STAGE_SOURCE_SEARCH=real` в `.env`, нужны: `SEARCH_PROVIDER`, `SEARCH_API_KEY`, `LLM_*` | `real.ts`  |
 
 ## Разнообразие точек зрения
 

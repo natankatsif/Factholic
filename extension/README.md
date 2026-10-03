@@ -9,7 +9,8 @@ src/
 │   ├── index.ts                   точка входа: нашёл видео → старт анализа → хранит Map<id, FactCheck>
 │   ├── video-detector.ts          поиск <video>, определение платформы → VideoRef
 │   └── overlay.ts                 UI поверх плеера (TODO) + activeAt(list, currentTime)
-└── shared/messages.ts             сообщения content ↔ background, флаг USE_MOCK
+├── shared/messages.ts             сообщения content ↔ background
+└── config.ts                      EXT_CONFIG: mock/backend и адрес бэкенда (из .env при сборке)
 ```
 
 ## Данные для дизайна
@@ -37,8 +38,13 @@ npm run build:ext          # из корня → extension/dist
 # chrome://extensions → Режим разработчика → Загрузить распакованное → extension/dist
 ```
 
-`USE_MOCK = true` в `shared/messages.ts` — события идут из мока, бэкенд не нужен.
-С бэкендом: `USE_MOCK = false` + `npm run dev:mock` (или `npm run dev`).
+Режим задаётся в корневом `.env` и подставляется при сборке (`extension/build.mjs`):
+
+- `EXT_DATA_SOURCE=mock` (по умолчанию) — события из `MOCK_EVENTS` прямо в расширении, бэкенд не нужен.
+- `EXT_DATA_SOURCE=backend` + `EXT_BACKEND_URL=http://localhost:8787` — ходить на бэкенд
+  (`npm run dev:mock` или `npm run dev`). `host_permissions` в `dist/manifest.json` подставятся под этот адрес.
+
+После смены `.env` — пересобрать (`npm run build:ext`) и обновить расширение в `chrome://extensions`.
 
 ## Позже
 

@@ -10,6 +10,8 @@
 | Вход   | `IngestInput`                                              | `types.ts` |
 | Выход  | `IngestOutput` = `VideoInfo` + `AsyncIterable<MediaChunk>` | `types.ts` |
 | Пример | `mockIngestInput`, `mockCaptionsChunk`                     | `mock.ts`  |
+| Mock   | `STAGE_INGEST=mock` → mock-функция в конце `mock.ts`       | `mock.ts`  |
+| Real   | `STAGE_INGEST=real` в `.env`, нужны: —                     | `real.ts`  |
 
 ## Два режима
 

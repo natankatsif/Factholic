@@ -12,8 +12,23 @@ export default defineConfig(
     languageOptions: { globals: globals.node },
   },
   {
-    files: ["extension/**"],
+    files: ["extension/src/**"],
     languageOptions: { globals: { ...globals.browser, chrome: "readonly" } },
+  },
+  {
+    files: ["extension/*.mjs"],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    // Настройки — только через центральный конфиг
+    files: ["backend/src/**"],
+    ignores: ["backend/src/config.ts"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        { object: "process", property: "env", message: "Читай настройки через backend/src/config.ts (.env)" },
+      ],
+    },
   },
   {
     rules: {

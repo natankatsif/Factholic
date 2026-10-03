@@ -11,8 +11,3 @@ export type ContentToBackground =
 
 /** Service worker просто пересылает во вкладку события бэкенда */
 export type BackgroundToContent = { type: "server.event"; event: ServerEvent };
-
-export const BACKEND_URL = "http://localhost:8787";
-
-/** true — не ходить на бэкенд, проигрывать MOCK_EVENTS прямо в service worker */
-export const USE_MOCK = true;

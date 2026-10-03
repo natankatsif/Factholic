@@ -9,7 +9,9 @@
   шлёт позицию плеера.
 - `src/content/video-detector.ts` — поиск основного `<video>`, определение платформы → `VideoRef`.
 - `src/content/overlay.ts` — UI поверх плеера (**TODO**), `activeAt(list, currentTime)`.
-- `src/shared/messages.ts` — сообщения content ↔ background (внутренние, бэкенд о них не знает), `USE_MOCK`.
+- `src/shared/messages.ts` — сообщения content ↔ background (внутренние, бэкенд о них не знает).
+- `src/config.ts` — `EXT_CONFIG` (`dataSource`, `backendUrl`). Значения подставляет `build.mjs` из `.env`.
+  Настройки расширения читаются **только** отсюда, не хардкодить URL и флаги в коде.
 
 ## Правила
 
@@ -27,8 +29,8 @@
 
 ## Разработка без бэкенда
 
-`USE_MOCK = true` в `src/shared/messages.ts` → события идут из `MOCK_EVENTS` прямо в service worker.
-С бэкендом: `USE_MOCK = false` + `npm run dev:mock`.
+`EXT_DATA_SOURCE=mock` в корневом `.env` (по умолчанию) → события идут из `MOCK_EVENTS` прямо в service worker.
+С бэкендом: `EXT_DATA_SOURCE=backend` + `npm run dev:mock`. После смены `.env` — пересобрать.
 
 ```bash
 npm run build:ext          # → extension/dist, загрузить в chrome://extensions

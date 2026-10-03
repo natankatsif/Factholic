@@ -4,11 +4,13 @@
 
 Сопоставляет тезис с найденными источниками и выставляет оценку достоверности.
 
-|        | Тип                                                                      | Файл       |
-| ------ | ------------------------------------------------------------------------ | ---------- |
-| Вход   | `VerificationInput` (`Claim` + `FoundSource[]` + контекст)               | `types.ts` |
-| Выход  | `VerificationOutput` (score, label, тексты, stance по каждому источнику) | `types.ts` |
-| Пример | `mockVerificationInput`, `mockVerificationOutput`                        | `mock.ts`  |
+|        | Тип                                                                                   | Файл       |
+| ------ | ------------------------------------------------------------------------------------- | ---------- |
+| Вход   | `VerificationInput` (`Claim` + `FoundSource[]` + контекст)                            | `types.ts` |
+| Выход  | `VerificationOutput` (score, label, тексты, stance по каждому источнику)              | `types.ts` |
+| Пример | `mockVerificationInput`, `mockVerificationOutput`                                     | `mock.ts`  |
+| Mock   | `STAGE_VERIFICATION=mock` → mock-функция в конце `mock.ts`                            | `mock.ts`  |
+| Real   | `STAGE_VERIFICATION=real` в `.env`, нужны: `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL` | `real.ts`  |
 
 ## Шкала (score ↔ label должны совпадать)
 

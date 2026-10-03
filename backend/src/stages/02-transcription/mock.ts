@@ -1,3 +1,4 @@
+import type { Stage } from "../../pipeline/context.ts";
 import { mockCaptionsChunk } from "../01-ingest/mock.ts";
 import type { TranscriptionInput, TranscriptionOutput } from "./types.ts";
 
@@ -42,4 +43,10 @@ export const mockTranscriptionOutput: TranscriptionOutput = {
       speaker: "SPEAKER_1",
     },
   ],
+};
+
+// ===================== MOCK-РЕАЛИЗАЦИЯ (STAGE_TRANSCRIPTION=mock) =====================
+
+export const transcribeMock: Stage<TranscriptionInput, TranscriptionOutput> = async ({ chunk }) => {
+  return { ...mockTranscriptionOutput, jobId: chunk.jobId, seq: chunk.seq, range: chunk.range };
 };

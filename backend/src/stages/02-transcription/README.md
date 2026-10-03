@@ -4,11 +4,13 @@
 
 Вызывается на **каждый** кусок из этапа 01. Возвращает предложения с абсолютными таймкодами видео.
 
-|        | Тип                                                  | Файл       |
-| ------ | ---------------------------------------------------- | ---------- |
-| Вход   | `TranscriptionInput` (`MediaChunk` + `languageHint`) | `types.ts` |
-| Выход  | `TranscriptionOutput` (`TranscriptSegment[]`)        | `types.ts` |
-| Пример | `mockTranscriptionInput`, `mockTranscriptionOutput`  | `mock.ts`  |
+|        | Тип                                                                       | Файл       |
+| ------ | ------------------------------------------------------------------------- | ---------- |
+| Вход   | `TranscriptionInput` (`MediaChunk` + `languageHint`)                      | `types.ts` |
+| Выход  | `TranscriptionOutput` (`TranscriptSegment[]`)                             | `types.ts` |
+| Пример | `mockTranscriptionInput`, `mockTranscriptionOutput`                       | `mock.ts`  |
+| Mock   | `STAGE_TRANSCRIPTION=mock` → mock-функция в конце `mock.ts`               | `mock.ts`  |
+| Real   | `STAGE_TRANSCRIPTION=real` в `.env`, нужны: `ASR_PROVIDER`, `ASR_API_KEY` | `real.ts`  |
 
 ## Требования
 

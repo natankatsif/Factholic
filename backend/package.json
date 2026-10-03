@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "dev:mock": "MOCK=1 tsx watch src/server.ts"
+    "dev:mock": "SERVER_MODE=replay tsx watch src/server.ts"
   },
   "dependencies": {
     "@news/contracts": "*",

@@ -1,15 +1,12 @@
-import type { Stage } from "../../pipeline/context.ts";
-import { mockTranscriptionOutput } from "./mock.ts";
+import { selectImpl } from "../../config.ts";
+import { transcribeMock } from "./mock.ts";
+import { transcribeReal } from "./real.ts";
 import type { TranscriptionInput, TranscriptionOutput } from "./types.ts";
 
 export type * from "./types.ts";
 
-/**
- * TODO(backend-1): реализовать.
- *  captions → склеить cues в предложения, проставить id
- *  audio    → ASR (Whisper / Deepgram / AssemblyAI) с word-level timestamps,
- *             сдвинуть все таймкоды на chunk.range.start
- */
-export const transcribe: Stage<TranscriptionInput, TranscriptionOutput> = async ({ chunk }) => {
-  return { ...mockTranscriptionOutput, jobId: chunk.jobId, seq: chunk.seq, range: chunk.range };
-};
+/** mock или real — по STAGE_TRANSCRIPTION в .env (см. backend/src/config.ts) */
+export const transcribe = selectImpl<TranscriptionInput, TranscriptionOutput>("transcription", {
+  mock: transcribeMock,
+  real: transcribeReal,
+});

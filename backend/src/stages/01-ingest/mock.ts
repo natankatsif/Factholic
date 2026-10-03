@@ -1,4 +1,5 @@
-import type { CaptionsChunk, IngestInput } from "./types.ts";
+import type { Stage } from "../../pipeline/context.ts";
+import type { CaptionsChunk, IngestInput, IngestOutput, MediaChunk } from "./types.ts";
 
 export const mockIngestInput: Omit<IngestInput, "liveAudio"> = {
   jobId: "job_mock_01",
@@ -31,4 +32,24 @@ export const mockCaptionsChunk: CaptionsChunk = {
     { start: 1221.0, end: 1223.0, text: "в Украине сейчас идёт война" },
     { start: 1223.4, end: 1229.8, text: "и это конечно влияет на цены на всё" },
   ],
+};
+
+// ===================== MOCK-РЕАЛИЗАЦИЯ (STAGE_INGEST=mock) =====================
+
+export const ingestMock: Stage<IngestInput, IngestOutput> = async (input) => {
+  const { video } = input.request;
+  async function* chunks(): AsyncIterable<MediaChunk> {
+    yield { ...mockCaptionsChunk, jobId: input.jobId };
+  }
+  return {
+    video: {
+      pageUrl: video.pageUrl,
+      platform: video.platform,
+      platformVideoId: video.platformVideoId,
+      title: video.title ?? "Без названия",
+      durationSec: video.durationSec ?? 0,
+      language: input.request.languageHint ?? "ru",
+    },
+    chunks: chunks(),
+  };
 };

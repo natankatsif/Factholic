@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/background/service-worker.ts --bundle --format=esm --outfile=dist/background.js && esbuild src/content/index.ts --bundle --format=iife --outfile=dist/content.js && cp manifest.json dist/",
-    "watch": "npm run build -- --watch"
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch"
   },
   "dependencies": {
     "@news/contracts": "*"

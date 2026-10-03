@@ -4,11 +4,13 @@
 
 Из свежего куска транскрипта выделяет утверждения, которые можно и стоит проверить.
 
-|        | Тип                                                                       | Файл       |
-| ------ | ------------------------------------------------------------------------- | ---------- |
-| Вход   | `ClaimExtractionInput` (новые сегменты + контекст + уже найденные тезисы) | `types.ts` |
-| Выход  | `ClaimExtractionOutput` (`Claim[]`)                                       | `types.ts` |
-| Пример | `mockClaimExtractionInput`, `mockClaimExtractionOutput`                   | `mock.ts`  |
+|        | Тип                                                                                       | Файл       |
+| ------ | ----------------------------------------------------------------------------------------- | ---------- |
+| Вход   | `ClaimExtractionInput` (новые сегменты + контекст + уже найденные тезисы)                 | `types.ts` |
+| Выход  | `ClaimExtractionOutput` (`Claim[]`)                                                       | `types.ts` |
+| Пример | `mockClaimExtractionInput`, `mockClaimExtractionOutput`                                   | `mock.ts`  |
+| Mock   | `STAGE_CLAIM_EXTRACTION=mock` → mock-функция в конце `mock.ts`                            | `mock.ts`  |
+| Real   | `STAGE_CLAIM_EXTRACTION=real` в `.env`, нужны: `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL` | `real.ts`  |
 
 ## Что считается тезисом
 
