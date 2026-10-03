@@ -71,6 +71,11 @@ export const config = {
       provider: env.LLM_PROVIDER ?? "",
       apiKey: env.LLM_API_KEY ?? "",
       model: env.LLM_MODEL ?? "",
+      /**
+       * Быстрая модель для простой механической работы (выписать структуру из копий, этап 05).
+       * Не задана — основная. Замер: gpt-4.1-mini + пачки — этап 05 в 2,3 раза быстрее, те же первоисточники.
+       */
+      fastModel: env.LLM_MODEL_FAST || env.LLM_MODEL || "",
       /** Эмбеддинги для поиска дублей текста в дереве (этап 05) */
       embeddingModel: env.LLM_EMBEDDING_MODEL || "text-embedding-3-small",
     },

@@ -53,7 +53,8 @@ interface Extraction {
 /**
  * REAL-РЕАЛИЗАЦИЯ (STAGE_PROVENANCE=real). Подробно — README этапа, раздел «Реализация».
  *  1. Похожесть текстов: эмбеддинги утверждения и копий одним batch-запросом; упали — шинглы (лог, без исключения).
- *  2. Структура (LLM, один вызов, effort low): есть ли утверждение в копии, его ClaimStructure, на кого ссылается.
+ *  2. Структура (быстрая LLM, пачками по EXTRACT_BATCH параллельно): есть ли утверждение в копии,
+ *     его ClaimStructure, на кого ссылается.
  *     Атрибуции этапа 04 (copy.attributions) дерево добавит к ответу LLM само — они работают и без LLM.
  *     Копий больше MAX_COPIES — LLM читает самые датированные/похожие, остальные — без структуры.
  *     Сбой LLM (кроме LlmConfigError и отмены) — дерево без структур, атрибуции — только от 04, с логом.
@@ -72,11 +73,17 @@ export const buildProvenanceTreeReal: Stage<ProvenanceInput, ProvenanceTree> = a
     });
   }
 
+  const t0 = Date.now();
   const similarity = await textSimilarity(claim, copies, ctx);
+  const tSim = Date.now();
   const picked = pickForExtraction(copies, similarity.toClaim).map((i) => copies[i]);
   if (picked.length < copies.length)
     ctx.log(`05: ${claim.id}: структуру читаем в ${picked.length} из ${copies.length} копий`);
   const extraction = await extractStructures(input, picked, ctx);
+  ctx.log(
+    `⏱ 05 ${claim.id}: эмбеддинги ${((tSim - t0) / 1000).toFixed(1)}с, ` +
+      `структуры LLM (${picked.length} копий) ${((Date.now() - tSim) / 1000).toFixed(1)}с`,
+  );
 
   const facts = copies.map((source): CopyFacts => ({
     source,
@@ -144,44 +151,72 @@ async function textSimilarity(claim: Claim, copies: SourceCopy[], ctx: StageCont
   }
 }
 
+/**
+ * Сколько копий в одном вызове LLM; пачки идут параллельно. Время быстрой модели упирается в длину ответа
+ * (структура на каждую копию), поэтому несколько коротких ответов одновременно быстрее одного длинного.
+ * Каждая копия сравнивается с утверждением сама по себе — смысл не меняется.
+ */
+export const EXTRACT_BATCH = 5;
+
 async function extractStructures(
   input: ProvenanceInput,
   copies: SourceCopy[],
   ctx: StageContext,
 ): Promise<Extraction | null> {
   const { claim } = input;
-  try {
-    const { data } = await askJson(
-      {
-        effort: "low",
-        system: SYSTEM_PROMPT,
-        prompt: buildPrompt(claim, input.video, copies),
-        schema: ExtractionSchema,
-      },
-      ctx,
-    );
-    const asked = new Set(copies.map((c) => c.id));
-    const byId: Extraction["copies"] = new Map();
-    for (const raw of data.copies) {
-      if (!asked.has(raw.id) || byId.has(raw.id)) continue;
-      if (raw.containsClaim && !raw.structure)
-        ctx.log(`05: ${claim.id}: ${raw.id}: утверждение есть, но структуры нет — считаем, что нет`);
-      byId.set(raw.id, {
-        structure: raw.containsClaim && raw.structure ? cleanStructure(raw.structure) : null,
-        cites: cleanCites(raw.cites),
-      });
-    }
-    const missing = copies.length - byId.size;
-    if (missing) ctx.log(`05: ${claim.id}: LLM пропустила ${missing} копий — они без структуры`);
-    return { video: cleanStructure(data.video), copies: byId };
-  } catch (err) {
-    if (isFatal(err, ctx)) throw err;
+  const batches: SourceCopy[][] = [];
+  for (let i = 0; i < copies.length; i += EXTRACT_BATCH) batches.push(copies.slice(i, i + EXTRACT_BATCH));
+
+  const results = await Promise.allSettled(
+    batches.map((batch) =>
+      askJson(
+        {
+          effort: "low",
+          // выписать структуру — механическая работа: быстрая модель (замер: в 2,3 раза быстрее, те же корни)
+          fast: true,
+          // пачка обычно ~4 с; повисшая через 15 с повторяется, а не ждёт 90
+          timeoutMs: 15_000,
+          system: SYSTEM_PROMPT,
+          prompt: buildPrompt(claim, input.video, batch),
+          schema: ExtractionSchema,
+        },
+        ctx,
+      ),
+    ),
+  );
+
+  const fatal = results.find((r) => r.status === "rejected" && isFatal(r.reason, ctx));
+  if (fatal?.status === "rejected") throw fatal.reason;
+  const ok = results.flatMap((r) => (r.status === "fulfilled" ? [r.value.data] : []));
+  if (!ok.length) {
+    const first = results.find((r) => r.status === "rejected");
     ctx.log(
       `05: ${claim.id}: структура не извлечена — дерево без структур, атрибуции только от 04`,
-      errorMessage(err),
+      first?.status === "rejected" ? errorMessage(first.reason) : "",
     );
     return null;
   }
+  if (ok.length < batches.length) {
+    ctx.log(
+      `05: ${claim.id}: ${batches.length - ok.length} из ${batches.length} пачек копий не разобраны — они без структуры`,
+    );
+  }
+
+  const asked = new Set(copies.map((c) => c.id));
+  const byId: Extraction["copies"] = new Map();
+  for (const raw of ok.flatMap((d) => d.copies)) {
+    if (!asked.has(raw.id) || byId.has(raw.id)) continue;
+    if (raw.containsClaim && !raw.structure)
+      ctx.log(`05: ${claim.id}: ${raw.id}: утверждение есть, но структуры нет — считаем, что нет`);
+    byId.set(raw.id, {
+      structure: raw.containsClaim && raw.structure ? cleanStructure(raw.structure) : null,
+      cites: cleanCites(raw.cites),
+    });
+  }
+  const missing = copies.length - byId.size;
+  if (missing) ctx.log(`05: ${claim.id}: LLM пропустила ${missing} копий — они без структуры`);
+  // структура самого видео одинакова во всех пачках — берём из первой удачной
+  return { video: cleanStructure(ok[0]!.video), copies: byId };
 }
 
 // ===================== ЧИСТКА ОТВЕТА LLM =====================

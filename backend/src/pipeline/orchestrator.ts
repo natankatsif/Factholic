@@ -138,6 +138,8 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
     let fc: FactCheck;
     try {
       progress(claim, "source_search");
+      const t0 = Date.now();
+      const lap = (from: number) => `${((Date.now() - from) / 1000).toFixed(1)}с`;
       const { sources, copies, search } = await searchSources(
         // язык материала + румынский и русский (молдавское инфопространство) + английский
         {
@@ -155,15 +157,21 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
         `источников ${sources.length}, копий ${treeCopies.length}`,
         sources.length,
       );
+      const t04 = Date.now();
       const tree = await buildTree(claim, treeCopies);
+      const t05 = Date.now();
       progress(claim, "stances", tree ? `узлов в дереве ${tree.nodes.length}` : "без дерева");
       // три проверки висят на дереве: мутации и стороны — параллельно, дата корня — без внешних API
+      let t06 = 0;
+      let t08 = 0;
       const [mutations, stances] = await Promise.all([
         tree
-          ? findMutations({ claim, tree, uiLanguage: request.uiLanguage }, ctx).catch((err: unknown) => {
-              ctx.log("06: мутации не найдены", err);
-              return null;
-            })
+          ? findMutations({ claim, tree, uiLanguage: request.uiLanguage }, ctx)
+              .catch((err: unknown) => {
+                ctx.log("06: мутации не найдены", err);
+                return null;
+              })
+              .finally(() => (t06 = Date.now() - t05))
           : null,
         // перепечатки одного корня — один голос
         assessStances(
@@ -175,12 +183,16 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
             voteGroups: tree ? voteGroupsForSources(tree, treeCopies, sources) : undefined,
           },
           ctx,
-        ),
+        ).finally(() => (t08 = Date.now() - t05)),
       ]);
       const provenance: ProvenanceResult | null = tree
         ? { tree, mutations, rootDate: checkRootDate({ claim, tree, videoPublishedAt: video.publishedAt }) }
         : null;
       fc = toFactCheck({ kind: "checked", claim, sources, stances, provenance, search });
+      ctx.log(
+        `⏱ ${claim.id}: 04 поиск ${((t04 - t0) / 1000).toFixed(1)}с, 05 дерево ${((t05 - t04) / 1000).toFixed(1)}с, ` +
+          `06 мутации ${(t06 / 1000).toFixed(1)}с ‖ 08 стороны ${(t08 / 1000).toFixed(1)}с, всего ${lap(t0)}`,
+      );
     } catch (err) {
       if (signal.aborted) return;
       ctx.log("claim failed", err);

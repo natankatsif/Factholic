@@ -30,6 +30,13 @@ export interface AskJsonParams<S extends z.ZodType> {
   prompt: string;
   schema: S;
   maxTokens?: number;
+  /** Быстрая модель (LLM_MODEL_FAST) — для механической работы без суждений */
+  fast?: boolean;
+  /**
+   * Таймаут одной попытки (мс). Запросы к OpenAI иногда «зависают» (замер: пачка 4 с, а одна — 47 с);
+   * короткий таймаут + повтор SDK ограничивает такое зависание.
+   */
+  timeoutMs?: number;
 }
 
 export async function askJson<S extends z.ZodType>(
@@ -38,16 +45,17 @@ export async function askJson<S extends z.ZodType>(
 ): Promise<{ data: z.infer<S>; model: string }> {
   const res = await getClient().responses.parse(
     {
-      model: config.providers.llm.model,
+      model: modelOf(params),
       instructions: params.system,
       input: params.prompt,
-      reasoning: { effort: params.effort },
+      // у моделей без «размышления» (gpt-4.x, gpt-3.5) параметра reasoning нет — API его отклонит
+      ...(/^gpt-(3|4)/.test(modelOf(params)) ? {} : { reasoning: { effort: params.effort } }),
       max_output_tokens: params.maxTokens ?? 16000,
       text: { format: zodTextFormat(params.schema, "result") },
       // расшифровки и тексты страниц не нужно хранить на стороне OpenAI
       store: false,
     },
-    { signal: ctx.signal },
+    { signal: ctx.signal, ...(params.timeoutMs ? { timeout: params.timeoutMs } : {}) },
   );
 
   if (res.status === "incomplete")
@@ -85,4 +93,8 @@ export async function embed(texts: string[], ctx: StageContext): Promise<number[
     if (v.length !== dim || !v.every(Number.isFinite)) throw new Error("Эмбеддинги: векторы разной длины");
   }
   return vectors as number[][];
+}
+
+function modelOf(params: { fast?: boolean }): string {
+  return params.fast ? config.providers.llm.fastModel : config.providers.llm.model;
 }
