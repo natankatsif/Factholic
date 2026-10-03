@@ -47,6 +47,8 @@ export const config = {
     asr: { provider: env.ASR_PROVIDER ?? "", apiKey: env.ASR_API_KEY ?? "" },
     llm: { provider: env.LLM_PROVIDER ?? "", apiKey: env.LLM_API_KEY ?? "", model: env.LLM_MODEL ?? "" },
     search: { provider: env.SEARCH_PROVIDER ?? "", apiKey: env.SEARCH_API_KEY ?? "" },
+    /** Google Fact Check Tools — необязательный второй поисковик этапа 04 (разборы фактчекеров) */
+    factCheck: { apiKey: env.GOOGLE_FACTCHECK_API_KEY ?? "" },
   },
 } as const;
 

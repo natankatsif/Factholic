@@ -285,9 +285,9 @@ npm run format       # prettier по всему репо
 | Оркестратор, сервер, WS                                               | ✅ работают end-to-end; `GET /api/jobs/:id` только в replay            |
 | 01 ingest                                                             | mock ✅ · real ⏳ (yt-dlp, субтитры, ffmpeg, live-режим)               |
 | 02 transcription                                                      | mock ✅ · real ⏳ (ASR с word timestamps)                              |
-| 03 claim-extraction                                                   | mock ✅ · real ⏳ (LLM structured output)                              |
-| 04 source-search                                                      | mock ✅ · real ⏳ (поисковый API, загрузка страниц, разнообразие)      |
-| 05 verification                                                       | mock ✅ · real ⏳ (LLM, шкала score↔label)                             |
+| 03 claim-extraction                                                   | mock ✅ · real ✅ (OpenAI, structured output, точный `range`)          |
+| 04 source-search                                                      | mock ✅ · real ✅ (Tavily + Fact Check, отбор по разнообразию)         |
+| 05 verification                                                       | mock ✅ · real ✅ (OpenAI, шкала score↔label, иначе `unverifiable`)    |
 | 06 delivery                                                           | ✅ реализован (`toFactCheck`)                                          |
 | Расширение                                                            | ⏳ каркас: детект видео, WS, хранение FactCheck; **UI оверлея — TODO** |
 | Обработка `playback` (перемотка), кэш по видео, хранилище результатов | ⏳ TODO (backend-core)                                                 |
@@ -305,7 +305,7 @@ npm run format       # prettier по всему репо
 
 ## 12. Открытые вопросы
 
-- Какие провайдеры: ASR (Whisper / Deepgram / AssemblyAI), LLM, поиск (Tavily / Brave / Google Fact Check API).
+- Какие провайдеры: ASR (Whisper / Deepgram / AssemblyAI). Для 03–05 выбраны OpenAI и Tavily + Google Fact Check.
 - Где хранить результаты и кэш (Redis / Postgres), TTL кэша для новостных видео.
 - Справочник надёжности доменов (`domainReliability`) — откуда брать.
 - Дизайн оверлея: бейдж на таймлайне плеера + всплывающая карточка? Панель сбоку?
