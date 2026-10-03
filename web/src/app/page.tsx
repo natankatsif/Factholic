@@ -3,8 +3,8 @@
 import React, { useState } from "react";
 import type { VideoReport, FactCheck } from "@news/contracts";
 import { MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
+import { HomeHero } from "../components/home/HomeHero";
 import { Header } from "../components/Header";
-import { HomeHero } from "../components/HomeHero";
 import { AnalysisScreen } from "../components/AnalysisScreen";
 import { ProvenanceTreeScreen } from "../components/ProvenanceTreeScreen";
 
@@ -127,7 +127,7 @@ export default function HomePage() {
 
       setIsLoading(false);
       setActiveScreen("screen1");
-    }, 350);
+    }, 400);
   };
 
   const currentFactCheck =
@@ -136,8 +136,8 @@ export default function HomePage() {
 
   return (
     <div
-      className={`bg-[#F1EBE9] flex flex-col font-sans ${
-        activeScreen === "home" ? "h-screen w-screen overflow-hidden" : "min-h-screen"
+      className={`bg-[#F1EBE9] flex flex-col font-sans text-[#4A3333] ${
+        activeScreen === "home" ? "min-h-screen w-screen overflow-x-hidden" : "min-h-screen"
       }`}
     >
       {/* If in screen 1 or 2, show the top navigation bar */}
@@ -152,11 +152,13 @@ export default function HomePage() {
 
       {/* Screen Router */}
       {activeScreen === "home" && (
-        <div className="w-full h-full flex items-center justify-center overflow-hidden">
-          <div className="w-full max-w-[1440px] h-full flex flex-col justify-between overflow-hidden">
-            <HomeHero onCheck={handleCheck} isLoading={isLoading} />
-          </div>
-        </div>
+        <main className="w-full flex-1 flex items-center justify-center">
+          <HomeHero
+            onCheck={handleCheck}
+            isLoading={isLoading}
+            onLogin={() => alert("Авторизация для редакций скоро будет доступна!")}
+          />
+        </main>
       )}
 
       {activeScreen === "screen1" && (
