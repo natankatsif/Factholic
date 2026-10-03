@@ -29,6 +29,11 @@ export interface AskJsonParams<S extends z.ZodType> {
   prompt: string;
   schema: S;
   maxTokens?: number;
+  /**
+   * Таймаут одной попытки (мс). Запросы к OpenAI иногда «зависают» на минуту и больше, хотя обычно идут 4 с
+   * (замер: 81 с и 118 с вместо 4 с). Короткий таймаут + повтор SDK ограничивает такое зависание.
+   */
+  timeoutMs?: number;
 }
 
 export async function askJson<S extends z.ZodType>(
@@ -46,7 +51,7 @@ export async function askJson<S extends z.ZodType>(
       // расшифровки и тексты страниц не нужно хранить на стороне OpenAI
       store: false,
     },
-    { signal: ctx.signal },
+    { signal: ctx.signal, ...(params.timeoutMs ? { timeout: params.timeoutMs } : {}) },
   );
 
   if (res.status === "incomplete")

@@ -20,11 +20,15 @@ function deferred<T = void>() {
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 describe("limited", () => {
-  it("не больше 6 задач одновременно, остальные ждут и запускаются по очереди", async () => {
+  /** Лимит из config (SEARCH_MAX_PARALLEL, по умолчанию 30) */
+  const N = config.limits.searchParallel;
+  const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+  it("не больше лимита задач одновременно, остальные ждут и запускаются по очереди", async () => {
     let running = 0;
     let maxRunning = 0;
     const started: number[] = [];
-    const gates = Array.from({ length: 15 }, () => deferred());
+    const gates = Array.from({ length: N + 9 }, () => deferred());
     const all = Promise.all(
       gates.map((gate, i) =>
         limited(async () => {
@@ -39,22 +43,22 @@ describe("limited", () => {
     );
 
     await flush();
-    assert.deepEqual(started, [0, 1, 2, 3, 4, 5]);
+    assert.deepEqual(started, range(N));
 
     gates[2].resolve();
     await flush();
-    assert.deepEqual(started, [0, 1, 2, 3, 4, 5, 6], "освободился один слот — стартовала ровно одна задача");
+    assert.deepEqual(started, range(N + 1), "освободился один слот — стартовала ровно одна задача");
 
     for (const gate of gates) gate.resolve();
     assert.deepEqual(
       await all,
       gates.map((_, i) => i * 10),
     );
-    assert.equal(maxRunning, 6);
+    assert.equal(maxRunning, N);
   });
 
   it("упавшая задача освобождает слот, ошибка доходит до вызывающего", async () => {
-    const gates = Array.from({ length: 6 }, () => deferred());
+    const gates = Array.from({ length: N }, () => deferred());
     const failing = gates.map((gate) =>
       limited(async () => {
         await gate.promise;
@@ -85,8 +89,9 @@ describe("limited", () => {
     assert.ok(results.every((r) => r.status === "rejected"));
   });
 
-  it("после завершения всех задач снова доступны все 6 слотов", async () => {
-    const gates = Array.from({ length: 7 }, () => deferred());
+  it("после завершения всех задач снова доступны все слоты", async () => {
+    const N = config.limits.searchParallel;
+    const gates = Array.from({ length: N + 1 }, () => deferred());
     let started = 0;
     const tasks = gates.map((gate) =>
       limited(async () => {
@@ -95,7 +100,7 @@ describe("limited", () => {
       }),
     );
     await flush();
-    assert.equal(started, 6);
+    assert.equal(started, N);
     for (const gate of gates) gate.resolve();
     await Promise.all(tasks);
   });

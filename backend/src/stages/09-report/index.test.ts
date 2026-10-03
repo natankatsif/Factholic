@@ -281,3 +281,27 @@ describe("09-report: цифра, которой нет у первоисточн
     assert.notEqual(res.consensus, "flagged");
   });
 });
+
+describe("09-report: недостаточно информации после поиска", () => {
+  it("жёсткий пробел поиска — итог «недостаточно информации» и главный вывод с причиной", () => {
+    const res = toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: mockSourceSearchOutput.sources,
+      stances: mockStancesOutput,
+      provenance: null,
+      search: {
+        rounds: 3,
+        sufficient: false,
+        unconfirmed: ["ни один источник не называет число 200 (пострадавших)"],
+        gaps: [],
+      },
+    });
+    assert.equal(res.consensus, "unverifiable");
+    assert.equal(
+      res.consensusSummary,
+      "недостаточно информации: ни один источник не называет число 200 (пострадавших)",
+    );
+    assert.equal(res.keyFinding?.title, "Недостаточно информации");
+  });
+});

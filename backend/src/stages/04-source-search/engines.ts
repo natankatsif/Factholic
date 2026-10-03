@@ -59,14 +59,36 @@ interface TavilyResult {
   published_date?: string;
 }
 
+/** Пауза перед повтором, если Tavily ответил 429 «слишком часто» */
+const RETRY_AFTER_429_MS = 1500;
+
+/**
+ * POST /search с ключом и таймаутом. 429 (лимит запросов в минуту) — один повтор через паузу:
+ * при параллельной проверке нескольких видео запросы идут пачками. Другие ошибки — исключение.
+ */
+export async function tavilyPost(body: Record<string, unknown>, signal: AbortSignal): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${config.providers.search.apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]),
+    });
+    if (res.ok) return res;
+    if (res.status === 429 && attempt === 0) {
+      await new Promise((r) => setTimeout(r, RETRY_AFTER_429_MS));
+      continue;
+    }
+    throw new Error(`Tavily ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  }
+}
+
 export async function tavilySearch(q: PlannedQuery, signal: AbortSignal): Promise<Candidate[]> {
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${config.providers.search.apiKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
+  const res = await tavilyPost(
+    {
       query: q.text,
       search_depth: "advanced",
       topic: q.freshness === "month" ? "news" : "general",
@@ -75,10 +97,9 @@ export async function tavilySearch(q: PlannedQuery, signal: AbortSignal): Promis
       chunks_per_source: 3,
       include_raw_content: "text",
       exclude_domains: EXCLUDE_DOMAINS,
-    }),
-    signal: AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]),
-  });
-  if (!res.ok) throw new Error(`Tavily ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    },
+    signal,
+  );
 
   const body = (await res.json()) as { results?: TavilyResult[] };
   return (body.results ?? []).map((r) => ({
@@ -155,16 +176,26 @@ export async function factCheckSearch(q: PlannedQuery, signal: AbortSignal): Pro
 // ---------- ограничение параллельности ----------
 
 /** Тезисы куска проверяются параллельно — без лимита поисковик быстро ответит 429 */
-const MAX_PARALLEL = 6;
+const MAX_PARALLEL = config.limits.searchParallel;
 let active = 0;
 const waiting: Array<() => void> = [];
 
+/** Замеры очереди к поиску: сколько запросов, сколько ждали свободного слота и сколько шли сами (для логов и бенчмарков) */
+export const searchStats = { calls: 0, waitMs: 0, runMs: 0, maxWaitMs: 0 };
+
 export async function limited<T>(fn: () => Promise<T>): Promise<T> {
+  const queued = Date.now();
   if (active < MAX_PARALLEL) active++;
   else await new Promise<void>((resolve) => waiting.push(resolve)); // слот передаётся из finally
+  const started = Date.now();
+  const wait = started - queued;
+  searchStats.calls++;
+  searchStats.waitMs += wait;
+  searchStats.maxWaitMs = Math.max(searchStats.maxWaitMs, wait);
   try {
     return await fn();
   } finally {
+    searchStats.runMs += Date.now() - started;
     const next = waiting.shift();
     if (next) next();
     else active--;

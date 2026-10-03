@@ -138,7 +138,7 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
     let fc: FactCheck;
     try {
       progress(claim, "source_search");
-      const { sources, copies } = await searchSources(
+      const { sources, copies, search } = await searchSources(
         // язык материала + румынский и русский (молдавское инфопространство) + английский
         {
           claim,
@@ -180,7 +180,7 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
       const provenance: ProvenanceResult | null = tree
         ? { tree, mutations, rootDate: checkRootDate({ claim, tree, videoPublishedAt: video.publishedAt }) }
         : null;
-      fc = toFactCheck({ kind: "checked", claim, sources, stances, provenance });
+      fc = toFactCheck({ kind: "checked", claim, sources, stances, provenance, search });
     } catch (err) {
       if (signal.aborted) return;
       ctx.log("claim failed", err);

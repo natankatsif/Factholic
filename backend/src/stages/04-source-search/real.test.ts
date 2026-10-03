@@ -651,3 +651,67 @@ describe("searchSourcesReal: copies — «то же событие?»", () => {
     assert.equal(out.copies?.length, 3);
   });
 });
+
+describe("searchSourcesReal: умный поиск до 3 раундов", () => {
+  const warPage = (domain: string) => ({
+    url: `https://${domain}/voina-v-ukraine-${domain.length}`,
+    title: `Война в Украине продолжается — ${domain}`,
+    score: 0.8,
+    raw_content: "Война в Украине продолжается: бои идут на нескольких направлениях, на территории Украины.",
+  });
+  const isFollowUp = (req: LlmRequest) => /Первые поиски дали мало/.test(req.instructions);
+  let followUpCalls = 0;
+
+  beforeEach(() => {
+    followUpCalls = 0;
+  });
+
+  it("мало источников → LLM даёт прицельные запросы → раунд 2; хватило — дальше не ищем", async () => {
+    respondLlm = (req) => {
+      if (!isFollowUp(req)) return llmQueries(LLM_QUERIES);
+      followUpCalls++;
+      return llmQueries([
+        { text: "războiul din Ucraina", language: "ro", intent: "confirm", freshness: "any" },
+      ]);
+    };
+    respondTavily = (req) => {
+      if (req.body.include_raw_content === "markdown") return json({ results: [] });
+      // раунд 1 — только один сайт; дополнительный запрос — ещё два
+      return json({
+        results:
+          req.body.query === "războiul din Ucraina" ? [warPage("b.ro"), warPage("c.md")] : [warPage("a.md")],
+      });
+    };
+    const out = await searchSourcesReal(input, makeCtx());
+    assert.equal(followUpCalls, 1);
+    assert.deepEqual(out.search, { rounds: 2, sufficient: true, unconfirmed: [], gaps: [] });
+    assert.ok(sourceRequests().some((r) => r.body.query === "războiul din Ucraina"));
+    assert.equal(out.sources.length, 3);
+  });
+
+  it("не хватает и после 3 раундов — останавливаемся, пробел уходит в search.unconfirmed", async () => {
+    let n = 0;
+    respondLlm = (req) => {
+      if (!isFollowUp(req)) return llmQueries(LLM_QUERIES);
+      followUpCalls++;
+      return llmQueries([
+        { text: `новый запрос ${++n}`, language: "ru", intent: "confirm", freshness: "any" },
+      ]);
+    };
+    respondTavily = (req) =>
+      json({ results: req.body.include_raw_content === "markdown" ? [] : [warPage("a.md")] });
+    const out = await searchSourcesReal(input, makeCtx());
+    assert.equal(out.search?.rounds, 3);
+    assert.equal(followUpCalls, 2, "после 3-го раунда новых запросов не просим");
+    assert.deepEqual(out.search?.unconfirmed, ["найден только один независимый источник"]);
+  });
+
+  it("LLM не придумала новых запросов — поиск останавливается после первого раунда", async () => {
+    respondLlm = (req) => (isFollowUp(req) ? llmQueries([]) : llmQueries(LLM_QUERIES));
+    respondTavily = (req) =>
+      json({ results: req.body.include_raw_content === "markdown" ? [] : [warPage("a.md")] });
+    const out = await searchSourcesReal(input, makeCtx());
+    assert.equal(out.search?.rounds, 1);
+    assert.equal(out.search?.sufficient, false);
+  });
+});

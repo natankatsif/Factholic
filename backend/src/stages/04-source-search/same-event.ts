@@ -49,6 +49,8 @@ export async function filterSameEvent(
     const { data } = await askJson(
       {
         effort: "low",
+        // обычно ~4 с; зависший запрос через 20 с повторяется
+        timeoutMs: 20_000,
         system: SAME_EVENT_SYSTEM,
         prompt: buildSameEventPrompt(claim, copies),
         schema: VerdictsSchema,

@@ -1,6 +1,6 @@
 import type { FactCheck } from "@news/contracts";
 import type { Claim } from "../03-claim-extraction/types.ts";
-import type { FoundSource } from "../04-source-search/types.ts";
+import type { FoundSource, SearchReport } from "../04-source-search/types.ts";
 import type { ProvenanceTree } from "../05-provenance/types.ts";
 import type { MutationsOutput } from "../06-mutations/types.ts";
 import type { RootDateOutput } from "../07-root-date/types.ts";
@@ -31,6 +31,8 @@ export type ReportInput =
       stances: StancesOutput;
       /** null — дерево не построено (ошибка этапа 05); стороны всё равно показываются */
       provenance: ProvenanceResult | null;
+      /** Итог «умного» поиска (этап 04): что не удалось подтвердить → «Недостаточно информации» */
+      search?: SearchReport;
     }
   | { kind: "failed"; claim: Claim; error: string };
 

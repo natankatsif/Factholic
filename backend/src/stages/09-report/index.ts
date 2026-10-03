@@ -85,12 +85,13 @@ export function toFactCheck(input: ReportInput): ReportOutput {
     case "checked": {
       const { stances, provenance } = input;
       const flags = buildFlags(provenance?.rootDate, provenance?.mutations);
-      const { consensus, consensusSummary } = buildConsensus(stances.consensus.status, flags);
-      const keyFinding = buildKeyFinding(
-        flags,
-        provenance?.rootDate,
-        claim.structure?.time?.relative ?? true,
-      );
+      const unconfirmed = input.search?.unconfirmed ?? [];
+      const { consensus, consensusSummary } = buildConsensus(stances.consensus.status, flags, unconfirmed);
+      const keyFinding =
+        buildKeyFinding(flags, provenance?.rootDate, claim.structure?.time?.relative ?? true) ??
+        (consensus === "unverifiable" && unconfirmed.length
+          ? { title: "Недостаточно информации", subtitle: unconfirmed.join("; ") }
+          : undefined);
 
       const byId = new Map(stances.sourceAssessments.map((a) => [a.sourceId, a]));
       const sources = input.sources
@@ -248,6 +249,8 @@ function buildKeyFinding(
 function buildConsensus(
   status: ConsensusStatus,
   flags: ClaimFlag[],
+  /** Жёсткие пробелы поиска: «ни один источник не называет число 200» */
+  unconfirmed: string[] = [],
 ): { consensus: ClaimConsensus; consensusSummary: string } {
   // источники утверждению возражают — это главное, флаги остаются в карточке, но вывод «против»
   if (status === "mostly_against") return { consensus: "against", consensusSummary: "источники возражают" };
@@ -262,6 +265,10 @@ function buildConsensus(
     else if (hasExaggerated) summary = "раздуто";
     else summary = major[0].label.toLowerCase();
     return { consensus: "flagged", consensusSummary: summary };
+  }
+  // три раунда поиска не нашли, чем подтвердить или опровергнуть — честно говорим, а не угадываем
+  if (unconfirmed.length > 0) {
+    return { consensus: "unverifiable", consensusSummary: `недостаточно информации: ${unconfirmed[0]}` };
   }
 
   switch (status) {

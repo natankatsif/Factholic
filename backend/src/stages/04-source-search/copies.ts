@@ -11,11 +11,10 @@
  *  Фильтр: LLM убирает копии про другое событие того же типа (same-event.ts)
  */
 import type { ISODateString } from "@news/contracts";
-import { config } from "../../config.ts";
 import type { StageContext } from "../../pipeline/context.ts";
 import type { Claim } from "../03-claim-extraction/types.ts";
 import { normalizeHost } from "./domains.ts";
-import { limited, type Candidate } from "./engines.ts";
+import { limited, tavilyPost, type Candidate } from "./engines.ts";
 import type { PlannedQuery } from "./queries.ts";
 import { filterSameEvent } from "./same-event.ts";
 import { dedupe, enrich, registrableDomain, type Enriched } from "./select.ts";
@@ -26,7 +25,6 @@ const MAX_COPY_QUERIES = 3;
 const MAX_COPIES = 25;
 /** Сколько страниц без даты докачиваем, чтобы найти дату в разметке (каждая — отдельный запрос) */
 const MAX_PAGE_DATE_FETCHES = 8;
-const TIMEOUT_MS = 20_000;
 const PAGE_TIMEOUT_MS = 8_000;
 const MAX_LINKS = 20;
 const MAX_ATTRIBUTIONS = 8;
@@ -49,10 +47,18 @@ export async function findCopies(
   const queries = planned.filter((q) => q.intent !== "refute").slice(0, MAX_COPY_QUERIES);
   if (!queries.length) return [];
 
+  const t = [Date.now()];
+  const lap = () => {
+    t.push(Date.now());
+    return `${((t.at(-1)! - t.at(-2)!) / 1000).toFixed(1)}с`;
+  };
+  const laps: string[] = [];
+
   // Раунд 1
   const round1 = await Promise.allSettled(queries.map((q) => limited(() => tavilyCopies(q, {}, ctx.signal))));
   for (const r of round1) if (r.status === "rejected") ctx.log("04 copies: запрос упал", String(r.reason));
   const hits = round1.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  laps.push(`раунд1 ${lap()}`);
 
   // Раунд 2: самое раннее упоминание — всё, что раньше самой старой найденной копии
   const oldest = minDate(hits.map((h) => h.candidate.publishedAt ?? dateFromUrl(h.candidate.url)));
@@ -68,6 +74,7 @@ export async function findCopies(
     });
     hits.push(...earliest);
   }
+  laps.push(`ранний ${lap()}`);
 
   // Одна страница могла найтись несколькими запросами — склеиваем, ссылки и «раннесть» сохраняем
   const linksByUrl = new Map<string, CopyHit>();
@@ -95,12 +102,16 @@ export async function findCopies(
     .slice(0, MAX_COPIES)
     .map((e) => toCopy(e, linksByUrl.get(e.candidate.url), retrievedAt));
 
+  laps.push(`отбор ${lap()}`);
   await fillDatesFromPages(copies, ctx);
+  laps.push(`даты-со-страниц ${lap()}`);
 
   // временные id — чтобы LLM могла сослаться на копию; окончательные — после сортировки по дате
   copies.forEach((c, i) => (c.id = `k${i + 1}`));
   // другое событие того же типа (старое землетрясение, прошлогодняя сделка) — не копия этого утверждения
   const kept = await filterSameEvent(claim, copies, ctx);
+  laps.push(`то-же-событие ${lap()}`);
+  ctx.log(`⏱ 04 copies ${claim.id}: ${laps.join(", ")}`);
 
   kept.sort((a, b) => (a.publishedAt ?? "9999").localeCompare(b.publishedAt ?? "9999"));
   kept.forEach((c, i) => (c.id = `${claim.id}_c${i + 1}`));
@@ -127,13 +138,8 @@ async function tavilyCopies(
   dates: { end_date?: string },
   signal: AbortSignal,
 ): Promise<CopyHit[]> {
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${config.providers.search.apiKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
+  const res = await tavilyPost(
+    {
       query: q.text,
       // basic — 1 кредит вместо 2: копий много, а качество выдержки тут проверяем сами
       search_depth: "basic",
@@ -146,10 +152,9 @@ async function tavilyCopies(
       ...(q.language === "ro" || q.language === "ru" ? { country: "moldova" } : {}),
       ...dates,
       exclude_domains: EXCLUDE_DOMAINS,
-    }),
-    signal: AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]),
-  });
-  if (!res.ok) throw new Error(`Tavily ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    },
+    signal,
+  );
 
   const body = (await res.json()) as { results?: TavilyResult[] };
   return (body.results ?? []).map((r) => {
