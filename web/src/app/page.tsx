@@ -4,23 +4,22 @@ import React, { useState } from "react";
 import type { VideoReport, FactCheck } from "@news/contracts";
 import { MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
 import { Header } from "../components/Header";
-import { TextInputCard, DEMO_TEXT } from "../components/TextInputCard";
+import { HomeHero } from "../components/HomeHero";
 import { AnalysisScreen } from "../components/AnalysisScreen";
 import { ProvenanceTreeScreen } from "../components/ProvenanceTreeScreen";
 
 export default function HomePage() {
   const [report, setReport] = useState<VideoReport>(MOCK_VIDEO_REPORT);
-  const [activeScreen, setActiveScreen] = useState<"screen1" | "screen2">("screen1");
+  const [activeScreen, setActiveScreen] = useState<"home" | "screen1" | "screen2">("home");
   const [selectedClaimId, setSelectedClaimId] = useState<string>("clm_fire_01");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [showInputSection, setShowInputSection] = useState<boolean>(true);
 
-  // Handle incoming text or URL analysis
-  const handleAnalyze = async (text: string, isUrl: boolean) => {
+  // Handle incoming link or text submission
+  const handleCheck = async (urlOrText: string, isUrl: boolean) => {
     setIsLoading(true);
 
     try {
-      // Check if backend is available
+      // Connect to backend if available
       const backendPort = 3001;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
@@ -30,9 +29,9 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           video: {
-            pageUrl: isUrl ? text : "https://text.factcheck.example",
+            pageUrl: isUrl ? urlOrText : "https://factcheck.example/custom-text",
             platform: isUrl ? "youtube" : "other",
-            title: isUrl ? text : text.slice(0, 60) + "...",
+            title: isUrl ? urlOrText : urlOrText.slice(0, 60) + "...",
           },
           mode: "remote",
           startFrom: 0,
@@ -45,18 +44,16 @@ export default function HomePage() {
 
       if (resp && resp.ok) {
         const data = await resp.json();
-        // If backend responds, poll or connect WS
         console.log("Job created on backend:", data.jobId);
       }
     } catch {
-      // Backend not running, use mock
+      // Backend not reached, proceed with mock data
     }
 
-    // Simulate analysis delay for realistic UX if new text entered
     setTimeout(() => {
-      if (text !== DEMO_TEXT && !isUrl) {
-        // Adapt report for custom user text
-        const sentences = text
+      if (!isUrl && urlOrText.length > 30) {
+        // Custom text parsing into claims
+        const sentences = urlOrText
           .split(/(?<=[.?!])\s+/)
           .filter((s) => s.trim().length > 10);
 
@@ -68,7 +65,14 @@ export default function HomePage() {
             quote: `«${s.trim()}»`,
             claim: s.trim(),
             category: "event",
-            consensus: idx === 0 ? "flagged" : idx === 1 ? "against" : idx === 2 ? "split" : "converge",
+            consensus:
+              idx === 0
+                ? "flagged"
+                : idx === 1
+                  ? "against"
+                  : idx === 2
+                    ? "split"
+                    : "converge",
             consensusSummary:
               idx === 0
                 ? "раздуто • старое"
@@ -109,21 +113,21 @@ export default function HomePage() {
             ...MOCK_VIDEO_REPORT,
             video: {
               ...MOCK_VIDEO_REPORT.video,
-              title: text.slice(0, 80) + "...",
+              title: urlOrText.slice(0, 80) + "...",
             },
             factChecks: customFactChecks,
           });
           setSelectedClaimId(customFactChecks[0].id);
         }
       } else {
-        // Reset to original mock
+        // Mock report (fire in Chișinău + 4 claims)
         setReport(MOCK_VIDEO_REPORT);
         setSelectedClaimId("clm_fire_01");
       }
 
       setIsLoading(false);
       setActiveScreen("screen1");
-    }, 400);
+    }, 350);
   };
 
   const currentFactCheck =
@@ -132,33 +136,40 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#F1EBE9] flex flex-col font-sans">
-      <Header
-        activeScreen={activeScreen}
-        onGoToScreen1={() => setActiveScreen("screen1")}
-        onNewCheck={() => setShowInputSection((prev) => !prev)}
-      />
+      {/* If in screen 1 or 2, show the top navigation bar */}
+      {activeScreen !== "home" && (
+        <Header
+          activeScreen={activeScreen}
+          onGoHome={() => setActiveScreen("home")}
+          onGoToScreen1={() => setActiveScreen("screen1")}
+          onNewCheck={() => setActiveScreen("home")}
+        />
+      )}
 
-      <main className="flex-1 max-w-[1400px] w-full mx-auto p-4 sm:p-6 flex flex-col gap-4">
-        {/* Toggleable Text Input Bar */}
-        {showInputSection && (
-          <TextInputCard onAnalyze={handleAnalyze} isLoading={isLoading} />
-        )}
+      {/* Screen Router */}
+      {activeScreen === "home" && (
+        <HomeHero onCheck={handleCheck} isLoading={isLoading} />
+      )}
 
-        {/* Screen 1 or Screen 2 */}
-        {activeScreen === "screen1" ? (
+      {activeScreen === "screen1" && (
+        <main className="flex-1 max-w-[1400px] w-full mx-auto p-4 sm:p-6 flex flex-col gap-4">
           <AnalysisScreen
             report={report}
             selectedClaimId={selectedClaimId}
             onSelectClaimId={(id) => setSelectedClaimId(id)}
             onOpenProvenanceTree={() => setActiveScreen("screen2")}
           />
-        ) : (
+        </main>
+      )}
+
+      {activeScreen === "screen2" && (
+        <main className="flex-1 max-w-[1400px] w-full mx-auto p-4 sm:p-6 flex flex-col gap-4">
           <ProvenanceTreeScreen
             factCheck={currentFactCheck}
             onBack={() => setActiveScreen("screen1")}
           />
-        )}
-      </main>
+        </main>
+      )}
     </div>
   );
 }
