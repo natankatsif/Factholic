@@ -91,15 +91,35 @@ export const buildProvenanceTreeReal: Stage<ProvenanceInput, ProvenanceTree> = a
 
   const via = (v: string) => tree.nodes.filter((n) => n.id !== VIDEO_NODE_ID && n.via === v).length;
   ctx.log(`05: ${claim.id}: дерево`, {
+    claim: claim.normalized,
     copies: copies.length,
     withClaim: facts.filter((f) => f.structure).length,
+    llm: extraction ? "ok" : "failed",
     similarity: similarity.method,
     edges: { link: via("link"), attribution: via("attribution"), duplicate: via("duplicate") },
+    outboundLinks: copies.reduce((n, c) => n + c.outboundLinks.length, 0),
+    attributions: copies.reduce((n, c) => n + c.attributions.length, 0),
     rootId: tree.rootId,
     videoParent: tree.nodes.at(-1)?.parentId ?? null,
+    // самые похожие на утверждение копии и решение LLM по ним — видно, где дерево «теряет» утверждение
+    closest: topSimilar(facts, similarity.toClaim, 5),
   });
   return tree;
 };
+
+function topSimilar(facts: CopyFacts[], toClaim: number[], n: number) {
+  return facts
+    .map((f, i) => ({ f, score: toClaim[i] ?? 0 }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n)
+    .map(({ f, score }) => ({
+      similarity: Math.round(score * 100) / 100,
+      containsClaim: f.structure !== null,
+      date: f.source.publishedAt?.slice(0, 10) ?? null,
+      domain: f.source.domain,
+      title: f.source.title.slice(0, 80),
+    }));
+}
 
 // ===================== ШАГИ =====================
 
