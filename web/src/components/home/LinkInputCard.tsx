@@ -33,7 +33,7 @@ export function LinkInputCard({
     <form
       onSubmit={handleSubmit}
       data-pencil-name="Link Input"
-      className="box-border w-full max-w-[760px] h-[64px] sm:h-[72px] xl:h-[80px] shrink-0 [box-shadow:0px_10px_30px_#4A333314] flex flex-row gap-3 sm:gap-[14px] p-1.5 sm:p-2 pl-4 sm:p-[8px_8px_8px_28px] justify-start items-center bg-[#FBF8F7] [outline:2px_solid_#E3D9D6] [outline-offset:-1px] rounded-[100px] transition-all focus-within:[outline-color:#4A3333]"
+      className="box-border w-full max-w-[760px] h-[58px] sm:h-[66px] xl:h-[72px] shrink-0 [box-shadow:0px_10px_30px_#4A333314] flex flex-row gap-3 sm:gap-[14px] p-1.5 sm:p-2 pl-4 sm:p-[6px_6px_6px_24px] justify-start items-center bg-[#FBF8F7] [outline:2px_solid_#E3D9D6] [outline-offset:-1px] rounded-[100px] transition-all focus-within:[outline-color:#4A3333]"
     >
       {/* Link 2 Lucide Icon */}
       <svg

@@ -10,14 +10,14 @@ export function Navbar({ onGoHome, onLogin, onNavClick }: NavbarProps) {
   return (
     <header
       data-pencil-name="Top Bar"
-      className="box-border w-full h-fit shrink-0 flex flex-row justify-between items-center px-6 sm:px-10 lg:px-20 py-6 lg:py-9 relative z-20"
+      className="box-border w-full h-fit shrink-0 flex flex-row justify-between items-center px-6 sm:px-10 lg:px-20 py-4 lg:py-6 relative z-20"
     >
       {/* Brand Logo */}
       <button
         type="button"
         onClick={onGoHome}
         data-pencil-name="Logo"
-        className="text-2xl sm:text-3xl lg:text-[34px] leading-normal box-border text-[#4A3333] font-black tracking-[-1px] text-left whitespace-nowrap bg-transparent border-none p-0 cursor-pointer hover:opacity-90 transition-opacity"
+        className="text-2xl sm:text-3xl lg:text-[32px] leading-normal box-border text-[#4A3333] font-black tracking-[-1px] text-left whitespace-nowrap bg-transparent border-none p-0 cursor-pointer hover:opacity-90 transition-opacity"
       >
         factholic
       </button>

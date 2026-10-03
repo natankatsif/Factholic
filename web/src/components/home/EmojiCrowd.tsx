@@ -3,9 +3,9 @@ import React from "react";
 export function EmojiCrowd() {
   return (
     <div
-        data-pencil-name="Emoji Crowd"
-        className="box-border w-[740px] h-[524px] absolute left-[800px] top-[560px] [z-index:3]"
-      >
+      data-pencil-name="Emoji Crowd"
+      className="box-border w-[740px] h-[524px] absolute right-[-20px] bottom-[-10px] xl:right-[10px] xl:bottom-[-20px] [z-index:3]"
+    >
         <div
           data-pencil-name="Blue Blob"
           className="box-border w-[240px] h-[240px] absolute left-[130px] top-[70px] bg-[#1660D6] rounded-[120px] [z-index:0]"
