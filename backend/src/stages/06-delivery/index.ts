@@ -1,4 +1,4 @@
-import type { FactCheck, SourceCard } from "@news/contracts";
+import type { ClaimConsensus, FactCheck, SourceCard } from "@news/contracts";
 import type { FoundSource } from "../04-source-search/types.ts";
 import type { SourceAssessment } from "../05-verification/types.ts";
 import type { DeliveryInput, DeliveryOutput } from "./types.ts";
@@ -19,6 +19,8 @@ export function toFactCheck(input: DeliveryInput): DeliveryOutput {
     claim: claim.normalized,
     category: claim.category,
     speaker: claim.speaker,
+    consensus: "converge",
+    flags: [],
     verdict: null,
     sources: [],
   };
@@ -35,9 +37,21 @@ export function toFactCheck(input: DeliveryInput): DeliveryOutput {
         .filter((s) => (byId.get(s.id)?.relevance ?? 0) >= MIN_RELEVANCE)
         .sort((a, b) => byId.get(b.id)!.relevance - byId.get(a.id)!.relevance)
         .map((s) => toSourceCard(s, byId.get(s.id)!));
+      const consensus: ClaimConsensus =
+        v.score === null ? "unverifiable" : v.score >= 7 ? "converge" : v.score <= 3 ? "against" : "split";
       return {
         ...base,
         status: "done",
+        consensus,
+        consensusSummary:
+          consensus === "converge"
+            ? "позиции совпадают"
+            : consensus === "split"
+              ? "мнения расходятся"
+              : consensus === "against"
+                ? "источники возражают"
+                : "требует проверки",
+        flags: [],
         verdict: {
           score: v.score,
           label: v.label,
