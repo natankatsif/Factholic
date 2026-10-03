@@ -14,11 +14,14 @@ interface HomeHeroProps {
 export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
   return (
     <div className="w-full h-full flex flex-col justify-between overflow-hidden relative select-none">
+      {/* 0. Background Cartoon Character Crowd */}
+      <EmojiBlobs />
+
       {/* 1. Header / Navbar */}
       <Navbar onGoHome={() => {}} />
 
       {/* 2. Central Content Area */}
-      <div className="w-full flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-20 z-10 gap-8 xl:gap-10">
+      <div className="w-full flex-1 flex flex-col justify-center px-6 sm:px-10 lg:px-16 z-10 gap-6 xl:gap-8 relative">
         {/* Title and stats */}
         <HeroTitle todayVerifiedCount="9 412" />
 
@@ -29,10 +32,7 @@ export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
       {/* 3. Floating Visual Pills */}
       <FloatingPills />
 
-      {/* 4. Cartoon Character Crowd */}
-      <EmojiBlobs />
-
-      {/* 5. Bottom Steps Guide */}
+      {/* 4. Bottom Steps Guide */}
       <StepsFooter />
     </div>
   );

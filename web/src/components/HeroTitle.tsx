@@ -6,26 +6,26 @@ interface HeroTitleProps {
 
 export function HeroTitle({ todayVerifiedCount = "9 412" }: HeroTitleProps) {
   return (
-    <div className="w-full flex flex-col lg:flex-row justify-between items-start gap-6 shrink-0">
-      <div className="flex flex-col gap-3 sm:gap-4">
-        <h1 className="text-6xl sm:text-7xl lg:text-[110px] xl:text-[124px] leading-[0.93] text-[#4A3333] font-black tracking-[-3px] sm:tracking-[-4px]">
+    <div className="w-full flex flex-col lg:flex-row justify-between items-start gap-4 shrink-0">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[62px] leading-[1.0] text-[#4A3333] font-black tracking-[-1.5px] sm:tracking-[-2px]">
           Проверь
           <br />
           любое видео
         </h1>
-        <p className="text-xl sm:text-2xl lg:text-[28px] leading-normal text-[#A27C7A] font-extrabold max-w-[850px]">
+        <p className="text-base sm:text-lg lg:text-[19px] leading-snug text-[#A27C7A] font-extrabold max-w-[560px]">
           Вставь ссылку — откроем плеер и разберём каждое утверждение
         </p>
       </div>
 
-      <div className="flex flex-col items-start lg:items-end pt-2 sm:pt-4 shrink-0">
-        <div className="text-lg sm:text-[22px] leading-normal text-[#4A3333] font-extrabold whitespace-nowrap">
+      <div className="flex flex-col items-start lg:items-end pt-1 shrink-0">
+        <div className="text-sm sm:text-[15px] leading-normal text-[#4A3333] font-extrabold whitespace-nowrap">
           Сегодня проверено
         </div>
-        <div className="text-4xl sm:text-5xl lg:text-[56px] leading-none text-[#4A3333] font-black tracking-[-1px] whitespace-nowrap my-1">
+        <div className="text-2xl sm:text-3xl lg:text-[38px] leading-tight text-[#4A3333] font-black tracking-[-1px] whitespace-nowrap">
           {todayVerifiedCount}
         </div>
-        <div className="text-lg sm:text-[22px] leading-normal text-[#A27C7A] font-extrabold whitespace-nowrap">
+        <div className="text-xs sm:text-[14px] leading-normal text-[#A27C7A] font-extrabold whitespace-nowrap">
           видео
         </div>
       </div>
