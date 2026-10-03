@@ -16,6 +16,7 @@ import {
   type StartAnalysisResponse,
 } from "@news/contracts";
 import { MOCK_EVENTS, MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
+import { chatConfigErrors, handleChat, type ChatRequestBody } from "./chat/index.ts";
 import { config, configErrors, describeConfig } from "./config.ts";
 import { PipelineError } from "./pipeline/context.ts";
 import { runPipeline } from "./pipeline/orchestrator.ts";
@@ -50,6 +51,27 @@ const server = createServer(async (req, res) => {
     const { job, cached } = store.create(randomUUID(), request);
     const body: StartAnalysisResponse = { jobId: job.id, eventsUrl: eventsUrlFor(req, job.id), cached };
     return sendJson(res, 200, body);
+  }
+
+  const chatMatch = req.method === "POST" && req.url?.match(/^\/api\/jobs\/([^/]+)\/chat$/);
+  if (chatMatch) {
+    const missing = chatConfigErrors();
+    if (missing.length)
+      return sendJson(res, 503, { error: `чат не настроен, в .env нужны: ${missing.join("; ")}` });
+    const report = REPLAY ? { ...MOCK_VIDEO_REPORT, jobId: chatMatch[1]! } : store.get(chatMatch[1]!)?.report;
+    if (!report) return sendJson(res, 404, { error: "задача не найдена" });
+    let body: ChatRequestBody;
+    try {
+      body = JSON.parse(await readBody(req)) as ChatRequestBody;
+      if (!Array.isArray(body?.messages) || !body.messages.length) throw new Error("нет messages");
+    } catch (err) {
+      return sendJson(res, 400, { error: `неверный запрос: ${(err as Error).message}` });
+    }
+    return handleChat(req, res, report, body).catch((err: unknown) => {
+      console.error(`[${report.jobId}] chat: упал`, err);
+      if (!res.headersSent) sendJson(res, 500, { error: "не удалось ответить" });
+      else res.end();
+    });
   }
 
   const getMatch = req.method === "GET" && req.url?.match(/^\/api\/jobs\/([^/]+)$/);

@@ -176,12 +176,22 @@ function applyEvent(report: VideoReport, event: ServerEvent): void {
       break;
     case "job.progress":
       report.processedUntil = Math.max(report.processedUntil, event.processedUntil);
+      report.stage = event.stage;
+      break;
+    case "claim.progress":
+      report.factChecks = report.factChecks.map((f) =>
+        f.id === event.claimId && f.status === "checking"
+          ? { ...f, stage: event.stage, sourcesFound: event.sourcesFound ?? f.sourcesFound }
+          : f,
+      );
       break;
     case "claim.detected":
     case "claim.checked": {
       // тот же id → заменяем ("Проверяем…" → оценка), новый → добавляем; держим порядок по таймкоду
+      // sourcesFound пришёл в claim.progress — не теряем его, когда приходит готовый тезис
+      const prev = report.factChecks.find((f) => f.id === event.factCheck.id);
       const list = report.factChecks.filter((f) => f.id !== event.factCheck.id);
-      list.push(event.factCheck);
+      list.push({ ...event.factCheck, sourcesFound: event.factCheck.sourcesFound ?? prev?.sourcesFound });
       report.factChecks = list.sort((a, b) => a.range.start - b.range.start);
       break;
     }

@@ -4,8 +4,9 @@ import { VerificationHeader } from "./VerificationHeader";
 import { ClaimTextPanel } from "./ClaimTextPanel";
 import { AnalysisCard } from "./AnalysisCard";
 import { ConsensusBar } from "./ConsensusBar";
-import { ProvenanceTreeModal } from "./ProvenanceTreeModal";
+import { TreeView } from "./TreeView";
 import { countFilters, matchesFilter, type ClaimFilter } from "./filters";
+import { materialKind } from "./material";
 
 export type VerificationView = "analysis" | "tree";
 
@@ -52,8 +53,13 @@ export function VerificationScreen({ report, view, onViewChange, onGoHome }: Ver
       <VerificationHeader onGoHome={onGoHome} />
 
       {isTreeView && currentClaim ? (
-        <main className="mx-auto min-h-0 w-full max-w-[1440px] flex-1 overflow-y-auto px-4 pb-6 sm:px-8">
-          <ProvenanceTreeModal factCheck={currentClaim} onBack={() => setView("analysis")} />
+        // lg+: колонка во всю высоту экрана, прокрутка — внутри холста и панели дерева; мобильные — обычная прокрутка
+        <main className="mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col overflow-y-auto px-4 pb-5 sm:px-8 lg:overflow-hidden">
+          <TreeView
+            factCheck={currentClaim}
+            material={materialKind(report.video)}
+            onBack={() => setView("analysis")}
+          />
         </main>
       ) : (
         <main className="mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col gap-5 px-4 pb-5 pt-1 sm:px-8 lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(380px,35.6vw,456px)] lg:gap-8 lg:pb-8">
@@ -68,6 +74,7 @@ export function VerificationScreen({ report, view, onViewChange, onGoHome }: Ver
           </div>
 
           <AnalysisCard
+            jobId={report.jobId}
             factCheck={currentClaim}
             totalClaims={report.summary?.totalClaims ?? factChecks.length}
             totalSources={totalSources}
@@ -76,6 +83,7 @@ export function VerificationScreen({ report, view, onViewChange, onGoHome }: Ver
             onFilterChange={changeFilter}
             onOpenProvenanceTree={() => setView("tree")}
             suggestedQuestions={report.summary?.suggestedQuestions}
+            material={materialKind(report.video)}
           />
         </main>
       )}

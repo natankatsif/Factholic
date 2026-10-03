@@ -15,8 +15,8 @@ import type {
 } from "@news/contracts";
 import { MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
 
-const DATA_SOURCE = process.env.NEXT_PUBLIC_DATA_SOURCE === "backend" ? "backend" : "mock";
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8787";
+export const DATA_SOURCE = process.env.NEXT_PUBLIC_DATA_SOURCE === "backend" ? "backend" : "mock";
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8787";
 
 const STORAGE_KEY = "factholic:jobs";
 const MAX_STORED = 50;
@@ -120,6 +120,7 @@ export function subscribeJob(
         if (cancelled) return;
         try {
           const event = JSON.parse(e.data as string) as ServerEvent;
+          console.debug(`[job ${jobId}]`, event.type, "stage" in event ? event.stage : "", event);
           if (event.type === "job.failed") {
             onError(new Error(event.error.message || "Ошибка при проверке"));
             return;
@@ -202,11 +203,21 @@ function applyEventToReport(existing: VideoReport | null, event: ServerEvent, jo
       break;
     case "job.progress":
       report.processedUntil = Math.max(report.processedUntil, event.processedUntil);
+      report.stage = event.stage;
+      break;
+    case "claim.progress":
+      report.factChecks = report.factChecks.map((f) =>
+        f.id === event.claimId && f.status === "checking"
+          ? { ...f, stage: event.stage, sourcesFound: event.sourcesFound ?? f.sourcesFound }
+          : f,
+      );
       break;
     case "claim.detected":
     case "claim.checked": {
+      // sourcesFound пришёл в claim.progress — не теряем его, когда приходит готовый тезис
+      const prev = report.factChecks.find((f) => f.id === event.factCheck.id);
       const list = report.factChecks.filter((f) => f.id !== event.factCheck.id);
-      list.push(event.factCheck);
+      list.push({ ...event.factCheck, sourcesFound: event.factCheck.sourcesFound ?? prev?.sourcesFound });
       report.factChecks = list.sort((a, b) => a.range.start - b.range.start);
       break;
     }

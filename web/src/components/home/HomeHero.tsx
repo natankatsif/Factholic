@@ -45,11 +45,7 @@ export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
             data-pencil-name="Link Form"
             className="box-border flex w-full max-w-[760px] flex-col items-start gap-3 xl:gap-[14px]"
           >
-            <LinkInputCard
-              onCheck={onCheck}
-              isLoading={isLoading}
-              onTypingChange={handleTypingChange}
-            />
+            <LinkInputCard onCheck={onCheck} isLoading={isLoading} onTypingChange={handleTypingChange} />
             <SupportedPlatforms />
           </div>
         </div>

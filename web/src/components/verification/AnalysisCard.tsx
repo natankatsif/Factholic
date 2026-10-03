@@ -1,6 +1,7 @@
 import React from "react";
 import type {
   ClaimConsensus,
+  JobId,
   ClaimFlag,
   FactCheck,
   ProvenanceNodeRole,
@@ -12,12 +13,14 @@ import {
   ArrowUpRight,
   Download,
   Ellipsis,
+  FileText,
   Flag,
   Frown,
   GitFork,
   Globe,
   History,
   Landmark,
+  Link,
   Meh,
   Newspaper,
   Play,
@@ -28,8 +31,11 @@ import {
 } from "lucide-react";
 import { AssistantChat } from "./AssistantChat";
 import { plural, type ClaimFilter, type FilterCounts } from "./filters";
+import { MATERIAL_LABEL, hasProvenanceTree, publicationNodes, type MaterialKind } from "./material";
 
 export interface AnalysisCardProps {
+  /** Для чата по разбору: один чат на утверждение этой проверки */
+  jobId: JobId;
   factCheck: FactCheck | undefined;
   totalClaims: number;
   totalSources: number;
@@ -38,10 +44,13 @@ export interface AnalysisCardProps {
   onFilterChange: (filter: ClaimFilter) => void;
   onOpenProvenanceTree: () => void;
   suggestedQuestions?: string[];
+  /** Что проверяем — от этого подпись и иконка последнего узла цепочки («Это видео» / «Этот текст» / …) */
+  material?: MaterialKind;
 }
 
 /** Правая колонка «Разбор»: сводка и фильтры, детали выбранного утверждения, вопросы ассистенту. */
 export function AnalysisCard({
+  jobId,
   factCheck,
   totalClaims,
   totalSources,
@@ -50,6 +59,7 @@ export function AnalysisCard({
   onFilterChange,
   onOpenProvenanceTree,
   suggestedQuestions,
+  material = "video",
 }: AnalysisCardProps) {
   return (
     <aside className="flex min-h-0 flex-col overflow-hidden rounded-[28px] bg-[#FBF8F7]">
@@ -115,18 +125,24 @@ export function AnalysisCard({
 
       <div className="mt-4 h-px shrink-0 bg-[#E3D9D6] [@media(max-height:780px)]:mt-3" />
 
-      {/* Детали выбранного утверждения — прокручиваются внутри карточки, если не влезают */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 [@media(max-height:780px)]:p-3">
-        {factCheck ? (
-          <ClaimDetails factCheck={factCheck} onOpenProvenanceTree={onOpenProvenanceTree} />
-        ) : (
-          <p className="p-2 text-sm font-semibold text-[#A27C7A]">Нет утверждений под этот фильтр</p>
-        )}
-      </div>
-
-      <div className="shrink-0 border-t border-[#E3D9D6] p-4 [@media(max-height:780px)]:p-3">
-        {factCheck && <AssistantChat currentClaim={factCheck} suggestedQuestions={suggestedQuestions} />}
-      </div>
+      {/* Чат: карточка выбранного утверждения — первое сообщение, ниже вопросы и ответы ассистента */}
+      {factCheck ? (
+        <AssistantChat
+          key={factCheck.id}
+          jobId={jobId}
+          claimId={factCheck.id}
+          suggestedQuestions={suggestedQuestions}
+          intro={
+            <ClaimDetails
+              factCheck={factCheck}
+              material={material}
+              onOpenProvenanceTree={onOpenProvenanceTree}
+            />
+          }
+        />
+      ) : (
+        <p className="p-6 text-sm font-semibold text-[#A27C7A]">Нет утверждений под этот фильтр</p>
+      )}
     </aside>
   );
 }
@@ -135,20 +151,29 @@ export function AnalysisCard({
 
 function ClaimDetails({
   factCheck,
+  material,
   onOpenProvenanceTree,
 }: {
   factCheck: FactCheck;
+  material: MaterialKind;
   onOpenProvenanceTree: () => void;
 }) {
-  const tree = factCheck.provenance;
-  const sourcesCount = tree?.totalSourcesCount ?? factCheck.sources.length;
+  // без связей дерева нет (публикаций не нашлось или они только на ту же тему) — показываем источники поиска
+  const tree = hasProvenanceTree(factCheck.provenance) ? factCheck.provenance : undefined;
+  // как в шапке «Разбор»: найденные источники, а не узлы дерева (в нём ещё и сам материал)
+  const sourcesCount = factCheck.sources.length || publicationNodes(tree).length;
+  // бэкенд может прислать один флаг дважды (одна мутация на двух рёбрах дерева)
+  const flags = factCheck.flags.filter(
+    (f, i, all) =>
+      all.findIndex((g) => g.type === f.type && g.label === f.label && g.detail === f.detail) === i,
+  );
 
   return (
     <div className="flex flex-col gap-2 rounded-[24px] bg-[#F1EBE9] p-3 [@media(max-height:780px)]:gap-1.5 [@media(max-height:780px)]:p-2">
-      {factCheck.flags.length > 0 ? (
-        factCheck.flags.map((flag) => (
+      {flags.length > 0 ? (
+        flags.map((flag) => (
           <FlagRow
-            key={flag.type + flag.label}
+            key={`${flag.type}:${flag.label}:${flag.detail}`}
             flag={flag}
             onClick={tree ? onOpenProvenanceTree : undefined}
           />
@@ -158,8 +183,14 @@ function ClaimDetails({
       )}
 
       {tree?.pathSummary?.length ? (
-        <PathCard steps={tree.pathSummary} roles={new Map(tree.nodes.map((n) => [n.name, n.role]))} />
-      ) : (
+        <PathCard
+          steps={tree.pathSummary}
+          roles={new Map(tree.nodes.map((n) => [n.name, n.role]))}
+          material={material}
+        />
+      ) : null}
+      {/* «Большинство против» без доказательств не показываем: опровергающие источники — всегда */}
+      {(!tree?.pathSummary?.length || factCheck.consensus === "against") && (
         <SourcesCard factCheck={factCheck} />
       )}
 
@@ -268,8 +299,21 @@ const ROLE_STYLE: Record<ProvenanceNodeRole, { icon: LucideIcon; bg: string; fg:
   target: { icon: Play, bg: "#FFE7D3", fg: "#FF7A12" },
 };
 
-/** «Путь утверждения»: кружки-узлы с иконкой роли, соединения оранжевые там, где искажение. */
-function PathCard({ steps, roles }: { steps: ProvenancePathStep[]; roles: Map<string, ProvenanceNodeRole> }) {
+const MATERIAL_ICON: Record<MaterialKind, LucideIcon> = { video: Play, text: FileText, article: Link };
+
+/**
+ * «Путь утверждения»: кружки-узлы с иконкой роли, соединения оранжевые там, где искажение.
+ * Последний узел — сам проверяемый материал: подпись и иконка по его виду, а не всегда «видео».
+ */
+function PathCard({
+  steps,
+  roles,
+  material,
+}: {
+  steps: ProvenancePathStep[];
+  roles: Map<string, ProvenanceNodeRole>;
+  material: MaterialKind;
+}) {
   const roleOf = (s: ProvenancePathStep, i: number): ProvenanceNodeRole =>
     roles.get(s.name) ??
     (i === 0
@@ -294,7 +338,9 @@ function PathCard({ steps, roles }: { steps: ProvenancePathStep[]; roles: Map<st
         {steps.map((s, i) => {
           const role = roleOf(s, i);
           const st = ROLE_STYLE[role];
-          const Icon = st.icon;
+          const isTarget = role === "target";
+          const Icon = isTarget ? MATERIAL_ICON[material] : st.icon;
+          const name = isTarget ? MATERIAL_LABEL[material] : s.name;
           const tagColor = role === "primary" ? "#6E1EF0" : s.isDistortion ? "#FF7A12" : "#A27C7A";
           return (
             <div key={s.name + i} className="relative flex min-w-0 flex-col items-center px-0.5 text-center">
@@ -313,8 +359,8 @@ function PathCard({ steps, roles }: { steps: ProvenancePathStep[]; roles: Map<st
               >
                 <Icon className="h-4 w-4" style={{ color: st.fg }} />
               </span>
-              <span className="mt-2 w-full truncate text-[12px] font-black text-[#4A3333]" title={s.name}>
-                {s.name}
+              <span className="mt-2 w-full truncate text-[12px] font-black text-[#4A3333]" title={name}>
+                {name}
               </span>
               <span className="mt-0.5 text-[11px] font-semibold text-[#A27C7A]">{s.date}</span>
               <span className="mt-1 w-full truncate text-[10.5px] font-extrabold" style={{ color: tagColor }}>
@@ -346,10 +392,16 @@ function SourcesCard({ factCheck }: { factCheck: FactCheck }) {
       </div>
     );
   }
+  // при «против» сначала опровергающие, при «сходятся» — подтверждающие: это доказательства итога
+  const lead: SourceStance | undefined =
+    factCheck.consensus === "against" ? "refutes" : factCheck.consensus === "converge" ? "supports" : undefined;
+  const sources = lead
+    ? [...factCheck.sources].sort((a, b) => Number(b.stance === lead) - Number(a.stance === lead))
+    : factCheck.sources;
   return (
     <div className="flex flex-col gap-2.5 rounded-[18px] bg-[#FBF8F7] p-3.5">
       <span className="px-0.5 text-[13px] font-extrabold text-[#4A3333]">Источники</span>
-      {factCheck.sources.slice(0, 4).map((src) => {
+      {sources.slice(0, 4).map((src) => {
         const st = STANCE[src.stance];
         return (
           <a
@@ -364,7 +416,7 @@ function SourcesCard({ factCheck }: { factCheck: FactCheck }) {
               <span className="block truncate text-[13px] font-extrabold text-[#4A3333]">
                 {src.publisher}
               </span>
-              <span className="block truncate text-[12px] font-semibold text-[#A27C7A]">{src.snippet}</span>
+              <span className="line-clamp-2 text-[12px] font-semibold text-[#A27C7A]">{src.snippet}</span>
             </span>
             <span className="shrink-0 text-[11px] font-bold" style={{ color: st.color }}>
               {st.label}

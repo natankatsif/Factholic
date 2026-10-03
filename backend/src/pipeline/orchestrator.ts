@@ -11,7 +11,7 @@
  * Проверяются только самые важные тезисы (config.limits) — каждый стоит ~9 запросов к поиску.
  * Дерево и проверки на нём не валят тезис: ошибка этапа 05 → отчёт без дерева, но со сторонами.
  */
-import type { FactCheck, JobId, ServerEvent, StartAnalysisRequest } from "@news/contracts";
+import type { ClaimStage, FactCheck, JobId, ServerEvent, StartAnalysisRequest } from "@news/contracts";
 import { config } from "../config.ts";
 import { ingest, type LiveAudioChunk } from "../stages/01-ingest/index.ts";
 import { transcribe, type TranscriptSegment } from "../stages/02-transcription/index.ts";
@@ -19,7 +19,7 @@ import { CHECKWORTHINESS_THRESHOLD, extractClaims, type Claim } from "../stages/
 import { searchSources, type SourceCopy } from "../stages/04-source-search/index.ts";
 import {
   buildProvenanceTree,
-  copiesFromSources,
+  copiesForTree,
   voteGroupsForSources,
   type ProvenanceTree,
 } from "../stages/05-provenance/index.ts";
@@ -58,18 +58,17 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
   /** Все найденные тезисы (и отобранные, и нет) — чтобы этап 03 не находил их повторно */
   const seen: Claim[] = [];
   let checkedCount = 0;
+  let transcribedUntil = request.startFrom;
+  /** До какой секунды проверены все тезисы (по порядку кусков) — уходит в job.completed */
   let processedUntil = request.startFrom;
-  /**
-   * Цепочка «кусок проверен»: прогресс verification шлём по порядку кусков, даже если тезисы
-   * позднего куска проверились раньше — иначе полоса прогресса на фронте прыгала бы вперёд-назад.
-   */
   let verified: Promise<void> = Promise.resolve();
 
   for await (const chunk of chunks) {
     if (signal.aborted) return;
 
     const transcript = await transcribe({ chunk, languageHint: request.languageHint }, ctx);
-    emit({ type: "job.progress", jobId, processedUntil: chunk.range.end, stage: "transcription" });
+    transcribedUntil = Math.max(transcribedUntil, chunk.range.end);
+    emit({ type: "job.progress", jobId, processedUntil: transcribedUntil, stage: "transcription" });
 
     const { claims: found } = await extractClaims(
       {
@@ -84,6 +83,7 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
     );
     history = [...history, ...transcript.segments];
     seen.push(...found);
+    emit({ type: "job.progress", jobId, processedUntil: transcribedUntil, stage: "claim_extraction" });
 
     // Самые важные тезисы, в пределах лимитов на кусок и на весь материал
     const toCheck = found
@@ -106,11 +106,14 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
     const chunkEnd = chunk.range.end;
     const checks = Promise.all(toCheck.map((claim) => checkClaim(claim, snapshot)));
     verified = Promise.all([verified, checks]).then(() => {
-      if (signal.aborted) return;
       processedUntil = Math.max(processedUntil, chunkEnd);
-      emit({ type: "job.progress", jobId, processedUntil, stage: "verification" });
     });
   }
+
+  // Материал разобран целиком — дальше только проверки тезисов (шаги «Субтитры» и «Утверждения» на фронте готовы)
+  if (signal.aborted) return;
+  ctx.log(`материал разобран: тезисов на проверку ${checkedCount}`);
+  emit({ type: "job.progress", jobId, processedUntil: transcribedUntil, stage: "verification" });
 
   await verified;
   if (signal.aborted) return;
@@ -134,6 +137,7 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
   async function checkClaim(claim: Claim, segments: TranscriptSegment[]): Promise<void> {
     let fc: FactCheck;
     try {
+      progress(claim, "source_search");
       const { sources, copies } = await searchSources(
         // язык материала + румынский и русский (молдавское инфопространство) + английский
         {
@@ -143,9 +147,16 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
         },
         ctx,
       );
-      // copies заполняет real-реализация 04; у старых моков их нет — тогда дерево по sources
-      const treeCopies = copies ?? copiesFromSources(sources);
+      // copies заполняет real-реализация 04; пустые/неполные (и у старых моков) — добираем из sources
+      const treeCopies = copiesForTree(copies, sources);
+      progress(
+        claim,
+        "provenance",
+        `источников ${sources.length}, копий ${treeCopies.length}`,
+        sources.length,
+      );
       const tree = await buildTree(claim, treeCopies);
+      progress(claim, "stances", tree ? `узлов в дереве ${tree.nodes.length}` : "без дерева");
       // три проверки висят на дереве: мутации и стороны — параллельно, дата корня — без внешних API
       const [mutations, stances] = await Promise.all([
         tree
@@ -177,6 +188,13 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
     }
     results.set(fc.id, fc);
     emit({ type: "claim.checked", jobId, factCheck: fc });
+  }
+
+  /** Этап проверки тезиса → claim.progress во фронт и строка в лог */
+  function progress(claim: Claim, stage: ClaimStage, detail?: string, sourcesFound?: number): void {
+    if (signal.aborted) return;
+    ctx.log(`${claim.id}: ${stage}${detail ? ` (${detail})` : ""}`);
+    emit({ type: "claim.progress", jobId, claimId: claim.id, stage, sourcesFound });
   }
 
   /** Дерево первоисточника; ошибка — null, тезис проверяется дальше (стороны без группировки) */

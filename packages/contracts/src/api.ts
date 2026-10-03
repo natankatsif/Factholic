@@ -4,6 +4,7 @@
  *  1. POST /api/jobs            StartAnalysisRequest -> StartAnalysisResponse
  *  2. WS   /api/jobs/:id/events сервер шлёт ServerEvent, клиент шлёт ClientMessage
  *  3. GET  /api/jobs/:id        -> VideoReport (снапшот, например после перезагрузки страницы)
+ *  4. POST /api/jobs/:id/chat   чат по разбору: протокол AI SDK (useChat), тело { messages, claimId? }
  */
 import type { ClaimId, JobId, LanguageCode, Seconds, TimeRange, VideoInfo, VideoRef } from "./common.ts";
 import type { FactCheck, VideoReport } from "./fact-check.ts";
@@ -12,6 +13,7 @@ export const API_ROUTES = {
   startJob: "/api/jobs",
   getJob: (jobId: JobId) => `/api/jobs/${jobId}`,
   events: (jobId: JobId) => `/api/jobs/${jobId}/events`,
+  chat: (jobId: JobId) => `/api/jobs/${jobId}/chat`,
 } as const;
 
 /**
@@ -52,8 +54,16 @@ export interface StartAnalysisResponse {
 
 // ---------- сервер -> клиент ----------
 
+/**
+ * Этап по материалу целиком (job.progress.stage, он же VideoReport.stage):
+ * transcription / claim_extraction — идут куски; verification — весь материал расшифрован и разобран
+ * на утверждения, остались только проверки тезисов. ingest и source_search — для совместимости, бэкенд их не шлёт.
+ */
 export type PipelineStage =
   "ingest" | "transcription" | "claim_extraction" | "source_search" | "verification";
+
+/** Этап проверки одного тезиса (claim.progress, он же FactCheck.stage): поиск → дерево → стороны */
+export type ClaimStage = "source_search" | "provenance" | "stances";
 
 export type ServerEvent =
   | { type: "job.started"; jobId: JobId; video: VideoInfo }
@@ -61,6 +71,11 @@ export type ServerEvent =
   | { type: "job.progress"; jobId: JobId; processedUntil: Seconds; stage: PipelineStage }
   /** Найден тезис, проверка началась. factCheck.status = "checking" */
   | { type: "claim.detected"; jobId: JobId; factCheck: FactCheck }
+  /**
+   * Проверка тезиса перешла на следующий этап (для шагов прогресса).
+   * sourcesFound — сколько источников нашёл поиск (приходит с этапа provenance, когда поиск закончен)
+   */
+  | { type: "claim.progress"; jobId: JobId; claimId: ClaimId; stage: ClaimStage; sourcesFound?: number }
   /** Проверка закончилась. factCheck.status = "done" | "failed". Заменяет объект с тем же id */
   | { type: "claim.checked"; jobId: JobId; factCheck: FactCheck }
   | { type: "job.completed"; jobId: JobId; report: VideoReport }

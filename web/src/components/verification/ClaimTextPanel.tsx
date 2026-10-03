@@ -43,8 +43,11 @@ export function ClaimTextPanel({
         Текст который спросили
       </h2>
 
-      <div className="mt-5 min-h-0 flex-1 overflow-y-auto pr-1">
-        <p className="text-[17px] font-semibold leading-[2.1] text-[#4A3333] sm:text-[19px]">
+      {/* запас p-1 под обводку выбранного утверждения (ring выходит за кнопку, overflow её обрезает);
+          -mx-1 и mt-4 вместо mt-5 — чтобы текст остался на месте */}
+      <div className="-mx-1 mt-4 min-h-0 flex-1 overflow-y-auto p-1">
+        {/* flex с зазорами, а не строки текста: подсветки не касаются, обводка выбранного не наезжает на соседей */}
+        <div className="flex flex-wrap items-start gap-x-1.5 gap-y-3 text-[17px] font-semibold leading-[1.6] text-[#4A3333] sm:text-[19px]">
           {factChecks.map((fc) => {
             const tone = TONE[fc.consensus] ?? TONE.unverifiable;
             const selected = fc.id === selectedClaimId;
@@ -53,7 +56,7 @@ export function ClaimTextPanel({
                 <button
                   type="button"
                   onClick={() => onSelectClaimId(fc.id)}
-                  className={`cursor-pointer rounded-md border-none px-1 py-0.5 text-left font-[inherit] leading-[inherit] text-inherit underline decoration-[3px] underline-offset-[6px] transition-all [box-decoration-break:clone] ${
+                  className={`cursor-pointer rounded-md border-none px-1.5 py-1 text-left font-[inherit] leading-[inherit] text-inherit underline decoration-[3px] underline-offset-[6px] transition-all [box-decoration-break:clone] ${
                     isDimmed(fc) ? "opacity-35" : ""
                   } ${selected ? "ring-2 ring-offset-1" : "hover:brightness-95"}`}
                   style={{
@@ -63,11 +66,11 @@ export function ClaimTextPanel({
                   }}
                 >
                   {cleanQuote(fc.quote)}
-                </button>{" "}
+                </button>
               </React.Fragment>
             );
           })}
-        </p>
+        </div>
       </div>
     </section>
   );

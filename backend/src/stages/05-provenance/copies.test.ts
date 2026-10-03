@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { FoundSource, SourceCopy } from "../04-source-search/types.ts";
-import { copiesFromSources, voteGroupsForSources } from "./copies.ts";
+import { copiesForTree, copiesFromSources, voteGroupsForSources } from "./copies.ts";
 import type { ProvenanceTree } from "./types.ts";
 
 const source = (id: string, url: string): FoundSource => ({
@@ -37,5 +37,22 @@ describe("voteGroupsForSources", () => {
     const sources = [source("s1", "https://a.md/x"), source("c9", "https://b.md/y")];
     const tree = { voteGroups: { c9: "c1" } } as unknown as ProvenanceTree;
     assert.deepEqual(voteGroupsForSources(tree, [], sources), { s1: "s1", c9: "c1" });
+  });
+});
+
+describe("copiesForTree", () => {
+  const sources = [source("s1", "https://www.dw.com/ru/a/"), source("s2", "https://point.md/b")];
+
+  it("копий нет (пусто или undefined) — дерево по источникам", () => {
+    assert.deepEqual(copiesForTree([], sources), copiesFromSources(sources));
+    assert.deepEqual(copiesForTree(undefined, sources), copiesFromSources(sources));
+  });
+
+  it("добирает только источники, которых нет среди копий (по URL)", () => {
+    const copies = copiesFromSources([source("c1", "https://dw.com/ru/a")]);
+    assert.deepEqual(
+      copiesForTree(copies, sources).map((c) => c.id),
+      ["c1", "s2"],
+    );
   });
 });

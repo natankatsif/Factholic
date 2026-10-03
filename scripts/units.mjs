@@ -35,6 +35,7 @@ export const UNITS = [
     owner: "backend-1",
     paths: [
       "backend/src/pipeline/",
+      "backend/src/chat/",
       "backend/src/server.ts",
       // config.ts импортируют все этапы → его изменение проверяет весь бэкенд
       "backend/src/config.ts",

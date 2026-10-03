@@ -15,8 +15,10 @@
     "eval:08": "tsx src/stages/08-stances/eval/run.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.83",
     "@mozilla/readability": "^0.6.0",
     "@news/contracts": "*",
+    "ai": "^7.0.127",
     "linkedom": "^0.18.13",
     "openai": "^7.27.0",
     "ws": "^8.18.0",

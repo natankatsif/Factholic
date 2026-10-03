@@ -13,14 +13,70 @@ export interface EmojiCrowdProps {
  * и максимальный радиус смещения взгляда с учётом глубины слоя (параллакс).
  */
 const BLOBS = [
-  { id: 0, name: "Blue Blob", cx: 250, cy: 190, maxGaze: 6, breathe: "blob-breathe-1 4.4s ease-in-out infinite" },
-  { id: 1, name: "Teal Blob", cx: 445, cy: 165, maxGaze: 6, breathe: "blob-breathe-2 3.8s ease-in-out infinite" },
-  { id: 2, name: "Green Blob", cx: 595, cy: 205, maxGaze: 8, breathe: "blob-breathe-3 4.6s ease-in-out infinite" },
-  { id: 3, name: "Purple Blob", cx: 725, cy: 305, maxGaze: 8, breathe: "blob-breathe-4 4.8s ease-in-out infinite 0.5s" },
-  { id: 4, name: "Red Blob", cx: 140, cy: 360, maxGaze: 9, breathe: "blob-breathe-1 3.4s ease-in-out infinite 0.2s" },
-  { id: 5, name: "Pink Blob", cx: 325, cy: 425, maxGaze: 10, breathe: "blob-breathe-2 4.1s ease-in-out infinite 1.0s" },
-  { id: 6, name: "Yellow Blob", cx: 485, cy: 365, maxGaze: 10, breathe: "blob-breathe-3 3.5s ease-in-out infinite 0.4s" },
-  { id: 7, name: "Orange Blob", cx: 650, cy: 430, maxGaze: 10, breathe: "blob-breathe-4 3.9s ease-in-out infinite 1.2s" },
+  {
+    id: 0,
+    name: "Blue Blob",
+    cx: 250,
+    cy: 190,
+    maxGaze: 6,
+    breathe: "blob-breathe-1 4.4s ease-in-out infinite",
+  },
+  {
+    id: 1,
+    name: "Teal Blob",
+    cx: 445,
+    cy: 165,
+    maxGaze: 6,
+    breathe: "blob-breathe-2 3.8s ease-in-out infinite",
+  },
+  {
+    id: 2,
+    name: "Green Blob",
+    cx: 595,
+    cy: 205,
+    maxGaze: 8,
+    breathe: "blob-breathe-3 4.6s ease-in-out infinite",
+  },
+  {
+    id: 3,
+    name: "Purple Blob",
+    cx: 725,
+    cy: 305,
+    maxGaze: 8,
+    breathe: "blob-breathe-4 4.8s ease-in-out infinite 0.5s",
+  },
+  {
+    id: 4,
+    name: "Red Blob",
+    cx: 140,
+    cy: 360,
+    maxGaze: 9,
+    breathe: "blob-breathe-1 3.4s ease-in-out infinite 0.2s",
+  },
+  {
+    id: 5,
+    name: "Pink Blob",
+    cx: 325,
+    cy: 425,
+    maxGaze: 10,
+    breathe: "blob-breathe-2 4.1s ease-in-out infinite 1.0s",
+  },
+  {
+    id: 6,
+    name: "Yellow Blob",
+    cx: 485,
+    cy: 365,
+    maxGaze: 10,
+    breathe: "blob-breathe-3 3.5s ease-in-out infinite 0.4s",
+  },
+  {
+    id: 7,
+    name: "Orange Blob",
+    cx: 650,
+    cy: 430,
+    maxGaze: 10,
+    breathe: "blob-breathe-4 3.9s ease-in-out infinite 1.2s",
+  },
 ];
 
 /**

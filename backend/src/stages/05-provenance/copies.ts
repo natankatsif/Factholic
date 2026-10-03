@@ -26,6 +26,17 @@ export function copiesFromSources(sources: FoundSource[]): SourceCopy[] {
 }
 
 /**
+ * Копии для дерева: всё, что нашёл этап 04 в `copies`, плюс источники, которых среди копий нет (по URL).
+ * Иначе пустые или неполные `copies` дают дерево без найденных источников — в отчёте «5 источников»,
+ * а в дереве один узел «Это видео».
+ */
+export function copiesForTree(copies: SourceCopy[] | undefined, sources: FoundSource[]): SourceCopy[] {
+  const known = new Set((copies ?? []).map((c) => canonicalUrl(c.url)));
+  const missing = sources.filter((s) => !known.has(canonicalUrl(s.url)));
+  return [...(copies ?? []), ...copiesFromSources(missing)];
+}
+
+/**
  * Группы голосов для «сторон» (этап 08) по id ИСТОЧНИКОВ. Дерево строится по копиям, а у этапа 04 id копий и
  * источников разные (`_cN` и `_sN`) — сопоставляем по канонизированному URL. Источник без копии — сам себе группа.
  */

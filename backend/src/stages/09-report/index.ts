@@ -278,6 +278,10 @@ function buildConsensus(
 function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): ProvenanceTree {
   const mutationList = mutations?.mutations ?? [];
   const byId = new Map(tree.nodes.map((n) => [n.id, n]));
+  // Текст узла: у публикаций — заголовок, у самого материала — цитата ЭТОГО тезиса. Заголовок материала
+  // общий для всех тезисов (у вставленного текста — его первое предложение), в «Стало» он путает тезисы.
+  const textOf = (n: { id: string; title: string } | undefined): string =>
+    !n ? "" : n.id === VIDEO_NODE_ID ? claim.quote : n.title;
 
   const nodes: ProvenanceNode[] = tree.nodes.map((n, idx) => {
     const isPrimary = n.id === tree.rootId;
@@ -338,7 +342,7 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
       isPrimary,
       date: formatFullDate(n.publishedAt),
       isoDate: n.publishedAt,
-      quote: n.title,
+      quote: textOf(n),
       url: n.url,
       tags: tags.length ? tags : undefined,
       action,
@@ -379,12 +383,12 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
             before: {
               sourceName: parentNode?.publisher || "Источник",
               date: formatShortDate(parentNode?.publishedAt),
-              text: parentNode?.title || "",
+              text: textOf(parentNode),
             },
             after: {
               sourceName: node.publisher || "Источник",
               date: formatShortDate(node.publishedAt),
-              text: node.title || "",
+              text: textOf(node),
             },
             changes,
           }

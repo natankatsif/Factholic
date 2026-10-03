@@ -6,11 +6,7 @@ export interface LinkInputCardProps {
   onTypingChange?: (isTyping: boolean, text: string) => void;
 }
 
-export function LinkInputCard({
-  onCheck,
-  isLoading = false,
-  onTypingChange,
-}: LinkInputCardProps) {
+export function LinkInputCard({ onCheck, isLoading = false, onTypingChange }: LinkInputCardProps) {
   const [inputValue, setInputValue] = useState("");
   const typingTimerRef = React.useRef<NodeJS.Timeout>();
 

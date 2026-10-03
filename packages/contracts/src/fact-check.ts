@@ -17,6 +17,7 @@ import type {
   TimeRange,
   VideoInfo,
 } from "./common.ts";
+import type { ClaimStage, PipelineStage } from "./api.ts";
 
 // =============================================================================
 // КОНСЕНСУС И ВЕРДИКТЫ (Вместо единой оценки 0..10)
@@ -248,6 +249,13 @@ export type FactCheckStatus = "checking" | "done" | "failed";
 export interface FactCheck {
   id: ClaimId;
   status: FactCheckStatus;
+  /** Пока status = "checking": на каком этапе проверка (из события claim.progress) */
+  stage?: ClaimStage;
+  /**
+   * Сколько источников нашёл поиск (из claim.progress) — для шагов прогресса. В sources потом попадают
+   * только релевантные, их может быть меньше
+   */
+  sourcesFound?: number;
   range: TimeRange;
   /** Дословно, как сказано в видео */
   quote: string;
@@ -310,6 +318,8 @@ export interface VideoReport {
   video: VideoInfo;
   status: JobStatus;
   processedUntil: Seconds;
+  /** Последний этап по материалу из job.progress; "verification" — материал разобран целиком */
+  stage?: PipelineStage;
   summary?: ReportSummary;
   factChecks: FactCheck[];
 }
