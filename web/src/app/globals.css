@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,9 +11,9 @@
 }
 
 body {
-  background-color: var(--canvas);
-  color: #1c1917;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  background-color: #f1ebe9;
+  color: #4a3333;
+  font-family: "Nunito", system-ui, sans-serif;
   margin: 0;
   padding: 0;
 }
@@ -27,7 +29,4 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #d6d3d1;
   border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #a8a29e;
 }
