@@ -30,13 +30,13 @@ export function HowItWorks() {
             data-pencil-name="Title"
             className="text-base sm:text-[18px] leading-normal box-border text-[#4A3333] font-extrabold text-left whitespace-nowrap"
           >
-            Вставь ссылку
+            Вставь тезис
           </span>
           <span
             data-pencil-name="Sub"
             className="text-xs sm:text-[15px] leading-normal box-border text-[#A27C7A] font-semibold text-left whitespace-nowrap"
           >
-            из любой соцсети
+            или ссылку на видео / новость
           </span>
         </div>
       </div>
@@ -65,13 +65,13 @@ export function HowItWorks() {
             data-pencil-name="Title"
             className="text-base sm:text-[18px] leading-normal box-border text-[#4A3333] font-extrabold text-left whitespace-nowrap"
           >
-            Смотри в плеере
+            Разбор аргументов
           </span>
           <span
             data-pencil-name="Sub"
             className="text-xs sm:text-[15px] leading-normal box-border text-[#A27C7A] font-semibold text-left whitespace-nowrap"
           >
-            с метками на таймлайне
+            факты, таймлайн и контекст
           </span>
         </div>
       </div>
@@ -100,13 +100,13 @@ export function HowItWorks() {
             data-pencil-name="Title"
             className="text-base sm:text-[18px] leading-normal box-border text-[#4A3333] font-extrabold text-left whitespace-nowrap"
           >
-            Читай оценки
+            Читай вердикт
           </span>
           <span
             data-pencil-name="Sub"
             className="text-xs sm:text-[15px] leading-normal box-border text-[#A27C7A] font-semibold text-left whitespace-nowrap"
           >
-            за, против и источники
+            за, против и первоисточники
           </span>
         </div>
       </div>

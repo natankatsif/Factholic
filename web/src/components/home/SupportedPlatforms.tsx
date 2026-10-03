@@ -2,155 +2,223 @@ import React from "react";
 
 export interface SupportedPlatformsProps {
   onSelectPlatform?: (platform: string) => void;
+  onSelectThesisDemo?: () => void;
 }
 
-export function SupportedPlatforms({ onSelectPlatform }: SupportedPlatformsProps) {
+export function SupportedPlatforms({
+  onSelectPlatform,
+  onSelectThesisDemo,
+}: SupportedPlatformsProps) {
   return (
     <div
       data-pencil-name="Platforms"
       className="box-border w-fit h-fit shrink-0 flex flex-row flex-wrap gap-2 sm:gap-[10px] pl-1 sm:p-[0px_0px_0px_12px] justify-start items-center"
     >
-      <span
-        data-pencil-name="Works With"
-        className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#A27C7A] font-bold text-left whitespace-nowrap mr-0.5 sm:mr-1"
-      >
-        Работает с
-      </span>
-
-      {/* YouTube */}
-      <button
-        type="button"
-        onClick={() => onSelectPlatform?.("youtube")}
-        data-pencil-name="YouTube"
-        className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs rounded-[100px] border-none cursor-pointer transition-all"
-      >
-        <svg
-          data-pencil-name="Icon"
-          viewBox="0 0 14 14"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
-        >
-          <path
-            d="M8.96875 6.61719l-2.625-1.75q-0.21875-0.10938-0.4375 0-0.21875 0.10938-0.21875 0.38281l0 3.5q0 0.27344 0.21875 0.38281 0.10938 0.05469 0.21875 0.05469 0.10938 0 0.21875-0.05469l2.625-1.75q0.21875-0.16406 0.21875-0.38281 0-0.21875-0.21875-0.38281z m-2.40625 1.3125l0-1.85938 1.42188 0.92969-1.42188 0.92969z m6.23438-4.10156q-0.05469-0.32813-0.27344-0.54688-0.21875-0.21875-0.49219-0.38281-1.20313-0.4375-3.11719-0.60156-1.03906-0.10938-1.91406-0.10938-0.875 0-1.91406 0.10938-1.91406 0.16406-3.11719 0.60156-0.27344 0.16406-0.49219 0.38281-0.21875 0.21875-0.27343 0.54688-0.32813 1.20313-0.32813 3.17187 0 1.96875 0.32813 3.17188 0.05469 0.32813 0.27343 0.54687 0.21875 0.21875 0.49219 0.38281 1.14844 0.4375 3.00781 0.60157 1.03906 0.10938 1.96875 0.10937l0.10938 0q0.92969 0 1.96875-0.10937 1.85937-0.16406 3.00781-0.60157 0.27344-0.16406 0.49219-0.38281 0.21875-0.21875 0.27343-0.54687 0.32813-1.20313 0.32813-3.17188 0-1.96875-0.32813-3.17188z m-0.82032 6.125q-0.05469 0.21875-0.27343 0.32812-1.09375 0.38281-2.95313 0.54688-0.98438 0.10938-1.75 0.10937-0.76563 0-1.75-0.10937-1.85938-0.16406-2.95313-0.54688-0.21875-0.10938-0.27343-0.32812-0.27344-1.09375-0.27344-2.95313 0-1.85938 0.27344-2.95313 0.05469-0.21875 0.27343-0.32812 1.03906-0.38281 2.89844-0.54688 0.98438-0.10938 1.80469-0.10937 0.76563 0 1.75 0.10937 1.85938 0.16406 2.95313 0.54688 0.21875 0.10938 0.27343 0.32812 0.27344 1.09375 0.27344 2.95313 0 1.85938-0.27344 2.95313z"
-            fill="#E2353F"
-          />
-        </svg>
+      <div className="flex items-center gap-1.5 mr-0.5 sm:mr-1">
         <span
-          data-pencil-name="Label"
-          className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
+          data-pencil-name="Works With"
+          className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#A27C7A] font-bold text-left whitespace-nowrap"
         >
-          YouTube
+          Помощники:
         </span>
-      </button>
+      </div>
 
-      {/* Shorts */}
-      <button
-        type="button"
-        onClick={() => onSelectPlatform?.("shorts")}
-        data-pencil-name="Shorts"
-        className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs rounded-[100px] border-none cursor-pointer transition-all"
-      >
-        <svg
-          data-pencil-name="Icon"
-          viewBox="0 0 14 14"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
-        >
-          <path
-            d="M7 1.3125q-1.53125 0-2.84375 0.76563-1.3125 0.76563-2.07813 2.07812-0.76563 1.3125-0.76562 2.84375 0 1.53125 0.76562 2.84375 0.76563 1.3125 2.07813 2.07813 1.3125 0.76563 2.84375 0.76562 1.53125 0 2.84375-0.76562 1.3125-0.76563 2.07813-2.07813 0.76563-1.3125 0.76562-2.84375 0-1.53125-0.76562-2.84375-0.76563-1.3125-2.07813-2.07813-1.3125-0.76563-2.84375-0.76562z m0 10.5q-1.3125 0-2.40625-0.65625-1.09375-0.65625-1.75-1.75-0.65625-1.09375-0.65625-2.40625 0-1.3125 0.65625-2.40625 0.65625-1.09375 1.75-1.75 1.09375-0.65625 2.40625-0.65625 1.3125 0 2.40625 0.65625 1.09375 0.65625 1.75 1.75 0.65625 1.09375 0.65625 2.40625 0 1.3125-0.65625 2.40625-0.65625 1.09375-1.75 1.75-1.09375 0.65625-2.40625 0.65625z m1.96875-5.19531l-2.625-1.75q-0.21875-0.10938-0.4375 0-0.21875 0.10938-0.21875 0.38281l0 3.5q0 0.27344 0.21875 0.38281 0.10938 0.05469 0.21875 0.05469 0.10938 0 0.21875-0.05469l2.625-1.75q0.21875-0.16406 0.21875-0.38281 0-0.21875-0.21875-0.38281z m-2.40625 1.3125l0-1.85938 1.42188 0.92969-1.42188 0.92969z"
-            fill="#E0368A"
-          />
-        </svg>
-        <span
-          data-pencil-name="Label"
-          className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
-        >
-          Shorts
-        </span>
-      </button>
+      {/* Helper: Sample Thesis */}
+      {onSelectThesisDemo && (
+        <div className="relative group">
+          <button
+            type="button"
+            onClick={onSelectThesisDemo}
+            className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs active:scale-[0.98] rounded-[100px] border border-[#E3D9D6]/60 cursor-pointer transition-all"
+          >
+            <span className="text-xs sm:text-sm text-[#FFC20E] font-black">✦</span>
+            <span className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap">
+              Пример тезиса
+            </span>
+          </button>
+          <div
+            role="tooltip"
+            className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0 bg-[#4A3333] text-white text-[11px] sm:text-xs font-medium py-1.5 px-3 rounded-lg whitespace-nowrap shadow-lg z-50 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-[#4A3333]"
+          >
+            Готовый тезис для быстрой проверки
+          </div>
+        </div>
+      )}
 
-      {/* TikTok */}
-      <button
-        type="button"
-        onClick={() => onSelectPlatform?.("tiktok")}
-        data-pencil-name="TikTok"
-        className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs rounded-[100px] border-none cursor-pointer transition-all"
-      >
-        <svg
-          data-pencil-name="Icon"
-          viewBox="0 0 14 14"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
+      {/* Helper: YouTube Video */}
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={() => onSelectPlatform?.("youtube")}
+          data-pencil-name="YouTube"
+          className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs active:scale-[0.98] rounded-[100px] border-none cursor-pointer transition-all"
         >
-          <path
-            d="M12.25 4.15625q-1.09375 0-1.85938-0.76563-0.76563-0.76563-0.76562-1.85937 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-2.1875 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 7q0 0.38281-0.27344 0.71094-0.27344 0.32813-0.65625 0.38281-0.38281 0.05469-0.73828-0.16406-0.35547-0.21875-0.46484-0.60157-0.10938-0.38281 0.05469-0.76562 0.16406-0.38281 0.49218-0.54688 0.27344-0.10938 0.27344-0.38281l0-2.29687q0-0.21875-0.16406-0.32813-0.16406-0.10938-0.32813-0.10937-1.09375 0.21875-1.91406 0.875-0.82031 0.65625-1.23047 1.64062-0.41016 0.98438-0.27344 2.07813 0.13672 1.09375 0.76563 1.9414 0.62891 0.84766 1.58594 1.3125 0.95703 0.46484 2.02343 0.41016 1.06641-0.05469 1.96875-0.62891 0.90234-0.57422 1.42188-1.5039 0.51953-0.92969 0.51953-2.02344l0-1.96875q1.25781 0.65625 2.625 0.65625 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-2.1875q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-0.4375 2.1875q-1.3125-0.16406-2.35156-0.92969-0.21875-0.10938-0.46485 0-0.24609 0.10938-0.24609 0.38282l0 2.73437q0 1.25781-0.84766 2.1875-0.84766 0.92969-2.07812 1.06641-1.23047 0.13672-2.24219-0.57422-1.01172-0.71094-1.3125-1.94141-0.30078-1.23047 0.30078-2.32422 0.60156-1.09375 1.80469-1.53125l0 1.47656q-0.60156 0.38281-0.79297 1.06641-0.19141 0.68359 0.08203 1.33984 0.27344 0.65625 0.875 0.98438 0.60156 0.32813 1.3125 0.19141 0.71094-0.13672 1.14844-0.6836 0.4375-0.54688 0.4375-1.25781l0-6.5625 1.36719 0q0.10938 1.20313 0.95703 2.05078 0.84766 0.84766 2.05078 0.95703l0 1.36719z"
-            fill="#4A3333"
-          />
-        </svg>
-        <span
-          data-pencil-name="Label"
-          className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
+          <svg
+            data-pencil-name="Icon"
+            viewBox="0 0 14 14"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
+          >
+            <path
+              d="M8.96875 6.61719l-2.625-1.75q-0.21875-0.10938-0.4375 0-0.21875 0.10938-0.21875 0.38281l0 3.5q0 0.27344 0.21875 0.38281 0.10938 0.05469 0.21875 0.05469 0.10938 0 0.21875-0.05469l2.625-1.75q0.21875-0.16406 0.21875-0.38281 0-0.21875-0.21875-0.38281z m-2.40625 1.3125l0-1.85938 1.42188 0.92969-1.42188 0.92969z m6.23438-4.10156q-0.05469-0.32813-0.27344-0.54688-0.21875-0.21875-0.49219-0.38281-1.20313-0.4375-3.11719-0.60156-1.03906-0.10938-1.91406-0.10938-0.875 0-1.91406 0.10938-1.91406 0.16406-3.11719 0.60156-0.27344 0.16406-0.49219 0.38281-0.21875 0.21875-0.27343 0.54688-0.32813 1.20313-0.32813 3.17187 0 1.96875 0.32813 3.17188 0.05469 0.32813 0.27343 0.54687 0.21875 0.21875 0.49219 0.38281 1.14844 0.4375 3.00781 0.60157 1.03906 0.10938 1.96875 0.10937l0.10938 0q0.92969 0 1.96875-0.10937 1.85937-0.16406 3.00781-0.60157 0.27344-0.16406 0.49219-0.38281 0.21875-0.21875 0.27343-0.54687 0.32813-1.20313 0.32813-3.17188 0-1.96875-0.32813-3.17188z m-0.82032 6.125q-0.05469 0.21875-0.27343 0.32812-1.09375 0.38281-2.95313 0.54688-0.98438 0.10938-1.75 0.10937-0.76563 0-1.75-0.10937-1.85938-0.16406-2.95313-0.54688-0.21875-0.10938-0.27343-0.32812-0.27344-1.09375-0.27344-2.95313 0-1.85938 0.27344-2.95313 0.05469-0.21875 0.27343-0.32812 1.03906-0.38281 2.89844-0.54688 0.98438-0.10938 1.80469-0.10937 0.76563 0 1.75 0.10937 1.85938 0.16406 2.95313 0.54688 0.21875 0.10938 0.27343 0.32812 0.27344 1.09375 0.27344 2.95313 0 1.85938-0.27344 2.95313z"
+              fill="#E2353F"
+            />
+          </svg>
+          <span
+            data-pencil-name="Label"
+            className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
+          >
+            YouTube
+          </span>
+        </button>
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0 bg-[#4A3333] text-white text-[11px] sm:text-xs font-medium py-1.5 px-3 rounded-lg whitespace-nowrap shadow-lg z-50 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-[#4A3333]"
         >
-          TikTok
-        </span>
-      </button>
+          Помощник: видео с таймлайном тезисов
+        </div>
+      </div>
 
-      {/* Facebook */}
-      <button
-        type="button"
-        onClick={() => onSelectPlatform?.("facebook")}
-        data-pencil-name="Facebook"
-        className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs rounded-[100px] border-none cursor-pointer transition-all"
-      >
-        <svg
-          data-pencil-name="Icon"
-          viewBox="0 0 14 14"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
+      {/* Helper: Shorts */}
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={() => onSelectPlatform?.("shorts")}
+          data-pencil-name="Shorts"
+          className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs active:scale-[0.98] rounded-[100px] border-none cursor-pointer transition-all"
         >
-          <path
-            d="M12.6875 7q0-1.53125-0.76563-2.84375-0.76563-1.3125-2.07812-2.07813-1.3125-0.76563-2.84375-0.76562-1.53125 0-2.84375 0.76562-1.3125 0.76563-2.07813 2.07813-0.76563 1.3125-0.76562 2.84375 0 1.53125 0.76562 2.84375 0.76563 1.3125 2.07813 2.07813 1.3125 0.76563 2.84375 0.76562 1.53125 0 2.84375-0.76562 1.3125-0.76563 2.07813-2.07813 0.76563-1.3125 0.76562-2.84375z m-5.25 4.8125l0-3.5 1.3125 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-1.3125 0 0-1.3125q0-0.38281 0.24609-0.62891 0.24609-0.24609 0.62891-0.24609l0.875 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-0.875 0q-0.71094 0-1.23047 0.51953-0.51953 0.51953-0.51953 1.23047l0 1.3125-1.3125 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672l1.3125 0 0 3.5q-1.25781-0.16406-2.26953-0.84766-1.01172-0.68359-1.58594-1.80468-0.57422-1.12109-0.51953-2.37891 0.05469-1.25781 0.71094-2.32422 0.65625-1.06641 1.75-1.66797 1.09375-0.60156 2.35156-0.60156 1.25781 0 2.35156 0.60156 1.09375 0.60156 1.75 1.66797 0.65625 1.06641 0.71094 2.32422 0.05469 1.25781-0.51953 2.37891-0.57422 1.12109-1.58594 1.80468-1.01172 0.68359-2.26953 0.84766z"
-            fill="#1660D6"
-          />
-        </svg>
-        <span
-          data-pencil-name="Label"
-          className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
+          <svg
+            data-pencil-name="Icon"
+            viewBox="0 0 14 14"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
+          >
+            <path
+              d="M7 1.3125q-1.53125 0-2.84375 0.76563-1.3125 0.76563-2.07813 2.07812-0.76563 1.3125-0.76562 2.84375 0 1.53125 0.76562 2.84375 0.76563 1.3125 2.07813 2.07813 1.3125 0.76563 2.84375 0.76562 1.53125 0 2.84375-0.76562 1.3125-0.76563 2.07813-2.07813 0.76563-1.3125 0.76562-2.84375 0-1.53125-0.76562-2.84375-0.76563-1.3125-2.07813-2.07813-1.3125-0.76563-2.84375-0.76562z m0 10.5q-1.3125 0-2.40625-0.65625-1.09375-0.65625-1.75-1.75-0.65625-1.09375-0.65625-2.40625 0-1.3125 0.65625-2.40625 0.65625-1.09375 1.75-1.75 1.09375-0.65625 2.40625-0.65625 1.3125 0 2.40625 0.65625 1.09375 0.65625 1.75 1.75 0.65625 1.09375 0.65625 2.40625 0 1.3125-0.65625 2.40625-0.65625 1.09375-1.75 1.75-1.09375 0.65625-2.40625 0.65625z m1.96875-5.19531l-2.625-1.75q-0.21875-0.10938-0.4375 0-0.21875 0.10938-0.21875 0.38281l0 3.5q0 0.27344 0.21875 0.38281 0.10938 0.05469 0.21875 0.05469 0.10938 0 0.21875-0.05469l2.625-1.75q0.21875-0.16406 0.21875-0.38281 0-0.21875-0.21875-0.38281z m-2.40625 1.3125l0-1.85938 1.42188 0.92969-1.42188 0.92969z"
+              fill="#E0368A"
+            />
+          </svg>
+          <span
+            data-pencil-name="Label"
+            className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
+          >
+            Shorts
+          </span>
+        </button>
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0 bg-[#4A3333] text-white text-[11px] sm:text-xs font-medium py-1.5 px-3 rounded-lg whitespace-nowrap shadow-lg z-50 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-[#4A3333]"
         >
-          Facebook
-        </span>
-      </button>
+          Помощник: короткие ролики и факты
+        </div>
+      </div>
 
-      {/* X */}
-      <button
-        type="button"
-        onClick={() => onSelectPlatform?.("x")}
-        data-pencil-name="X"
-        className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs rounded-[100px] border-none cursor-pointer transition-all"
-      >
-        <svg
-          data-pencil-name="Icon"
-          viewBox="0 0 14 14"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
+      {/* Helper: TikTok */}
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={() => onSelectPlatform?.("tiktok")}
+          data-pencil-name="TikTok"
+          className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs active:scale-[0.98] rounded-[100px] border-none cursor-pointer transition-all"
         >
-          <path
-            d="M13.50781 3.77344q-0.10937-0.27344-0.38281-0.27344l-1.64062 0q-0.32813-0.54688-0.82032-0.875-0.49219-0.32813-1.12109-0.41016-0.62891-0.08203-1.20313 0.10938-0.57422 0.19141-0.95703 0.60156-0.38281 0.41016-0.60156 0.875-0.21875 0.46484-0.21875 1.01172l0 0.32813q-0.98438-0.27344-2.02344-0.875-0.76563-0.4375-1.47656-1.03907-0.49219-0.38281-0.54687-0.49218-0.21875-0.16406-0.46485-0.08204-0.24609 0.08203-0.30078 0.35547-0.32813 1.75 0.05469 3.28125 0.32813 1.20313 1.03906 2.13281 0.54688 0.76563 1.3125 1.3125-0.49219 0.60156-1.3125 1.03907-0.4375 0.27344-0.82031 0.38281-0.16406 0.10938-0.2461 0.30078-0.08203 0.19141 0.05469 0.41016 0.13672 0.21875 0.57422 0.4375 0.76563 0.38281 1.96875 0.38281 1.91406 0 3.55469-0.90234 1.64063-0.90234 2.67969-2.46094 1.03906-1.55859 1.20312-3.41797l1.64063-1.64063q0.16406-0.21875 0.05468-0.49218z m-2.46093 1.64062q-0.10938 0.10938-0.10938 0.27344-0.10938 1.69531-1.01172 3.08984-0.90234 1.39453-2.3789 2.21485-1.47656 0.82031-3.17188 0.82031-0.76563 0-1.25781-0.16406 1.36719-0.76563 2.07812-1.80469 0.10938-0.16406 0.05469-0.32813-0.05469-0.16406-0.21875-0.27343l-0.05469 0q-0.82031-0.49219-1.47656-1.36719-1.20313-1.64063-0.98438-3.9375 0.875 0.71094 1.80469 1.25781 1.36719 0.71094 2.625 0.92969 0.16406 0 0.32813-0.10938 0.16406-0.10938 0.16406-0.32812l0-0.875q0-0.60156 0.38281-1.09375 0.38281-0.49219 1.01172-0.62891 0.62891-0.13672 1.17578 0.16407 0.54688 0.30078 0.76563 0.84765 0.10937 0.27344 0.4375 0.27344l0.875 0-1.03907 1.03906z"
-            fill="#4A3333"
-          />
-        </svg>
-        <span
-          data-pencil-name="Label"
-          className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
+          <svg
+            data-pencil-name="Icon"
+            viewBox="0 0 14 14"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
+          >
+            <path
+              d="M12.25 4.15625q-1.09375 0-1.85938-0.76563-0.76563-0.76563-0.76562-1.85937 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-2.1875 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 7q0 0.38281-0.27344 0.71094-0.27344 0.32813-0.65625 0.38281-0.38281 0.05469-0.73828-0.16406-0.35547-0.21875-0.46484-0.60157-0.10938-0.38281 0.05469-0.76562 0.16406-0.38281 0.49218-0.54688 0.27344-0.10938 0.27344-0.38281l0-2.29687q0-0.21875-0.16406-0.32813-0.16406-0.10938-0.32813-0.10937-1.09375 0.21875-1.91406 0.875-0.82031 0.65625-1.23047 1.64062-0.41016 0.98438-0.27344 2.07813 0.13672 1.09375 0.76563 1.9414 0.62891 0.84766 1.58594 1.3125 0.95703 0.46484 2.02343 0.41016 1.06641-0.05469 1.96875-0.62891 0.90234-0.57422 1.42188-1.5039 0.51953-0.92969 0.51953-2.02344l0-1.96875q1.25781 0.65625 2.625 0.65625 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-2.1875q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-0.4375 2.1875q-1.3125-0.16406-2.35156-0.92969-0.21875-0.10938-0.46485 0-0.24609 0.10938-0.24609 0.38282l0 2.73437q0 1.25781-0.84766 2.1875-0.84766 0.92969-2.07812 1.06641-1.23047 0.13672-2.24219-0.57422-1.01172-0.71094-1.3125-1.94141-0.30078-1.23047 0.30078-2.32422 0.60156-1.09375 1.80469-1.53125l0 1.47656q-0.60156 0.38281-0.79297 1.06641-0.19141 0.68359 0.08203 1.33984 0.27344 0.65625 0.875 0.98438 0.60156 0.32813 1.3125 0.19141 0.71094-0.13672 1.14844-0.6836 0.4375-0.54688 0.4375-1.25781l0-6.5625 1.36719 0q0.10938 1.20313 0.95703 2.05078 0.84766 0.84766 2.05078 0.95703l0 1.36719z"
+              fill="#4A3333"
+            />
+          </svg>
+          <span
+            data-pencil-name="Label"
+            className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
+          >
+            TikTok
+          </span>
+        </button>
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0 bg-[#4A3333] text-white text-[11px] sm:text-xs font-medium py-1.5 px-3 rounded-lg whitespace-nowrap shadow-lg z-50 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-[#4A3333]"
         >
-          X
-        </span>
-      </button>
+          Помощник: вирусные тезисы и тренды
+        </div>
+      </div>
+
+      {/* Helper: Facebook */}
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={() => onSelectPlatform?.("facebook")}
+          data-pencil-name="Facebook"
+          className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs active:scale-[0.98] rounded-[100px] border-none cursor-pointer transition-all"
+        >
+          <svg
+            data-pencil-name="Icon"
+            viewBox="0 0 14 14"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
+          >
+            <path
+              d="M12.6875 7q0-1.53125-0.76563-2.84375-0.76563-1.3125-2.07812-2.07813-1.3125-0.76563-2.84375-0.76562-1.53125 0-2.84375 0.76562-1.3125 0.76563-2.07813 2.07813-0.76563 1.3125-0.76562 2.84375 0 1.53125 0.76562 2.84375 0.76563 1.3125 2.07813 2.07813 1.3125 0.76563 2.84375 0.76562 1.53125 0 2.84375-0.76562 1.3125-0.76563 2.07813-2.07813 0.76563-1.3125 0.76562-2.84375z m-5.25 4.8125l0-3.5 1.3125 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-1.3125 0 0-1.3125q0-0.38281 0.24609-0.62891 0.24609-0.24609 0.62891-0.24609l0.875 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-0.875 0q-0.71094 0-1.23047 0.51953-0.51953 0.51953-0.51953 1.23047l0 1.3125-1.3125 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672l1.3125 0 0 3.5q-1.25781-0.16406-2.26953-0.84766-1.01172-0.68359-1.58594-1.80468-0.57422-1.12109-0.51953-2.37891 0.05469-1.25781 0.71094-2.32422 0.65625-1.06641 1.75-1.66797 1.09375-0.60156 2.35156-0.60156 1.25781 0 2.35156 0.60156 1.09375 0.60156 1.75 1.66797 0.65625 1.06641 0.71094 2.32422 0.05469 1.25781-0.51953 2.37891-0.57422 1.12109-1.58594 1.80468-1.01172 0.68359-2.26953 0.84766z"
+              fill="#1660D6"
+            />
+          </svg>
+          <span
+            data-pencil-name="Label"
+            className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
+          >
+            Facebook
+          </span>
+        </button>
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0 bg-[#4A3333] text-white text-[11px] sm:text-xs font-medium py-1.5 px-3 rounded-lg whitespace-nowrap shadow-lg z-50 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-[#4A3333]"
+        >
+          Помощник: посты и социальные сети
+        </div>
+      </div>
+
+      {/* Helper: X */}
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={() => onSelectPlatform?.("x")}
+          data-pencil-name="X"
+          className="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] px-3 py-1 sm:p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] hover:bg-white hover:shadow-xs active:scale-[0.98] rounded-[100px] border-none cursor-pointer transition-all"
+        >
+          <svg
+            data-pencil-name="Icon"
+            viewBox="0 0 14 14"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="box-border w-4 h-4 sm:w-[18px] sm:h-[18px] shrink-0"
+          >
+            <path
+              d="M13.50781 3.77344q-0.10937-0.27344-0.38281-0.27344l-1.64062 0q-0.32813-0.54688-0.82032-0.875-0.49219-0.32813-1.12109-0.41016-0.62891-0.08203-1.20313 0.10938-0.57422 0.19141-0.95703 0.60156-0.38281 0.41016-0.60156 0.875-0.21875 0.46484-0.21875 1.01172l0 0.32813q-0.98438-0.27344-2.02344-0.875-0.76563-0.4375-1.47656-1.03907-0.49219-0.38281-0.54687-0.49218-0.21875-0.16406-0.46485-0.08204-0.24609 0.08203-0.30078 0.35547-0.32813 1.75 0.05469 3.28125 0.32813 1.20313 1.03906 2.13281 0.54688 0.76563 1.3125 1.3125-0.49219 0.60156-1.3125 1.03907-0.4375 0.27344-0.82031 0.38281-0.16406 0.10938-0.2461 0.30078-0.08203 0.19141 0.05469 0.41016 0.13672 0.21875 0.57422 0.4375 0.76563 0.38281 1.96875 0.38281 1.91406 0 3.55469-0.90234 1.64063-0.90234 2.67969-2.46094 1.03906-1.55859 1.20312-3.41797l1.64063-1.64063q0.16406-0.21875 0.05468-0.49218z m-2.46093 1.64062q-0.10938 0.10938-0.10938 0.27344-0.10938 1.69531-1.01172 3.08984-0.90234 1.39453-2.3789 2.21485-1.47656 0.82031-3.17188 0.82031-0.76563 0-1.25781-0.16406 1.36719-0.76563 2.07812-1.80469 0.10938-0.16406 0.05469-0.32813-0.05469-0.16406-0.21875-0.27343l-0.05469 0q-0.82031-0.49219-1.47656-1.36719-1.20313-1.64063-0.98438-3.9375 0.875 0.71094 1.80469 1.25781 1.36719 0.71094 2.625 0.92969 0.16406 0 0.32813-0.10938 0.16406-0.10938 0.16406-0.32812l0-0.875q0-0.60156 0.38281-1.09375 0.38281-0.49219 1.01172-0.62891 0.62891-0.13672 1.17578 0.16407 0.54688 0.30078 0.76563 0.84765 0.10937 0.27344 0.4375 0.27344l0.875 0-1.03907 1.03906z"
+              fill="#4A3333"
+            />
+          </svg>
+          <span
+            data-pencil-name="Label"
+            className="text-xs sm:text-sm xl:text-[15px] leading-normal box-border text-[#4A3333] font-bold text-left whitespace-nowrap"
+          >
+            X
+          </span>
+        </button>
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0 bg-[#4A3333] text-white text-[11px] sm:text-xs font-medium py-1.5 px-3 rounded-lg whitespace-nowrap shadow-lg z-50 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-[#4A3333]"
+        >
+          Помощник: цитаты и заявления
+        </div>
+      </div>
     </div>
   );
 }

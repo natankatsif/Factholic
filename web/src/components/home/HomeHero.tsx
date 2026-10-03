@@ -21,6 +21,8 @@ const PLATFORM_DEMO_URLS: Record<string, string> = {
   x: "https://x.com/news/status/178923489123490",
 };
 
+const DEMO_THESIS = "В Молдове планируется закрыть все русскоязычные школы к 2026 году";
+
 export function HomeHero({ onCheck, isLoading, onLogin }: HomeHeroProps) {
   const [selectedUrl, setSelectedUrl] = useState<string>("");
 
@@ -29,6 +31,10 @@ export function HomeHero({ onCheck, isLoading, onLogin }: HomeHeroProps) {
     if (demo) {
       setSelectedUrl(demo);
     }
+  };
+
+  const handleSelectThesisDemo = () => {
+    setSelectedUrl(DEMO_THESIS);
   };
 
   return (
@@ -45,7 +51,7 @@ export function HomeHero({ onCheck, isLoading, onLogin }: HomeHeroProps) {
         className="box-border w-full h-fit shrink-0 flex flex-col gap-4 sm:gap-6 xl:gap-[24px] px-6 sm:px-10 lg:px-20 pt-1 lg:pt-[10px] justify-start items-start relative z-10"
       >
         {/* Headline Row: Title Block + Daily Verified Stat */}
-        <HeroHeadline todayVerifiedCount="9 412" verifiedUnit="видео" />
+        <HeroHeadline todayVerifiedCount="9 412" verifiedUnit="тезисов" />
 
         {/* Link Form: Link Input Pill + Platform Badges */}
         <div
@@ -59,7 +65,10 @@ export function HomeHero({ onCheck, isLoading, onLogin }: HomeHeroProps) {
             isLoading={isLoading}
           />
 
-          <SupportedPlatforms onSelectPlatform={handleSelectPlatform} />
+          <SupportedPlatforms
+            onSelectPlatform={handleSelectPlatform}
+            onSelectThesisDemo={handleSelectThesisDemo}
+          />
         </div>
 
         {/* On mobile: Steps (How It Works) right here, higher up! */}

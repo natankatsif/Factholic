@@ -25,14 +25,14 @@ export function HeroHeadline({
         >
           Проверь
           <br />
-          любое видео
+          любой тезис
         </h1>
 
         <p
           data-pencil-name="Subtitle"
           className="text-sm sm:text-base md:text-xl xl:text-[23px] 2xl:text-[26px] leading-normal box-border text-[#A27C7A] font-extrabold text-left whitespace-normal xl:whitespace-nowrap"
         >
-          Вставь ссылку — откроем плеер и разберём каждое утверждение
+          Вставь тезис, новость или видео — разберём аргументы и найдём первоисточники
         </p>
       </div>
 
@@ -57,7 +57,7 @@ export function HeroHeadline({
           data-pencil-name="Stat Unit"
           className="text-xs sm:text-sm md:text-base xl:text-[18px] leading-normal box-border text-[#A27C7A] font-extrabold text-left md:text-right whitespace-nowrap"
         >
-          {verifiedUnit}
+          тезисов
         </div>
       </div>
     </div>
