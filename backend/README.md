@@ -5,14 +5,17 @@ src/
 ├── server.ts                 HTTP + WS (POST /api/jobs, WS /api/jobs/:id/events)
 ├── pipeline/
 │   ├── context.ts            Stage<I, O>, StageContext — общая сигнатура этапа
-│   └── orchestrator.ts       связывает 01 → 06, шлёт ServerEvent во фронт
+│   └── orchestrator.ts       связывает 01 → 09, шлёт ServerEvent во фронт
 └── stages/
-    ├── 01-ingest/            видео (URL / звук из вкладки) → куски звука или субтитры   [backend-1]
-    ├── 02-transcription/     звук → текст с таймкодами                                   [backend-1]
-    ├── 03-claim-extraction/  текст → проверяемые тезисы                                   [backend-2]
-    ├── 04-source-search/     тезис → источники с разных точек зрения                      [backend-2]
-    ├── 05-verification/      тезис + источники → оценка 0–10                              [backend-2]
-    └── 06-delivery/          всё вместе → FactCheck для фронта                            [backend-1]
+    ├── 01-ingest/            видео / пост / ссылка → куски; дата публикации               [backend-1]
+    ├── 02-transcription/     текст: субтитры, Whisper, OCR                                  [backend-1]
+    ├── 03-claim-extraction/  текст → утверждения + структура (цифры, места, время, «вчера») [backend-1]
+    ├── 04-source-search/     источники ro/ru/en: sources (для сторон) + copies (для дерева) [backend-1]
+    ├── 05-provenance/        copies → дерево первоисточника, корень, группы голосов        [backend-2]
+    ├── 06-mutations/         где утверждение раздули по дороге                             [backend-2]
+    ├── 07-root-date/         флаг «старый контент» (код, без LLM)                          [backend-2]
+    ├── 08-stances/           стороны: сходятся / разделились / против / мало источников    [backend-2]
+    └── 09-report/            всё вместе → FactCheck (consensus + provenance) для фронта    [backend-2]
 ```
 
 В каждой папке этапа одинаково:
