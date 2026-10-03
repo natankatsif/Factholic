@@ -34,12 +34,12 @@ export function HomeHero({ onCheck, isLoading, onLogin }: HomeHeroProps) {
   return (
     <div
       data-pencil-name="Home — Paste Link"
-      className="box-border w-full max-w-[1440px] h-screen max-h-screen flex flex-col justify-between items-start bg-[#F1EBE9] overflow-hidden relative mx-auto select-none"
+      className="box-border w-full max-w-[1440px] min-h-screen lg:h-screen lg:max-h-screen flex flex-col justify-between items-start bg-[#F1EBE9] overflow-hidden relative mx-auto select-none pb-48 lg:pb-0"
     >
       {/* 1. Top Bar / Navbar */}
       <Navbar onLogin={onLogin} onGoHome={() => setSelectedUrl("")} />
 
-      {/* 2. Hero Section: Headline + Link Form */}
+      {/* 2. Hero Section: Headline + Link Form + Steps (on mobile) */}
       <div
         data-pencil-name="Hero"
         className="box-border w-full h-fit shrink-0 flex flex-col gap-4 sm:gap-6 xl:gap-[24px] px-6 sm:px-10 lg:px-20 pt-1 lg:pt-[10px] justify-start items-start relative z-10"
@@ -61,16 +61,21 @@ export function HomeHero({ onCheck, isLoading, onLogin }: HomeHeroProps) {
 
           <SupportedPlatforms onSelectPlatform={handleSelectPlatform} />
         </div>
+
+        {/* On mobile: Steps (How It Works) right here, higher up! */}
+        <div className="block lg:hidden w-full pt-2 sm:pt-4">
+          <HowItWorks />
+        </div>
       </div>
 
       {/* 3. Flexible Spacer */}
       <div
         data-pencil-name="Spacer"
-        className="box-border w-full flex-1 min-h-[16px] flex flex-row justify-start items-start relative z-0"
+        className="box-border w-full flex-1 min-h-[16px] hidden lg:flex flex-row justify-start items-start relative z-0"
       />
 
-      {/* 4. Background Illustration: Emoji Cartoon Crowd (positioned at bottom-right) */}
-      <div className="hidden lg:block pointer-events-none">
+      {/* 4. Background Illustration: Emoji Cartoon Crowd (at bottom on mobile, bottom-right on desktop) */}
+      <div className="pointer-events-none">
         <EmojiCrowd />
       </div>
 
@@ -79,8 +84,8 @@ export function HomeHero({ onCheck, isLoading, onLogin }: HomeHeroProps) {
         <FloatingPills />
       </div>
 
-      {/* 6. Bottom Guide: How It Works Steps 1, 2, 3 */}
-      <div className="box-border w-full h-fit shrink-0 px-6 sm:px-10 lg:px-20 pb-5 sm:pb-6 lg:pb-[36px] relative z-10">
+      {/* 6. Bottom Guide: How It Works Steps 1, 2, 3 (on desktop) */}
+      <div className="hidden lg:block box-border w-full h-fit shrink-0 px-6 sm:px-10 lg:px-20 pb-5 sm:pb-6 lg:pb-[36px] relative z-10">
         <HowItWorks />
       </div>
     </div>

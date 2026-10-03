@@ -4,7 +4,7 @@ export function HowItWorks() {
   return (
     <div
       data-pencil-name="How It Works"
-      className="box-border w-fit h-fit shrink-0 flex flex-row flex-wrap gap-6 sm:gap-8 lg:gap-[32px] justify-start items-start relative z-10"
+      className="box-border w-fit h-fit shrink-0 flex flex-col sm:flex-row gap-3 sm:gap-6 lg:gap-[32px] justify-start items-start relative z-10"
     >
       {/* Step 1 */}
       <div

@@ -56,7 +56,7 @@ export function LinkInputCard({
         onChange={(e) => setInputValue(e.target.value)}
         placeholder="Вставь ссылку на видео…"
         data-pencil-name="Placeholder"
-        className="text-base sm:text-lg xl:text-[20px] leading-normal box-border flex-1 text-[#4A3333] placeholder-[#A27C7A] font-semibold text-left bg-transparent border-none outline-none min-w-0"
+        className="text-sm sm:text-lg xl:text-[20px] leading-normal box-border flex-1 text-[#4A3333] placeholder-[#A27C7A] font-semibold text-left bg-transparent border-none outline-none min-w-0"
       />
 
       {/* Check Submit Button */}
@@ -64,7 +64,7 @@ export function LinkInputCard({
         type="submit"
         disabled={isLoading}
         data-pencil-name="Check Button"
-        className="box-border w-fit shrink-0 h-full flex flex-row gap-2 sm:gap-[10px] px-5 sm:px-7 xl:p-[0px_30px] justify-center items-center bg-[#4A3333] hover:bg-[#362424] active:scale-[0.98] rounded-[100px] border-none transition-all cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+        className="box-border w-fit shrink-0 h-full flex flex-row gap-1.5 sm:gap-[10px] px-3.5 sm:px-7 xl:p-[0px_30px] justify-center items-center bg-[#4A3333] hover:bg-[#362424] active:scale-[0.98] rounded-[100px] border-none transition-all cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
       >
         {isLoading ? (
           <span className="flex items-center gap-2 text-white font-extrabold text-sm sm:text-base xl:text-[19px]">

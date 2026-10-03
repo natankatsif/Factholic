@@ -4,7 +4,7 @@ export function EmojiCrowd() {
   return (
     <div
       data-pencil-name="Emoji Crowd"
-      className="box-border w-[740px] h-[524px] absolute right-[-20px] bottom-[-10px] xl:right-[10px] xl:bottom-[-20px] [z-index:3]"
+      className="box-border w-[740px] h-[524px] absolute left-1/2 -translate-x-1/2 bottom-[-90px] sm:bottom-[-80px] scale-[0.52] sm:scale-[0.65] origin-bottom lg:translate-x-0 lg:left-auto lg:right-[-20px] lg:bottom-[-40px] xl:right-[10px] xl:bottom-[-60px] lg:scale-100 [z-index:3]"
     >
         <div
           data-pencil-name="Blue Blob"

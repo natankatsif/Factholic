@@ -137,7 +137,7 @@ export default function HomePage() {
   return (
     <div
       className={`bg-[#F1EBE9] flex flex-col font-sans text-[#4A3333] ${
-        activeScreen === "home" ? "h-screen w-screen overflow-hidden" : "min-h-screen"
+        activeScreen === "home" ? "min-h-screen lg:h-screen w-screen overflow-x-hidden lg:overflow-hidden" : "min-h-screen"
       }`}
     >
       {/* If in screen 1 or 2, show the top navigation bar */}
@@ -152,7 +152,7 @@ export default function HomePage() {
 
       {/* Screen Router */}
       {activeScreen === "home" && (
-        <main className="w-full h-full flex-1 flex items-center justify-center overflow-hidden">
+        <main className="w-full h-full flex-1 flex items-center justify-center overflow-x-hidden lg:overflow-hidden">
           <HomeHero
             onCheck={handleCheck}
             isLoading={isLoading}
