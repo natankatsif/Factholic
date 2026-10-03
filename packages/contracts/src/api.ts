@@ -30,6 +30,11 @@ export interface StartAnalysisRequest {
   languageHint?: LanguageCode;
   /** На каком языке писать summary/explanation */
   uiLanguage: LanguageCode;
+  /**
+   * Вставленный текст (статья, пост) вместо видео. Если задан — бэкенд анализирует его, а не скачивает
+   * video.pageUrl (туда можно положить ссылку на оригинал поста, если она есть; platform: "generic").
+   */
+  text?: string;
 }
 
 export interface StartAnalysisResponse {

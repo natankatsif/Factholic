@@ -19,6 +19,12 @@ export interface YtMeta {
   duration?: number;
   language?: string | null;
   thumbnail?: string;
+  /** "Youtube", "Vimeo"... "Generic" — yt-dlp не знает сайт и просто нашёл на странице медиафайл */
+  extractor_key?: string;
+  /** Дата публикации: unix-время или "YYYYMMDD" */
+  timestamp?: number;
+  release_timestamp?: number;
+  upload_date?: string;
   subtitles?: Record<string, Array<{ ext: string; url: string }>>;
   automatic_captions?: Record<string, Array<{ ext: string; url: string }>>;
 }
@@ -68,6 +74,7 @@ interface Json3 {
  */
 export async function loadCues(track: CaptionTrack, signal: AbortSignal): Promise<Cue[]> {
   const res = await fetch(track.url, { signal });
+  // Субтитры не скачались — не фатально: real.ts уйдёт на путь "звук → Whisper"
   if (!res.ok) throw new Error(`субтитры: HTTP ${res.status}`);
   const data = (await res.json()) as Json3;
 

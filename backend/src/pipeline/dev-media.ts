@@ -8,6 +8,7 @@
  *   npx tsx backend/src/pipeline/dev-media.ts "https://www.youtube.com/watch?v=8S0FDjFBj8o" 60 2
  *   npx tsx backend/src/pipeline/dev-media.ts "https://www.youtube.com/watch?v=jNQXAC9IVRw" 0 1 --audio
  *
+ * Вместо ссылки можно передать текст в кавычках — он пойдёт как вставленный пост/статья.
  * --audio — игнорировать субтитры и распознавать звук через Whisper (стоит денег, ~$0.006 за минуту).
  */
 import { formatRange } from "@news/contracts";
@@ -27,6 +28,7 @@ if (!url) {
   process.exit(1);
 }
 const startFrom = Number(fromArg);
+const isUrl = /^https?:\/\//.test(url);
 const maxChunks = Number(countArg);
 const CHUNK_SEC = 30;
 
@@ -45,7 +47,14 @@ const { video, chunks } = await ingestReal(
   {
     jobId: "dev",
     chunkSec: CHUNK_SEC,
-    request: { video: { pageUrl: url, platform: "generic" }, mode: "remote", startFrom, uiLanguage: "ru" },
+    request: {
+      // не ссылка — значит вставленный текст (как вкладка «Текст» на сайте)
+      ...(isUrl ? {} : { text: url }),
+      video: { pageUrl: isUrl ? url : "text://pasted", platform: "generic" },
+      mode: "remote",
+      startFrom,
+      uiLanguage: "ru",
+    },
   },
   ctx,
 );
@@ -58,7 +67,7 @@ for await (const chunk of source) {
   const t = Date.now();
   const out = await transcribeReal({ chunk }, ctx);
   console.log(
-    `━━ кусок #${chunk.seq} [${formatRange(chunk.range)}] · ${chunk.kind === "captions" ? `субтитры ${chunk.origin}` : "звук → Whisper"} · ${Date.now() - t} мс`,
+    `━━ кусок #${chunk.seq} [${formatRange(chunk.range)}] · ${chunk.kind === "captions" ? `субтитры ${chunk.origin}` : chunk.kind === "text" ? `текст (${chunk.origin})` : "звук → Whisper"} · ${Date.now() - t} мс`,
   );
   for (const s of out.segments) {
     console.log(`  ${formatRange(s)}  ${s.text}   (слов: ${s.words?.length ?? 0})`);

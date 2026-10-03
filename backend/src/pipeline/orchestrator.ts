@@ -68,7 +68,8 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
         let fc: FactCheck;
         try {
           const { sources } = await searchSources(
-            { claim, maxSources: 5, searchLanguages: [...new Set([claim.language, "en"])] },
+            // язык материала + румынский и русский (молдавское инфопространство) + английский
+            { claim, maxSources: 5, searchLanguages: [...new Set([claim.language, "ro", "ru", "en"])] },
             ctx,
           );
           const surroundingText = history

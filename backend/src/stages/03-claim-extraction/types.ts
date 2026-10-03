@@ -46,6 +46,36 @@ export interface Claim {
   /** Из каких сегментов собран тезис */
   segmentIds: SegmentId[];
   speaker?: string;
+  /**
+   * Структура утверждения — по этим полям backend-2 сравнивает публикации в дереве и находит,
+   * где утверждение исказили: «2 → 200» (numbers), «склад → ТЦ» (places), «вчера» при событии 2023 года (time),
+   * «по данным мэрии» → «точно» (certainty). Real-реализация заполняет всегда; optional — ради старых моков.
+   */
+  structure?: ClaimStructure;
+}
+
+export interface ClaimStructure {
+  /** Что произошло, коротко: "пожар в торговом центре" */
+  event: string;
+  /** Числа вместе с тем, что они считают: [{ value: "200", about: "пострадавших" }] */
+  numbers: Array<{ value: string; about: string }>;
+  /** Места как названы в тексте: ["Кишинёв", "торговый центр рядом с Центральным рынком"] */
+  places: string[];
+  /**
+   * Когда, как сказано в тексте: { text: "вчера", date: "2026-10-02", relative: true }.
+   * date (YYYY-MM-DD или YYYY-MM, YYYY) — только если однозначно; относительное время считается
+   * от даты публикации материала, а не от сегодняшнего дня. null — время не названо.
+   */
+  time: { text: string; date: string | null; relative: boolean } | null;
+  /**
+   * asserted — подано как факт; reported — со ссылкой на источник («по данным мэрии»);
+   * hedged — с оговоркой («возможно», «по неподтверждённым данным», «якобы»).
+   */
+  certainty: "asserted" | "reported" | "hedged";
+  /** Слова, по которым определена уверенность: ["по данным мэрии"], ["якобы"] */
+  certaintyMarkers: string[];
+  /** Кто утверждает внутри текста: "мэрия Кишинёва", "очевидцы". null — сам автор/спикер */
+  attributedTo: string | null;
 }
 
 export interface ClaimExtractionOutput {

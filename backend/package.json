@@ -15,7 +15,9 @@
     "eval:05": "tsx src/stages/05-verification/eval/run.ts"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "@news/contracts": "*",
+    "linkedom": "^0.18.13",
     "openai": "^7.27.0",
     "ws": "^8.18.0",
     "zod": "^4.6.5"

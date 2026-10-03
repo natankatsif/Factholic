@@ -77,3 +77,17 @@ function capitalize(s: string): string {
 function round(t: Seconds): Seconds {
   return Math.round(t * 1000) / 1000;
 }
+
+/**
+ * Текст статьи → предложения. Таймкодов нет (start = end = 0), слов тоже: этап 03 для текста
+ * берёт range как есть. Абзац не склеиваем с соседним — это разные мысли.
+ */
+export function textToSegments(text: string, seq: number): TranscriptSegment[] {
+  const sentences = text
+    .split(/\n\n+/)
+    // точка + пробел + заглавная/кавычка/цифра — конец предложения; «т. е.» и «г. Кишинёв» почти не ломает
+    .flatMap((p) => p.split(/(?<=[.!?…])\s+(?=[«"„(A-ZА-ЯЁĂÂÎȘŞȚŢ0-9])/))
+    .map((s) => s.trim())
+    .filter((s) => s.length > 1);
+  return sentences.map((s, i) => ({ id: `${seq}_${i}`, start: 0, end: 0, text: s }));
+}
