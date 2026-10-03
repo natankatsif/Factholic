@@ -1,0 +1,262 @@
+/**
+ * Проверки (jobs): создать, получить по id, список для истории, реалтайм-подписка.
+ * Каждая проверка живёт на своей странице /check/<jobId>.
+ *
+ * Источник данных — WEB_DATA_SOURCE в корневом .env (см. next.config.mjs):
+ *   mock    — отчёт из MOCK_VIDEO_REPORT, проверки хранятся в localStorage браузера (по умолчанию)
+ *   backend — POST/GET /api/jobs и WebSocket /api/jobs/:id/events на WEB_BACKEND_URL
+ */
+import type {
+  JobId,
+  ServerEvent,
+  StartAnalysisRequest,
+  StartAnalysisResponse,
+  VideoReport,
+} from "@news/contracts";
+import { MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
+
+const DATA_SOURCE = process.env.NEXT_PUBLIC_DATA_SOURCE === "backend" ? "backend" : "mock";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8787";
+
+const STORAGE_KEY = "factholic:jobs";
+const MAX_STORED = 50;
+
+/** Запись в истории: что спросили и когда */
+export interface JobRecord {
+  jobId: JobId;
+  input: string;
+  isUrl: boolean;
+  createdAt: string;
+  report?: VideoReport;
+}
+
+export async function createJob(input: string, isUrl: boolean): Promise<JobId> {
+  const record: JobRecord = { jobId: "", input, isUrl, createdAt: new Date().toISOString() };
+
+  if (DATA_SOURCE === "backend") {
+    const res = await fetch(`${BACKEND_URL}/api/jobs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(toRequest(input, isUrl)),
+    });
+    if (!res.ok) throw new Error(`Не удалось начать проверку: HTTP ${res.status}`);
+    const data = (await res.json()) as StartAnalysisResponse;
+    record.jobId = data.jobId;
+  } else {
+    record.jobId = `job_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    record.report = {
+      ...MOCK_VIDEO_REPORT,
+      jobId: record.jobId,
+      video: { ...MOCK_VIDEO_REPORT.video, title: input.slice(0, 120) },
+    };
+  }
+
+  save([record, ...listJobs().filter((j) => j.jobId !== record.jobId)].slice(0, MAX_STORED));
+  return record.jobId;
+}
+
+/** Отчёт по проверке (однократный GET). null — такой проверки нет. */
+export async function getReport(jobId: JobId): Promise<VideoReport | null> {
+  if (DATA_SOURCE === "backend") {
+    const res = await fetch(`${BACKEND_URL}/api/jobs/${encodeURIComponent(jobId)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Не удалось загрузить проверку: HTTP ${res.status}`);
+    return (await res.json()) as VideoReport;
+  }
+  return listJobs().find((j) => j.jobId === jobId)?.report ?? null;
+}
+
+/**
+ * Подписка на ход проверки: в реальном режиме подключается по WebSocket к бэкенду
+ * (запуская пайплайн при первом подключении и получая стрим событий),
+ * с fallback на опрос по HTTP при сбоях сети.
+ */
+export function subscribeJob(
+  jobId: JobId,
+  onUpdate: (report: VideoReport, event?: ServerEvent) => void,
+  onError: (err: Error) => void,
+): () => void {
+  if (DATA_SOURCE === "mock") {
+    const report = listJobs().find((j) => j.jobId === jobId)?.report ?? {
+      ...MOCK_VIDEO_REPORT,
+      jobId,
+    };
+    onUpdate(report);
+    return () => {};
+  }
+
+  let cancelled = false;
+  let ws: WebSocket | null = null;
+  let pollTimer: NodeJS.Timeout | null = null;
+  let currentReport: VideoReport | null = null;
+
+  // 1. Сначала пробуем получить существующий снапшот из бэкенда
+  getReport(jobId)
+    .then((report) => {
+      if (cancelled) return;
+      if (report) {
+        currentReport = report;
+        onUpdate(report);
+        if (report.status === "completed" || report.status === "failed") {
+          updateJobRecord(jobId, report);
+          return;
+        }
+      }
+      connectWs();
+    })
+    .catch(() => {
+      if (!cancelled) connectWs();
+    });
+
+  function connectWs() {
+    if (cancelled) return;
+    try {
+      const wsUrl =
+        BACKEND_URL.replace(/^http:/, "ws:").replace(/^https:/, "wss:") +
+        `/api/jobs/${encodeURIComponent(jobId)}/events`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (e) => {
+        if (cancelled) return;
+        try {
+          const event = JSON.parse(e.data as string) as ServerEvent;
+          if (event.type === "job.failed") {
+            onError(new Error(event.error.message || "Ошибка при проверке"));
+            return;
+          }
+          currentReport = applyEventToReport(currentReport, event, jobId);
+          onUpdate(currentReport, event);
+
+          if (event.type === "job.completed") {
+            updateJobRecord(jobId, currentReport);
+          }
+        } catch (err) {
+          console.error("subscribeJob: ошибка разбора события", err);
+        }
+      };
+
+      ws.onerror = () => {
+        if (!cancelled && !pollTimer) startPolling();
+      };
+
+      ws.onclose = () => {
+        if (!cancelled && currentReport?.status !== "completed" && currentReport?.status !== "failed") {
+          startPolling();
+        }
+      };
+    } catch {
+      startPolling();
+    }
+  }
+
+  function startPolling() {
+    if (pollTimer || cancelled) return;
+    pollTimer = setInterval(async () => {
+      if (cancelled) return;
+      try {
+        const report = await getReport(jobId);
+        if (report && !cancelled) {
+          currentReport = report;
+          onUpdate(report);
+          if (report.status === "completed" || report.status === "failed") {
+            updateJobRecord(jobId, report);
+            if (pollTimer) clearInterval(pollTimer);
+          }
+        }
+      } catch {
+        // продолжаем опрос
+      }
+    }, 2000);
+  }
+
+  return () => {
+    cancelled = true;
+    if (pollTimer) clearInterval(pollTimer);
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      ws.close();
+    }
+  };
+}
+
+function applyEventToReport(existing: VideoReport | null, event: ServerEvent, jobId: JobId): VideoReport {
+  const report: VideoReport = existing
+    ? { ...existing, factChecks: [...existing.factChecks] }
+    : {
+        jobId,
+        video: {
+          pageUrl: "",
+          platform: "generic",
+          title: "",
+          durationSec: 0,
+          language: "und",
+        },
+        status: "processing",
+        processedUntil: 0,
+        factChecks: [],
+      };
+
+  switch (event.type) {
+    case "job.started":
+      report.video = event.video;
+      report.status = "processing";
+      break;
+    case "job.progress":
+      report.processedUntil = Math.max(report.processedUntil, event.processedUntil);
+      break;
+    case "claim.detected":
+    case "claim.checked": {
+      const list = report.factChecks.filter((f) => f.id !== event.factCheck.id);
+      list.push(event.factCheck);
+      report.factChecks = list.sort((a, b) => a.range.start - b.range.start);
+      break;
+    }
+    case "job.completed":
+      return { ...event.report, status: "completed" };
+    case "job.failed":
+      report.status = "failed";
+      break;
+  }
+
+  return report;
+}
+
+export function updateJobRecord(jobId: JobId, report: VideoReport) {
+  if (typeof window === "undefined") return;
+  const jobs = listJobs();
+  const index = jobs.findIndex((j) => j.jobId === jobId);
+  if (index !== -1) {
+    jobs[index] = {
+      ...jobs[index]!,
+      report,
+      input: report.video.title || jobs[index]!.input,
+    };
+    save(jobs);
+  }
+}
+
+/** Все проверки этого браузера, новые сверху — для страницы «История» */
+export function listJobs(): JobRecord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as JobRecord[];
+  } catch {
+    return [];
+  }
+}
+
+function save(jobs: JobRecord[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+}
+
+function toRequest(input: string, isUrl: boolean): StartAnalysisRequest {
+  return isUrl
+    ? { video: { pageUrl: input, platform: "generic" }, mode: "remote", startFrom: 0, uiLanguage: "ru" }
+    : {
+        video: { pageUrl: "text:pasted", platform: "generic" },
+        mode: "remote",
+        startFrom: 0,
+        uiLanguage: "ru",
+        text: input,
+      };
+}
