@@ -4,15 +4,15 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  { ignores: ["**/dist/**", "**/node_modules/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**"] },
   js.configs.recommended,
   tseslint.configs.recommended,
   {
-    files: ["backend/**", "scripts/**", "*.mjs", "*.js"],
+    files: ["backend/**", "scripts/**", "*.mjs", "*.js", "web/*.mjs", "web/*.ts"],
     languageOptions: { globals: globals.node },
   },
   {
-    files: ["extension/src/**"],
+    files: ["extension/src/**", "web/src/**", "web/app/**"],
     languageOptions: { globals: { ...globals.browser, chrome: "readonly" } },
   },
   {

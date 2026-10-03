@@ -45,6 +45,12 @@ export const UNITS = [
     paths: ["extension/"],
     tsconfig: "extension/tsconfig.json",
   },
+  {
+    id: "web",
+    owner: "frontend",
+    paths: ["web/"],
+    tsconfig: "web/tsconfig.json",
+  },
 ];
 
 function stage(name, owner) {
@@ -71,6 +77,7 @@ export function unitsForFiles(files) {
     if (file.startsWith("packages/contracts/")) {
       ids.add("backend-core");
       ids.add("extension");
+      ids.add("web");
     }
     if (STAGE_CONTRACT.test(file)) ids.add("backend-core");
   }

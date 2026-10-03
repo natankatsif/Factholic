@@ -5,11 +5,14 @@
   "workspaces": [
     "packages/*",
     "backend",
-    "extension"
+    "extension",
+    "web"
   ],
   "scripts": {
     "dev:mock": "npm run dev:mock -w backend",
     "dev": "npm run dev -w backend",
+    "dev:web": "npm run dev -w web",
+    "build:web": "npm run build -w web",
     "build:ext": "npm run build -w extension",
     "check": "node scripts/check.mjs",
     "lint": "eslint .",
