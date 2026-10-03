@@ -5,7 +5,7 @@
  *  2. WS   /api/jobs/:id/events сервер шлёт ServerEvent, клиент шлёт ClientMessage
  *  3. GET  /api/jobs/:id        -> VideoReport (снапшот, например после перезагрузки страницы)
  */
-import type { JobId, LanguageCode, Seconds, TimeRange, VideoInfo, VideoRef } from "./common.ts";
+import type { ClaimId, JobId, LanguageCode, Seconds, TimeRange, VideoInfo, VideoRef } from "./common.ts";
 import type { FactCheck, VideoReport } from "./fact-check.ts";
 
 export const API_ROUTES = {
@@ -54,7 +54,9 @@ export type ServerEvent =
   /** Проверка закончилась. factCheck.status = "done" | "failed". Заменяет объект с тем же id */
   | { type: "claim.checked"; jobId: JobId; factCheck: FactCheck }
   | { type: "job.completed"; jobId: JobId; report: VideoReport }
-  | { type: "job.failed"; jobId: JobId; error: ApiError };
+  | { type: "job.failed"; jobId: JobId; error: ApiError }
+  /** Ответ AI ассистента на вопрос в карточке разбора */
+  | { type: "question.answered"; jobId: JobId; question: string; answer: string; claimId?: ClaimId };
 
 // ---------- клиент -> сервер ----------
 
@@ -69,6 +71,8 @@ export type ClientMessage =
       mimeType: "audio/webm;codecs=opus" | "audio/wav";
       dataBase64: string;
     }
+  /** Задать вопрос по утверждению или общему разбору */
+  | { type: "question.ask"; question: string; claimId?: ClaimId }
   | { type: "cancel" };
 
 export interface ApiError {

@@ -87,6 +87,12 @@
 | 08  | `08-stances`                | `StancesInput` → `StancesOutput`                 | backend-2 | позиции источников → сходятся / разделились / против / мало источников        |
 | 09  | `09-report`                 | `ReportInput` → `FactCheck` (из contracts)       | backend-2 | чистый маппер во фронтовую модель                                             |
 
+**Переходный период.** Старые этапы `05-verification` (вердикт 0–10) и `06-delivery` пока лежат рядом с новыми:
+на них работает текущий оркестратор. Когда backend-1 доделает 03 (`structure`) и 04 (`copies`), он переключает
+оркестратор на 05–09 и удаляет старые папки (и их юниты в `scripts/units.mjs`). Новые поля на границе
+(`Claim.structure`, `FoundSource.links`/`dateFrom`, `SourceSearchOutput.copies`) пока **необязательные** —
+этапы backend-2 работают и без них (05 сам извлекает структуру, дерево строится по `sources`).
+
 ### Режимы получения звука
 
 - `remote` — бэкенд сам качает по `pageUrl` (yt-dlp). Если есть субтитры платформы — берём их, ASR не нужен.
@@ -145,6 +151,8 @@ scripts/check.mjs          проверка по юнитам (npm run check)
 | `backend-02-transcription`        | backend-1 |
 | `backend-03-claim-extraction`     | backend-1 |
 | `backend-04-source-search`        | backend-1 |
+| `backend-05-verification` (стар.) | backend-2 |
+| `backend-06-delivery` (стар.)     | backend-1 |
 | `backend-05-provenance`           | backend-2 |
 | `backend-06-mutations`            | backend-2 |
 | `backend-07-root-date`            | backend-2 |

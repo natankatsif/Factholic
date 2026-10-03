@@ -25,6 +25,11 @@ export const UNITS = [
   stage("04-source-search", "backend-2"),
   stage("05-verification", "backend-2"),
   stage("06-delivery", "backend-1"),
+  stage("05-provenance", "backend-2"),
+  stage("06-mutations", "backend-2"),
+  stage("07-root-date", "backend-2"),
+  stage("08-stances", "backend-2"),
+  stage("09-report", "backend-2"),
   {
     id: "backend-core",
     owner: "backend-1",
@@ -44,6 +49,12 @@ export const UNITS = [
     owner: "frontend",
     paths: ["extension/"],
     tsconfig: "extension/tsconfig.json",
+  },
+  {
+    id: "web",
+    owner: "frontend",
+    paths: ["web/"],
+    tsconfig: "web/tsconfig.json",
   },
 ];
 
@@ -71,6 +82,7 @@ export function unitsForFiles(files) {
     if (file.startsWith("packages/contracts/")) {
       ids.add("backend-core");
       ids.add("extension");
+      ids.add("web");
     }
     if (STAGE_CONTRACT.test(file)) ids.add("backend-core");
   }

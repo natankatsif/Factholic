@@ -19,6 +19,8 @@ export function toFactCheck(input: DeliveryInput): DeliveryOutput {
     claim: claim.normalized,
     category: claim.category,
     speaker: claim.speaker,
+    consensus: "unverifiable",
+    flags: [],
     verdict: null,
     sources: [],
   };

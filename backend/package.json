@@ -8,11 +8,11 @@
     "dev:mock": "SERVER_MODE=replay tsx watch src/server.ts",
     "stage:03": "tsx src/stages/03-claim-extraction/dev.ts",
     "stage:04": "tsx src/stages/04-source-search/dev.ts",
-    "stage:05": "tsx src/stages/05-verification/dev.ts",
+    "stage:08": "tsx src/stages/08-stances/dev.ts",
     "test": "tsx --test \"src/stages/**/*.test.ts\"",
     "eval:03": "tsx src/stages/03-claim-extraction/eval/run.ts",
     "eval:04": "tsx src/stages/04-source-search/eval/run.ts",
-    "eval:05": "tsx src/stages/05-verification/eval/run.ts"
+    "eval:08": "tsx src/stages/08-stances/eval/run.ts"
   },
   "dependencies": {
     "@news/contracts": "*",

@@ -7,7 +7,7 @@ import type { TranscriptSegment } from "../02-transcription/types.ts";
 import { askJson, LlmConfigError } from "./llm.ts";
 import { buildPrompt, SYSTEM_PROMPT } from "./prompt.ts";
 import { findQuote, tokenize } from "./range.ts";
-import type { Claim, ClaimExtractionInput, ClaimExtractionOutput } from "./types.ts";
+import type { Claim, ClaimExtractionInput, ClaimExtractionOutput, TimeMarker } from "./types.ts";
 
 const CATEGORIES = [
   "event",
@@ -19,6 +19,35 @@ const CATEGORIES = [
   "other",
 ] as const satisfies readonly ClaimCategory[];
 
+const TIME_MARKERS = [
+  "just_now",
+  "today",
+  "yesterday",
+  "this_week",
+  "recently",
+] as const satisfies readonly TimeMarker[];
+
+const StructureSchema = z.object({
+  numbers: z.array(
+    z.object({
+      value: z.number(),
+      unit: z.string(),
+      approximate: z.boolean(),
+      raw: z.string(),
+    }),
+  ),
+  places: z.array(z.string()),
+  eventTime: z
+    .object({
+      raw: z.string(),
+      date: z.string().nullable(),
+    })
+    .nullable(),
+  timeMarkers: z.array(z.enum(TIME_MARKERS)),
+  certainty: z.enum(["asserted", "hedged"]),
+  attributedTo: z.string().nullable(),
+});
+
 const ExtractionSchema = z.object({
   claims: z.array(
     z.object({
@@ -28,6 +57,7 @@ const ExtractionSchema = z.object({
       category: z.enum(CATEGORIES),
       checkworthiness: z.number(),
       entities: z.array(z.string()),
+      structure: StructureSchema.optional().nullable(),
     }),
   ),
 });
@@ -117,6 +147,7 @@ function toClaims(raw: RawClaim[], input: ClaimExtractionInput): Claim[] {
       entities: [...new Set(r.entities.map((e) => e.trim()).filter(Boolean))],
       segmentIds: segments.map((s) => s.id),
       speaker: segments[0].speaker,
+      ...(r.structure && { structure: r.structure }),
     });
   }
   return claims;

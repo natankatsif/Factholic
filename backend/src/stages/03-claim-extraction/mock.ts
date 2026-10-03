@@ -29,6 +29,15 @@ export const mockClaim: Claim = {
   entities: ["Украина"],
   segmentIds: ["0_1"],
   speaker: "SPEAKER_1",
+  structure: {
+    numbers: [],
+    places: ["Украина"],
+    eventTime: null,
+    // «сейчас идёт» — подаётся как происходящее на момент видео
+    timeMarkers: ["today"],
+    certainty: "asserted",
+    attributedTo: null,
+  },
 };
 
 export const mockClaimExtractionOutput: ClaimExtractionOutput = {

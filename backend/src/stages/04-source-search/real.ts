@@ -57,10 +57,21 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
   );
 
   const retrievedAt = new Date().toISOString();
+  const sources = picked.map((e, i) => toFoundSource(e, `${claim.id}_s${i + 1}`, retrievedAt));
+  const pickedUrls = new Map(sources.map((s) => [s.url, s]));
+
+  let copyIdx = sources.length + 1;
+  const copies = relevant.map((e) => {
+    const existing = pickedUrls.get(e.candidate.url);
+    if (existing) return existing;
+    return toFoundSource(e, `${claim.id}_c${copyIdx++}`, retrievedAt);
+  });
+
   return {
     claimId: claim.id,
     queries: tasks.map((t) => t.query),
-    sources: picked.map((e, i) => toFoundSource(e, `${claim.id}_s${i + 1}`, retrievedAt)),
+    sources,
+    copies,
   };
 };
 

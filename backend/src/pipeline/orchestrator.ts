@@ -11,8 +11,11 @@ import { ingest, type LiveAudioChunk } from "../stages/01-ingest/index.ts";
 import { transcribe, type TranscriptSegment } from "../stages/02-transcription/index.ts";
 import { CHECKWORTHINESS_THRESHOLD, extractClaims, type Claim } from "../stages/03-claim-extraction/index.ts";
 import { searchSources } from "../stages/04-source-search/index.ts";
-import { verify } from "../stages/05-verification/index.ts";
-import { toFactCheck } from "../stages/06-delivery/index.ts";
+import { buildProvenanceTree, type ProvenanceTree } from "../stages/05-provenance/index.ts";
+import { findMutations } from "../stages/06-mutations/index.ts";
+import { checkRootDate } from "../stages/07-root-date/index.ts";
+import { assessStances } from "../stages/08-stances/index.ts";
+import { toFactCheck, type ProvenanceResult } from "../stages/09-report/index.ts";
 import type { StageContext } from "./context.ts";
 
 const CONTEXT_WINDOW_SEC = 60;
@@ -67,19 +70,78 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
         emit({ type: "claim.detected", jobId, factCheck: toFactCheck({ kind: "pending", claim }) });
         let fc: FactCheck;
         try {
-          const { sources } = await searchSources(
-            { claim, maxSources: 5, searchLanguages: [...new Set([claim.language, "en"])] },
+          const { sources, copies } = await searchSources(
+            {
+              claim,
+              maxSources: 5,
+              searchLanguages: [...new Set([claim.language, "en", "ro"])],
+            },
             ctx,
           );
+
+          // 1. Дерево первоисточника (05)
+          let tree: ProvenanceTree | null = null;
+          try {
+            tree = await buildProvenanceTree(
+              {
+                claim,
+                copies: copies?.length ? copies : sources,
+                video: {
+                  url: video.pageUrl,
+                  title: video.title,
+                },
+              },
+              ctx,
+            );
+          } catch (treeErr) {
+            ctx.log("05: ошибка построения дерева", treeErr);
+          }
+
+          // 2. Параллельно: мутации (06) и стороны (08)
           const surroundingText = history
             .filter((s) => Math.abs(s.start - claim.range.start) <= 30)
             .map((s) => s.text)
             .join(" ");
-          const verification = await verify(
-            { claim, sources, surroundingText, uiLanguage: request.uiLanguage },
-            ctx,
-          );
-          fc = toFactCheck({ kind: "checked", claim, sources, verification });
+
+          const [mutationsResult, stancesResult] = await Promise.all([
+            tree
+              ? findMutations({ claim, tree, uiLanguage: request.uiLanguage }, ctx).catch((err) => {
+                  ctx.log("06: ошибка поиска мутаций", err);
+                  return null;
+                })
+              : Promise.resolve(null),
+            assessStances(
+              {
+                claim,
+                sources,
+                surroundingText,
+                uiLanguage: request.uiLanguage,
+                voteGroups: tree?.voteGroups,
+              },
+              ctx,
+            ),
+          ]);
+
+          // 3. Дата корня (07)
+          const rootDateResult = tree
+            ? checkRootDate({ claim, tree })
+            : { claimId: claim.id, claimedAt: null, rootPublishedAt: null, flag: null };
+
+          const provenanceResult: ProvenanceResult | null = tree
+            ? {
+                tree,
+                mutations: mutationsResult,
+                rootDate: rootDateResult,
+              }
+            : null;
+
+          fc = toFactCheck({
+            kind: "checked",
+            claim,
+            sources,
+            stances: stancesResult,
+            provenance: provenanceResult,
+          });
         } catch (err) {
           ctx.log("claim failed", err);
           fc = toFactCheck({ kind: "failed", claim, error: "Не удалось проверить тезис" });

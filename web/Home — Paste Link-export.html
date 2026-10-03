@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      tailwind = { config: { corePlugins: { preflight: false } } };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito%3Awght%40200..1000&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      ::before,
+      ::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+    </style>
+
+    <style>
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body style="background-color: #f1ebe9">
+    <div
+      data-pencil-name="Home — Paste Link"
+      class="box-border w-[1440px] h-[1024px] flex flex-col gap-0 justify-start items-start bg-[#F1EBE9] overflow-hidden relative"
+    >
+      <div
+        data-pencil-name="Top Bar"
+        class="box-border w-full h-fit shrink-0 flex flex-row gap-0 p-[36px_80px] justify-between items-center relative [z-index:0]"
+      >
+        <div
+          data-pencil-name="Logo"
+          class="text-[34px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-black tracking-[-1px] text-left [white-space:nowrap]"
+        >
+          factholic
+        </div>
+        <div
+          data-pencil-name="Nav"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[40px] justify-start items-center"
+        >
+          <div
+            data-pencil-name="Как это работает"
+            class="text-[17px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+          >
+            Как это работает
+          </div>
+          <div
+            data-pencil-name="Источники"
+            class="text-[17px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+          >
+            Источники
+          </div>
+          <div
+            data-pencil-name="Для редакций"
+            class="text-[17px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+          >
+            Для редакций
+          </div>
+          <div
+            data-pencil-name="Login Button"
+            class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 p-[12px_24px] justify-start items-start [outline:2px_solid_#4A3333] [outline-offset:-1px] rounded-[100px]"
+          >
+            <div
+              data-pencil-name="Label"
+              class="text-[17px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+            >
+              Войти
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        data-pencil-name="Hero"
+        class="box-border w-full h-fit shrink-0 flex flex-col gap-[40px] p-[40px_80px_0px_80px] justify-start items-start relative [z-index:1]"
+      >
+        <div
+          data-pencil-name="Headline Row"
+          class="box-border w-full h-fit shrink-0 flex flex-row gap-0 justify-between items-start"
+        >
+          <div
+            data-pencil-name="Title Block"
+            class="box-border w-fit shrink-0 h-fit flex flex-col gap-[20px] justify-start items-start"
+          >
+            <div
+              data-pencil-name="Title"
+              class="text-[128px]/[118px] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-black tracking-[-4px] text-left [white-space:nowrap]"
+            >
+              Проверь
+              <br />
+              любое видео
+            </div>
+            <div
+              data-pencil-name="Subtitle"
+              class="text-[30px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              Вставь ссылку — откроем плеер и разберём каждое утверждение
+            </div>
+          </div>
+          <div
+            data-pencil-name="Stat"
+            class="box-border w-fit shrink-0 h-fit flex flex-col gap-[2px] p-[16px_0px_0px_0px] justify-start items-end"
+          >
+            <div
+              data-pencil-name="Stat Label"
+              class="text-[22px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              Сегодня проверено
+            </div>
+            <div
+              data-pencil-name="Stat Value"
+              class="text-[60px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-black tracking-[-1px] text-left [white-space:nowrap]"
+            >
+              9 412
+            </div>
+            <div
+              data-pencil-name="Stat Unit"
+              class="text-[22px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              видео
+            </div>
+          </div>
+        </div>
+        <div
+          data-pencil-name="Link Form"
+          class="box-border w-fit h-fit shrink-0 flex flex-col gap-[18px] justify-start items-start"
+        >
+          <div
+            data-pencil-name="Link Input"
+            class="box-border w-[760px] h-[80px] shrink-0 [box-shadow:0px_10px_30px_#4A333314] flex flex-row gap-[14px] p-[8px_8px_8px_28px] justify-start items-center bg-[#FBF8F7] [outline:2px_solid_#E3D9D6] [outline-offset:-1px] rounded-[100px]"
+          >
+            <svg
+              data-pencil-name="Link Icon"
+              data-icon-name="link-2"
+              data-icon-set="lucide"
+              viewBox="0 0 13.99993896484375 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              class="box-border w-[24px] shrink-0 h-[24px]"
+            >
+              <path
+                d="M3.82129 3.51367q-0.11279 0.01367-0.2085 0.02735-0.18115 0.01367-0.42041 0.07861-0.23926 0.06152-0.42041 0.1333-0.81348 0.33496-1.37402 1.0083-0.55713 0.66992-0.73828 1.53809-0.19824 0.93994 0.11621 1.84912 0.31445 0.90918 1.05957 1.52441 0.62891 0.5332 1.39795 0.71436 0.29395 0.07178 0.4751 0.08545 0.18457 0.01367 0.85449 0.01367l0.84082 0 0.09912-0.04102q0.19482-0.09912 0.27002-0.28711 0.07861-0.19141 0.02734-0.39306-0.04785-0.20166-0.21533-0.32813-0.08203-0.05811-0.14697-0.07178-0.06152-0.01367-0.25635-0.02734l-0.63232-0.01367q-0.81006-0.01367-0.9502-0.04102-0.75879-0.1709-1.26123-0.7417-0.40674-0.46484-0.5332-1.08007-0.04102-0.18115-0.04102-0.46143 0-0.28027 0.04102-0.46143 0.11279-0.54688 0.44092-0.96728 0.33154-0.42041 0.82031-0.65625 0.25293-0.14014 0.5332-0.19824 0.14014-0.02734 0.96387-0.04102l0.81347-0.01367 0.1128-0.04102q0.2085-0.11279 0.29053-0.32129 0.08545-0.21191 0.00683-0.42041-0.0752-0.21191-0.28369-0.3247l-0.09912-0.04102-0.76904-0.01367q-0.75537 0-0.81348 0.01367z m4.78857 0q-0.12646 0.02734-0.23925 0.1333-0.10938 0.10596-0.16748 0.23242-0.06836 0.2085 0.01367 0.42725 0.08545 0.21533 0.29394 0.31445l0.1128 0.04102 0.81347 0.01367q0.82373 0.01367 0.96387 0.04102 0.68701 0.15381 1.16894 0.64599 0.48535 0.48877 0.62549 1.17578 0.04102 0.18115 0.04102 0.46143 0 0.28027-0.04102 0.46143-0.12646 0.61523-0.5332 1.08007-0.50244 0.5708-1.26123 0.7417-0.14014 0.02734-0.9502 0.04102l-0.63232 0.01367q-0.19482 0.01367-0.25977 0.02734-0.06152 0.01367-0.14355 0.07178-0.16748 0.12646-0.21875 0.32813-0.04785 0.20166 0.02734 0.39306 0.07861 0.18799 0.27344 0.28711l0.09912 0.04102 0.84082 0q0.66992 0 0.85108-0.01367 0.18457-0.01367 0.47851-0.08545 0.4751-0.11279 0.92285-0.37598 0.44775-0.2666 0.78614-0.63232 0.61523-0.66992 0.83056-1.52442 0.21875-0.85449 0-1.70898-0.21533-0.85449-0.83056-1.52442-0.32471-0.35205-0.75196-0.60839-0.42725-0.25977-0.88867-0.38624-0.29394-0.08545-0.49902-0.09912-0.20166-0.01367-0.84424-0.02734-0.81006 0-0.88184 0.01367z m-4.1289 2.93946q-0.23926 0.08545-0.34522 0.3247-0.10254 0.23584-0.00683 0.46143 0.05811 0.0957 0.14013 0.18115 0.08545 0.08203 0.16748 0.11963 0.08545 0.03418 0.40674 0.03418l2.15674 0 2.15674 0q0.32129 0 0.40332-0.03418 0.08545-0.0376 0.16748-0.11963 0.08545-0.08545 0.1333-0.18799 0.05127-0.10596 0.05127-0.23242 0-0.12646-0.04102-0.23926-0.09912-0.19482-0.29394-0.29394l-0.08545-0.04102-2.47803 0q-2.47803 0-2.53271 0.02735z"
+                fill="#A27C7A"
+              ></path>
+            </svg>
+            <div
+              data-pencil-name="Placeholder"
+              class="text-[20px]/[normal] box-border [flex:1_1_0] text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-semibold text-left"
+            >
+              Вставь ссылку на видео…
+            </div>
+            <div
+              data-pencil-name="Check Button"
+              class="box-border w-fit shrink-0 h-full flex flex-row gap-[10px] p-[0px_30px] justify-start items-center bg-[#4A3333] rounded-[100px]"
+            >
+              <div
+                data-pencil-name="Label"
+                class="text-[19px]/[normal] box-border text-[#FFFFFF] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+              >
+                Проверить
+              </div>
+              <svg
+                data-pencil-name="Arrow"
+                data-icon-name="arrow-right"
+                data-icon-set="lucide"
+                viewBox="0 0 13.99993896484375 14"
+                preserveAspectRatio="xMidYMid meet"
+                xmlns="http://www.w3.org/2000/svg"
+                class="box-border w-[20px] shrink-0 h-[20px]"
+              >
+                <path
+                  d="M6.90088 2.35156q-0.18115 0.02734-0.32129 0.16748-0.11279 0.11279-0.14697 0.28028-0.03418 0.16748 0.02051 0.32129 0.02734 0.08545 0.25976 0.3247 0.23242 0.23584 1.36377 1.37061 1.58252 1.58252 1.58252 1.59619 0 0.01367-3.45557 0.01367l-3.44531 0-0.08545 0.04102q-0.22217 0.11279-0.30078 0.33838-0.0752 0.22217 0.00684 0.43408 0.05811 0.0957 0.14013 0.18115 0.08545 0.08203 0.16748 0.11963 0.08545 0.03418 0.53321 0.03418l3.01123 0q3.42822 0 3.42822 0.01367 0 0.01367-1.58252 1.59619-1.13135 1.13477-1.36377 1.37402-0.23242 0.23584-0.25976 0.3213-0.05469 0.15381-0.02051 0.32128 0.03418 0.16748 0.14697 0.28028 0.18115 0.18115 0.42041 0.18115l0.04102 0q0.11279 0 0.19824-0.05469 0.14014-0.09912 0.51611-0.46484l1.68164-1.67822q2.1123-2.10205 2.15332-2.18409 0.07178-0.12646 0.07178-0.28027 0-0.15381-0.07178-0.28027-0.04102-0.08203-2.1499-2.18067-2.10547-2.10205-2.17725-2.13623-0.06836-0.0376-0.23584-0.06494-0.04102 0-0.12646 0.01367z"
+                  fill="#FFFFFF"
+                ></path>
+              </svg>
+            </div>
+          </div>
+          <div
+            data-pencil-name="Platforms"
+            class="box-border w-fit h-fit shrink-0 flex flex-row gap-[10px] p-[0px_0px_0px_12px] justify-start items-center"
+          >
+            <div
+              data-pencil-name="Works With"
+              class="text-[15px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+            >
+              Работает с
+            </div>
+            <div
+              data-pencil-name="YouTube"
+              class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] rounded-[100px]"
+            >
+              <svg
+                data-pencil-name="Icon"
+                data-icon-name="youtube-logo"
+                data-icon-set="phosphor"
+                viewBox="0 0 14 14"
+                preserveAspectRatio="xMidYMid meet"
+                xmlns="http://www.w3.org/2000/svg"
+                class="box-border w-[18px] shrink-0 h-[18px]"
+              >
+                <path
+                  d="M8.96875 6.61719l-2.625-1.75q-0.21875-0.10938-0.4375 0-0.21875 0.10938-0.21875 0.38281l0 3.5q0 0.27344 0.21875 0.38281 0.10938 0.05469 0.21875 0.05469 0.10938 0 0.21875-0.05469l2.625-1.75q0.21875-0.16406 0.21875-0.38281 0-0.21875-0.21875-0.38281z m-2.40625 1.3125l0-1.85938 1.42188 0.92969-1.42188 0.92969z m6.23438-4.10156q-0.05469-0.32813-0.27344-0.54688-0.21875-0.21875-0.49219-0.38281-1.20313-0.4375-3.11719-0.60156-1.03906-0.10938-1.91406-0.10938-0.875 0-1.91406 0.10938-1.91406 0.16406-3.11719 0.60156-0.27344 0.16406-0.49219 0.38281-0.21875 0.21875-0.27343 0.54688-0.32813 1.20313-0.32813 3.17187 0 1.96875 0.32813 3.17188 0.05469 0.32813 0.27343 0.54687 0.21875 0.21875 0.49219 0.38281 1.14844 0.4375 3.00781 0.60157 1.03906 0.10938 1.96875 0.10937l0.10938 0q0.92969 0 1.96875-0.10937 1.85937-0.16406 3.00781-0.60157 0.27344-0.16406 0.49219-0.38281 0.21875-0.21875 0.27343-0.54687 0.32813-1.20313 0.32813-3.17188 0-1.96875-0.32813-3.17188z m-0.82032 6.125q-0.05469 0.21875-0.27343 0.32812-1.09375 0.38281-2.95313 0.54688-0.98438 0.10938-1.75 0.10937-0.76563 0-1.75-0.10937-1.85938-0.16406-2.95313-0.54688-0.21875-0.10938-0.27343-0.32812-0.27344-1.09375-0.27344-2.95313 0-1.85938 0.27344-2.95313 0.05469-0.21875 0.27343-0.32812 1.03906-0.38281 2.89844-0.54688 0.98438-0.10938 1.80469-0.10937 0.76563 0 1.75 0.10937 1.85938 0.16406 2.95313 0.54688 0.21875 0.10938 0.27343 0.32812 0.27344 1.09375 0.27344 2.95313 0 1.85938-0.27344 2.95313z"
+                  fill="#E2353F"
+                ></path>
+              </svg>
+              <div
+                data-pencil-name="Label"
+                class="text-[15px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+              >
+                YouTube
+              </div>
+            </div>
+            <div
+              data-pencil-name="Shorts"
+              class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] rounded-[100px]"
+            >
+              <svg
+                data-pencil-name="Icon"
+                data-icon-name="play-circle"
+                data-icon-set="phosphor"
+                viewBox="0 0 14 14"
+                preserveAspectRatio="xMidYMid meet"
+                xmlns="http://www.w3.org/2000/svg"
+                class="box-border w-[18px] shrink-0 h-[18px]"
+              >
+                <path
+                  d="M7 1.3125q-1.53125 0-2.84375 0.76563-1.3125 0.76563-2.07813 2.07812-0.76563 1.3125-0.76562 2.84375 0 1.53125 0.76562 2.84375 0.76563 1.3125 2.07813 2.07813 1.3125 0.76563 2.84375 0.76562 1.53125 0 2.84375-0.76562 1.3125-0.76563 2.07813-2.07813 0.76563-1.3125 0.76562-2.84375 0-1.53125-0.76562-2.84375-0.76563-1.3125-2.07813-2.07813-1.3125-0.76563-2.84375-0.76562z m0 10.5q-1.3125 0-2.40625-0.65625-1.09375-0.65625-1.75-1.75-0.65625-1.09375-0.65625-2.40625 0-1.3125 0.65625-2.40625 0.65625-1.09375 1.75-1.75 1.09375-0.65625 2.40625-0.65625 1.3125 0 2.40625 0.65625 1.09375 0.65625 1.75 1.75 0.65625 1.09375 0.65625 2.40625 0 1.3125-0.65625 2.40625-0.65625 1.09375-1.75 1.75-1.09375 0.65625-2.40625 0.65625z m1.96875-5.19531l-2.625-1.75q-0.21875-0.10938-0.4375 0-0.21875 0.10938-0.21875 0.38281l0 3.5q0 0.27344 0.21875 0.38281 0.10938 0.05469 0.21875 0.05469 0.10938 0 0.21875-0.05469l2.625-1.75q0.21875-0.16406 0.21875-0.38281 0-0.21875-0.21875-0.38281z m-2.40625 1.3125l0-1.85938 1.42188 0.92969-1.42188 0.92969z"
+                  fill="#E0368A"
+                ></path>
+              </svg>
+              <div
+                data-pencil-name="Label"
+                class="text-[15px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+              >
+                Shorts
+              </div>
+            </div>
+            <div
+              data-pencil-name="TikTok"
+              class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] rounded-[100px]"
+            >
+              <svg
+                data-pencil-name="Icon"
+                data-icon-name="tiktok-logo"
+                data-icon-set="phosphor"
+                viewBox="0 0 14 14"
+                preserveAspectRatio="xMidYMid meet"
+                xmlns="http://www.w3.org/2000/svg"
+                class="box-border w-[18px] shrink-0 h-[18px]"
+              >
+                <path
+                  d="M12.25 4.15625q-1.09375 0-1.85938-0.76563-0.76563-0.76563-0.76562-1.85937 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-2.1875 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 7q0 0.38281-0.27344 0.71094-0.27344 0.32813-0.65625 0.38281-0.38281 0.05469-0.73828-0.16406-0.35547-0.21875-0.46484-0.60157-0.10938-0.38281 0.05469-0.76562 0.16406-0.38281 0.49218-0.54688 0.27344-0.10938 0.27344-0.38281l0-2.29687q0-0.21875-0.16406-0.32813-0.16406-0.10938-0.32813-0.10937-1.09375 0.21875-1.91406 0.875-0.82031 0.65625-1.23047 1.64062-0.41016 0.98438-0.27344 2.07813 0.13672 1.09375 0.76563 1.9414 0.62891 0.84766 1.58594 1.3125 0.95703 0.46484 2.02343 0.41016 1.06641-0.05469 1.96875-0.62891 0.90234-0.57422 1.42188-1.5039 0.51953-0.92969 0.51953-2.02344l0-1.96875q1.25781 0.65625 2.625 0.65625 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-2.1875q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-0.4375 2.1875q-1.3125-0.16406-2.35156-0.92969-0.21875-0.10938-0.46485 0-0.24609 0.10938-0.24609 0.38282l0 2.73437q0 1.25781-0.84766 2.1875-0.84766 0.92969-2.07812 1.06641-1.23047 0.13672-2.24219-0.57422-1.01172-0.71094-1.3125-1.94141-0.30078-1.23047 0.30078-2.32422 0.60156-1.09375 1.80469-1.53125l0 1.47656q-0.60156 0.38281-0.79297 1.06641-0.19141 0.68359 0.08203 1.33984 0.27344 0.65625 0.875 0.98438 0.60156 0.32813 1.3125 0.19141 0.71094-0.13672 1.14844-0.6836 0.4375-0.54688 0.4375-1.25781l0-6.5625 1.36719 0q0.10938 1.20313 0.95703 2.05078 0.84766 0.84766 2.05078 0.95703l0 1.36719z"
+                  fill="#4A3333"
+                ></path>
+              </svg>
+              <div
+                data-pencil-name="Label"
+                class="text-[15px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+              >
+                TikTok
+              </div>
+            </div>
+            <div
+              data-pencil-name="Facebook"
+              class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] rounded-[100px]"
+            >
+              <svg
+                data-pencil-name="Icon"
+                data-icon-name="facebook-logo"
+                data-icon-set="phosphor"
+                viewBox="0 0 14 14"
+                preserveAspectRatio="xMidYMid meet"
+                xmlns="http://www.w3.org/2000/svg"
+                class="box-border w-[18px] shrink-0 h-[18px]"
+              >
+                <path
+                  d="M12.6875 7q0-1.53125-0.76563-2.84375-0.76563-1.3125-2.07812-2.07813-1.3125-0.76563-2.84375-0.76562-1.53125 0-2.84375 0.76562-1.3125 0.76563-2.07813 2.07813-0.76563 1.3125-0.76562 2.84375 0 1.53125 0.76562 2.84375 0.76563 1.3125 2.07813 2.07813 1.3125 0.76563 2.84375 0.76562 1.53125 0 2.84375-0.76562 1.3125-0.76563 2.07813-2.07813 0.76563-1.3125 0.76562-2.84375z m-5.25 4.8125l0-3.5 1.3125 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-1.3125 0 0-1.3125q0-0.38281 0.24609-0.62891 0.24609-0.24609 0.62891-0.24609l0.875 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-0.875 0q-0.71094 0-1.23047 0.51953-0.51953 0.51953-0.51953 1.23047l0 1.3125-1.3125 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672l1.3125 0 0 3.5q-1.25781-0.16406-2.26953-0.84766-1.01172-0.68359-1.58594-1.80468-0.57422-1.12109-0.51953-2.37891 0.05469-1.25781 0.71094-2.32422 0.65625-1.06641 1.75-1.66797 1.09375-0.60156 2.35156-0.60156 1.25781 0 2.35156 0.60156 1.09375 0.60156 1.75 1.66797 0.65625 1.06641 0.71094 2.32422 0.05469 1.25781-0.51953 2.37891-0.57422 1.12109-1.58594 1.80468-1.01172 0.68359-2.26953 0.84766z"
+                  fill="#1660D6"
+                ></path>
+              </svg>
+              <div
+                data-pencil-name="Label"
+                class="text-[15px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+              >
+                Facebook
+              </div>
+            </div>
+            <div
+              data-pencil-name="X"
+              class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[7px_14px_7px_10px] justify-start items-center bg-[#FBF8F7] rounded-[100px]"
+            >
+              <svg
+                data-pencil-name="Icon"
+                data-icon-name="twitter-logo"
+                data-icon-set="phosphor"
+                viewBox="0 0 14 14"
+                preserveAspectRatio="xMidYMid meet"
+                xmlns="http://www.w3.org/2000/svg"
+                class="box-border w-[18px] shrink-0 h-[18px]"
+              >
+                <path
+                  d="M13.50781 3.77344q-0.10937-0.27344-0.38281-0.27344l-1.64062 0q-0.32813-0.54688-0.82032-0.875-0.49219-0.32813-1.12109-0.41016-0.62891-0.08203-1.20313 0.10938-0.57422 0.19141-0.95703 0.60156-0.38281 0.41016-0.60156 0.875-0.21875 0.46484-0.21875 1.01172l0 0.32813q-0.98438-0.27344-2.02344-0.875-0.76563-0.4375-1.47656-1.03907-0.49219-0.38281-0.54687-0.49218-0.21875-0.16406-0.46485-0.08204-0.24609 0.08203-0.30078 0.35547-0.32813 1.75 0.05469 3.28125 0.32813 1.20313 1.03906 2.13281 0.54688 0.76563 1.3125 1.3125-0.49219 0.60156-1.3125 1.03907-0.4375 0.27344-0.82031 0.38281-0.16406 0.10938-0.2461 0.30078-0.08203 0.19141 0.05469 0.41016 0.13672 0.21875 0.57422 0.4375 0.76563 0.38281 1.96875 0.38281 1.91406 0 3.55469-0.90234 1.64063-0.90234 2.67969-2.46094 1.03906-1.55859 1.20312-3.41797l1.64063-1.64063q0.16406-0.21875 0.05468-0.49218z m-2.46093 1.64062q-0.10938 0.10938-0.10938 0.27344-0.10938 1.69531-1.01172 3.08984-0.90234 1.39453-2.3789 2.21485-1.47656 0.82031-3.17188 0.82031-0.76563 0-1.25781-0.16406 1.36719-0.76563 2.07812-1.80469 0.10938-0.16406 0.05469-0.32813-0.05469-0.16406-0.21875-0.27343l-0.05469 0q-0.82031-0.49219-1.47656-1.36719-1.20313-1.64063-0.98438-3.9375 0.875 0.71094 1.80469 1.25781 1.36719 0.71094 2.625 0.92969 0.16406 0 0.32813-0.10938 0.16406-0.10938 0.16406-0.32812l0-0.875q0-0.60156 0.38281-1.09375 0.38281-0.49219 1.01172-0.62891 0.62891-0.13672 1.17578 0.16407 0.54688 0.30078 0.76563 0.84765 0.10937 0.27344 0.4375 0.27344l0.875 0-1.03907 1.03906z"
+                  fill="#4A3333"
+                ></path>
+              </svg>
+              <div
+                data-pencil-name="Label"
+                class="text-[15px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+              >
+                X
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        data-pencil-name="Spacer"
+        class="box-border w-full [flex:1_1_0] flex flex-row gap-0 justify-start items-start relative [z-index:2]"
+      ></div>
+      <div
+        data-pencil-name="Emoji Crowd"
+        class="box-border w-[740px] h-[524px] absolute left-[800px] top-[560px] [z-index:3]"
+      >
+        <div
+          data-pencil-name="Blue Blob"
+          class="box-border w-[240px] h-[240px] absolute left-[130px] top-[70px] bg-[#1660D6] rounded-[120px] [z-index:0]"
+        >
+          <div
+            data-pencil-name="Eye L"
+            class="box-border w-[52.8px] h-[38.4px] absolute left-[52.8px] top-[76.8px] bg-[#00000059] [clip-path:path('M0_19.2_C0_29.804_11.82_38.4_26.4_38.4_C40.98_38.4_52.8_29.804_52.8_19.2_L45.408_19.2_C45.408_26.835_36.898_33.024_26.4_33.024_C15.902_33.024_7.392_26.835_7.392_19.2_L0_19.2_Z')] [z-index:0]"
+          ></div>
+          <div
+            data-pencil-name="Eye R"
+            class="box-border w-[52.8px] h-[38.4px] absolute left-[134.4px] top-[76.8px] bg-[#00000059] [clip-path:path('M0_19.2_C0_29.804_11.82_38.4_26.4_38.4_C40.98_38.4_52.8_29.804_52.8_19.2_L45.408_19.2_C45.408_26.835_36.898_33.024_26.4_33.024_C15.902_33.024_7.392_26.835_7.392_19.2_L0_19.2_Z')] [z-index:1]"
+          ></div>
+          <div
+            data-pencil-name="Lid L"
+            class="box-border w-[38.4px] h-[9.6px] [transform:rotate(-15deg)] [transform-origin:top_left] absolute left-[57.6px] top-[62.4px] bg-[#00000059] rounded-[4.8px] [z-index:2]"
+          ></div>
+          <div
+            data-pencil-name="Lid R"
+            class="box-border w-[38.4px] h-[9.6px] [transform:rotate(15deg)] [transform-origin:top_left] absolute left-[144px] top-[69.6px] bg-[#00000059] rounded-[4.8px] [z-index:3]"
+          ></div>
+          <div
+            data-pencil-name="Mouth"
+            class="box-border w-[48px] h-[28.8px] absolute left-[96px] top-[139.2px] bg-[#00000059] [clip-path:path('M48_14.4_C48_6.447_37.255_0_24_0_C10.745_0_0_6.447_0_14.4_L6.72_14.4_C6.72_8.674_14.457_4.032_24_4.032_C33.543_4.032_41.28_8.674_41.28_14.4_L48_14.4_Z')] [z-index:4]"
+          ></div>
+        </div>
+        <div
+          data-pencil-name="Teal Blob"
+          class="box-border w-[220px] h-[220px] absolute left-[320px] top-[20px] bg-[#0AA6C2] rounded-[110px] [z-index:1]"
+        >
+          <div
+            data-pencil-name="Eye L"
+            class="box-border w-[26.4px] h-[26.4px] absolute left-[61.6px] top-[66px] bg-[#00000059] rounded-full [z-index:0]"
+          ></div>
+          <div
+            data-pencil-name="Eye R"
+            class="box-border w-[26.4px] h-[26.4px] absolute left-[127.6px] top-[66px] bg-[#00000059] rounded-full [z-index:1]"
+          ></div>
+          <div
+            data-pencil-name="Mouth L"
+            class="box-border w-[26.4px] h-[22px] absolute left-[83.6px] top-[96.8px] bg-[#00000059] [clip-path:path('M0_11_C0_17.075_5.91_22_13.2_22_C20.49_22_26.4_17.075_26.4_11_L22.704_11_C22.704_15.374_18.449_18.92_13.2_18.92_C7.951_18.92_3.696_15.374_3.696_11_L0_11_Z')] [z-index:2]"
+          ></div>
+          <div
+            data-pencil-name="Mouth R"
+            class="box-border w-[26.4px] h-[22px] absolute left-[107.8px] top-[96.8px] bg-[#00000059] [clip-path:path('M0_11_C0_17.075_5.91_22_13.2_22_C20.49_22_26.4_17.075_26.4_11_L22.704_11_C22.704_15.374_18.449_18.92_13.2_18.92_C7.951_18.92_3.696_15.374_3.696_11_L0_11_Z')] [z-index:3]"
+          ></div>
+        </div>
+        <div
+          data-pencil-name="Green Blob"
+          class="box-border w-[190px] h-[190px] absolute left-[500px] top-[110px] bg-[#1DA57A] rounded-[95px] [z-index:2]"
+        >
+          <div
+            data-pencil-name="Eye L1"
+            class="box-border w-[30.4px] h-[8.55px] [transform:rotate(25deg)] [transform-origin:top_left] absolute left-[38px] top-[68.4px] bg-[#00000059] rounded-[4.275px] [z-index:0]"
+          ></div>
+          <div
+            data-pencil-name="Eye R1"
+            class="box-border w-[34.2px] h-[8.55px] [transform:rotate(-25deg)] [transform-origin:top_left] absolute left-[106.4px] top-[53.2px] bg-[#00000059] rounded-[4.275px] [z-index:1]"
+          ></div>
+          <div
+            data-pencil-name="Eye R2"
+            class="box-border w-[34.2px] h-[8.55px] [transform:rotate(15deg)] [transform-origin:top_left] absolute left-[106.4px] top-[64.6px] bg-[#00000059] rounded-[4.275px] [z-index:2]"
+          ></div>
+          <div
+            data-pencil-name="Mouth"
+            class="box-border w-[68.4px] h-[9.5px] [transform:rotate(-15deg)] [transform-origin:top_left] absolute left-[60.8px] top-[114px] bg-[#00000059] rounded-[4.75px] [z-index:3]"
+          ></div>
+        </div>
+        <div
+          data-pencil-name="Purple Blob"
+          class="box-border w-[270px] h-[270px] absolute left-[590px] top-[170px] bg-[#6E1EF0] rounded-[135px] [z-index:3]"
+        >
+          <div
+            data-pencil-name="Brow L"
+            class="box-border w-[43.2px] h-[12.15px] [transform:rotate(-25deg)] [transform-origin:top_left] absolute left-[75.6px] top-[54px] bg-[#00000059] rounded-[6.075px] [z-index:0]"
+          ></div>
+          <div
+            data-pencil-name="Brow R"
+            class="box-border w-[43.2px] h-[12.15px] [transform:rotate(25deg)] [transform-origin:top_left] absolute left-[151.2px] top-[54px] bg-[#00000059] rounded-[6.075px] [z-index:1]"
+          ></div>
+          <div
+            data-pencil-name="Eye L"
+            class="box-border w-[27px] h-[40.5px] absolute left-[81px] top-[81px] bg-[#00000059] rounded-full [z-index:2]"
+          ></div>
+          <div
+            data-pencil-name="Eye R"
+            class="box-border w-[27px] h-[40.5px] absolute left-[156.6px] top-[81px] bg-[#00000059] rounded-full [z-index:3]"
+          ></div>
+          <div
+            data-pencil-name="Mouth"
+            class="box-border w-[64.8px] h-[43.2px] absolute left-[102.6px] top-[140.4px] bg-[#00000059] [clip-path:path('M64.8_21.6_C64.8_9.671_50.294_0_32.4_0_C14.506_0_0_9.671_0_21.6_L7.128_21.6_C7.128_12.295_18.443_4.752_32.4_4.752_C46.357_4.752_57.672_12.295_57.672_21.6_L64.8_21.6_Z')] [z-index:4]"
+          ></div>
+        </div>
+        <div
+          data-pencil-name="Red Blob"
+          class="box-border w-[240px] h-[240px] absolute left-[20px] top-[240px] bg-[#E2353F] rounded-[120px] [z-index:4]"
+        >
+          <div
+            data-pencil-name="Brow L"
+            class="box-border w-[48px] h-[12px] [transform:rotate(18deg)] [transform-origin:top_left] absolute left-[52.8px] top-[72px] bg-[#00000059] rounded-[6px] [z-index:0]"
+          ></div>
+          <div
+            data-pencil-name="Brow R"
+            class="box-border w-[48px] h-[12px] [transform:rotate(-18deg)] [transform-origin:top_left] absolute left-[139.2px] top-[86.4px] bg-[#00000059] rounded-[6px] [z-index:1]"
+          ></div>
+          <div
+            data-pencil-name="Eye L"
+            class="box-border w-[21.6px] h-[21.6px] absolute left-[72px] top-[96px] bg-[#00000059] rounded-full [z-index:2]"
+          ></div>
+          <div
+            data-pencil-name="Eye R"
+            class="box-border w-[21.6px] h-[21.6px] absolute left-[144px] top-[96px] bg-[#00000059] rounded-full [z-index:3]"
+          ></div>
+          <div
+            data-pencil-name="Mouth"
+            class="box-border w-[67.2px] h-[12px] absolute left-[86.4px] top-[144px] bg-[#00000059] rounded-[6px] [z-index:4]"
+          ></div>
+        </div>
+        <div
+          data-pencil-name="Pink Blob"
+          class="box-border w-[250px] h-[250px] absolute left-[200px] top-[300px] bg-[#E0368A] rounded-[125px] [z-index:5]"
+        >
+          <div
+            data-pencil-name="Eye L"
+            class="box-border w-[25px] h-[42.5px] absolute left-[75px] top-[75px] bg-[#00000059] rounded-full [z-index:0]"
+          ></div>
+          <div
+            data-pencil-name="Eye R"
+            class="box-border w-[25px] h-[42.5px] absolute left-[150px] top-[75px] bg-[#00000059] rounded-full [z-index:1]"
+          ></div>
+          <div
+            data-pencil-name="Mouth"
+            class="box-border w-[85px] h-[12.5px] absolute left-[82.5px] top-[155px] bg-[#00000059] rounded-[6.25px] [z-index:2]"
+          ></div>
+        </div>
+        <div
+          data-pencil-name="Yellow Blob"
+          class="box-border w-[230px] h-[230px] absolute left-[370px] top-[250px] bg-[#FFC20E] rounded-[115px] [z-index:6]"
+        >
+          <div
+            data-pencil-name="Eye L"
+            class="box-border w-[23px] h-[36.8px] absolute left-[69px] top-[69px] bg-[#00000059] rounded-full [z-index:0]"
+          ></div>
+          <div
+            data-pencil-name="Eye R"
+            class="box-border w-[23px] h-[36.8px] absolute left-[138px] top-[69px] bg-[#00000059] rounded-full [z-index:1]"
+          ></div>
+          <div
+            data-pencil-name="Smile"
+            class="box-border w-[101.2px] h-[69px] absolute left-[64.4px] top-[101.2px] bg-[#00000059] [clip-path:path('M0_34.5_C0_53.554_22.654_69_50.6_69_C78.546_69_101.2_53.554_101.2_34.5_L92.092_34.5_C92.092_50.124_73.515_62.79_50.6_62.79_C27.685_62.79_9.108_50.124_9.108_34.5_L0_34.5_Z')] [z-index:2]"
+          ></div>
+        </div>
+        <div
+          data-pencil-name="Orange Blob"
+          class="box-border w-[220px] h-[220px] absolute left-[540px] top-[320px] bg-[#FF7A12] rounded-[110px] [z-index:7]"
+        >
+          <div
+            data-pencil-name="Brow L"
+            class="box-border w-[35.2px] h-[22px] absolute left-[57.2px] top-[39.6px] bg-[#00000059] [clip-path:path('M35.2_11_C35.2_4.925_27.32_0_17.6_0_C7.88_0_0_4.925_0_11_L5.28_11_C5.28_6.747_10.796_3.3_17.6_3.3_C24.404_3.3_29.92_6.747_29.92_11_L35.2_11_Z')] [z-index:0]"
+          ></div>
+          <div
+            data-pencil-name="Brow R"
+            class="box-border w-[35.2px] h-[22px] absolute left-[127.6px] top-[39.6px] bg-[#00000059] [clip-path:path('M35.2_11_C35.2_4.925_27.32_0_17.6_0_C7.88_0_0_4.925_0_11_L5.28_11_C5.28_6.747_10.796_3.3_17.6_3.3_C24.404_3.3_29.92_6.747_29.92_11_L35.2_11_Z')] [z-index:1]"
+          ></div>
+          <div
+            data-pencil-name="Eye L"
+            class="box-border w-[17.6px] h-[26.4px] absolute left-[66px] top-[70.4px] bg-[#00000059] rounded-full [z-index:2]"
+          ></div>
+          <div
+            data-pencil-name="Eye R"
+            class="box-border w-[17.6px] h-[26.4px] absolute left-[136.4px] top-[70.4px] bg-[#00000059] rounded-full [z-index:3]"
+          ></div>
+          <div
+            data-pencil-name="Mouth"
+            class="box-border w-[26.4px] h-[30.8px] absolute left-[96.8px] top-[114.4px] bg-[#00000059] rounded-full [z-index:4]"
+          ></div>
+        </div>
+      </div>
+      <div
+        data-pencil-name="How It Works"
+        class="box-border w-fit h-fit shrink-0 flex flex-row gap-[32px] p-[0px_80px_64px_80px] justify-start items-start relative [z-index:4]"
+      >
+        <div
+          data-pencil-name="Step 1"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[14px] justify-start items-center"
+        >
+          <div
+            data-pencil-name="Num"
+            class="box-border w-[44px] shrink-0 h-[44px] flex flex-row gap-0 justify-center items-center bg-[#FFC20E] rounded-[22px]"
+          >
+            <div
+              data-pencil-name="N"
+              class="text-[20px]/[normal] box-border text-[#FFFFFF] font-[Nunito,system-ui,sans-serif] font-black text-left [white-space:nowrap]"
+            >
+              1
+            </div>
+          </div>
+          <div
+            data-pencil-name="Text"
+            class="box-border w-fit shrink-0 h-fit flex flex-col gap-0 justify-start items-start"
+          >
+            <div
+              data-pencil-name="Title"
+              class="text-[18px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              Вставь ссылку
+            </div>
+            <div
+              data-pencil-name="Sub"
+              class="text-[15px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-semibold text-left [white-space:nowrap]"
+            >
+              из любой соцсети
+            </div>
+          </div>
+        </div>
+        <div
+          data-pencil-name="Step 2"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[14px] justify-start items-center"
+        >
+          <div
+            data-pencil-name="Num"
+            class="box-border w-[44px] shrink-0 h-[44px] flex flex-row gap-0 justify-center items-center bg-[#0AA6C2] rounded-[22px]"
+          >
+            <div
+              data-pencil-name="N"
+              class="text-[20px]/[normal] box-border text-[#FFFFFF] font-[Nunito,system-ui,sans-serif] font-black text-left [white-space:nowrap]"
+            >
+              2
+            </div>
+          </div>
+          <div
+            data-pencil-name="Text"
+            class="box-border w-fit shrink-0 h-fit flex flex-col gap-0 justify-start items-start"
+          >
+            <div
+              data-pencil-name="Title"
+              class="text-[18px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              Смотри в плеере
+            </div>
+            <div
+              data-pencil-name="Sub"
+              class="text-[15px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-semibold text-left [white-space:nowrap]"
+            >
+              с метками на таймлайне
+            </div>
+          </div>
+        </div>
+        <div
+          data-pencil-name="Step 3"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[14px] justify-start items-center"
+        >
+          <div
+            data-pencil-name="Num"
+            class="box-border w-[44px] shrink-0 h-[44px] flex flex-row gap-0 justify-center items-center bg-[#E0368A] rounded-[22px]"
+          >
+            <div
+              data-pencil-name="N"
+              class="text-[20px]/[normal] box-border text-[#FFFFFF] font-[Nunito,system-ui,sans-serif] font-black text-left [white-space:nowrap]"
+            >
+              3
+            </div>
+          </div>
+          <div
+            data-pencil-name="Text"
+            class="box-border w-fit shrink-0 h-fit flex flex-col gap-0 justify-start items-start"
+          >
+            <div
+              data-pencil-name="Title"
+              class="text-[18px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              Читай оценки
+            </div>
+            <div
+              data-pencil-name="Sub"
+              class="text-[15px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-semibold text-left [white-space:nowrap]"
+            >
+              за, против и источники
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        data-pencil-name="Pill Lie"
+        class="box-border w-fit h-fit [transform:rotate(6deg)] [transform-origin:top_left] [box-shadow:0px_8px_24px_#4A33331F] absolute left-[780px] top-[752px] flex flex-row gap-[10px] p-[10px_18px_10px_12px] justify-start items-center bg-[#FBF8F7] rounded-[100px] [z-index:5]"
+      >
+        <div
+          data-pencil-name="Dot"
+          class="box-border w-[12px] shrink-0 h-[12px] bg-[#E2353F] rounded-full"
+        ></div>
+        <div
+          data-pencil-name="Label"
+          class="text-[17px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+        >
+          Ложь
+        </div>
+        <div
+          data-pencil-name="Value"
+          class="text-[17px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+        >
+          12%
+        </div>
+      </div>
+      <div
+        data-pencil-name="Pill True"
+        class="box-border w-fit h-fit [transform:rotate(-5deg)] [transform-origin:top_left] [box-shadow:0px_8px_24px_#4A33331F] absolute left-[1180px] top-[775px] flex flex-row gap-[10px] p-[10px_18px_10px_12px] justify-start items-center bg-[#FBF8F7] rounded-[100px] [z-index:6]"
+      >
+        <div
+          data-pencil-name="Dot"
+          class="box-border w-[12px] shrink-0 h-[12px] bg-[#1DA57A] rounded-full"
+        ></div>
+        <div
+          data-pencil-name="Label"
+          class="text-[17px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+        >
+          Правда
+        </div>
+        <div
+          data-pencil-name="Value"
+          class="text-[17px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+        >
+          95%
+        </div>
+      </div>
+      <div
+        data-pencil-name="Pill Disputed"
+        class="box-border w-fit h-fit [transform:rotate(-4deg)] [transform-origin:top_left] [box-shadow:0px_8px_24px_#4A33331F] absolute left-[1250px] top-[600px] flex flex-row gap-[10px] p-[10px_18px_10px_12px] justify-start items-center bg-[#FBF8F7] rounded-[100px] [z-index:7]"
+      >
+        <div
+          data-pencil-name="Dot"
+          class="box-border w-[12px] shrink-0 h-[12px] bg-[#FFC20E] rounded-full"
+        ></div>
+        <div
+          data-pencil-name="Label"
+          class="text-[17px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+        >
+          Спорно
+        </div>
+        <div
+          data-pencil-name="Value"
+          class="text-[17px]/[normal] box-border text-[#A27C7A] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+        >
+          32%
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

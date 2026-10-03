@@ -14,7 +14,15 @@ const env = process.env;
 export type ImplMode = "mock" | "real";
 export type ServerMode = "pipeline" | "replay";
 export type SwitchableStage =
-  "ingest" | "transcription" | "claimExtraction" | "sourceSearch" | "verification";
+  | "ingest"
+  | "transcription"
+  | "claimExtraction"
+  | "sourceSearch"
+  | "verification"
+  // новая концепция (дерево первоисточника), backend-2
+  | "provenance"
+  | "mutations"
+  | "stances";
 
 /** Какая переменная переключает этап и какие переменные нужны ему в режиме real */
 const STAGES: Record<SwitchableStage, { envVar: string; requires: string[] }> = {
@@ -29,6 +37,9 @@ const STAGES: Record<SwitchableStage, { envVar: string; requires: string[] }> = 
     requires: ["SEARCH_PROVIDER", "SEARCH_API_KEY", "LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL"],
   },
   verification: { envVar: "STAGE_VERIFICATION", requires: ["LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL"] },
+  provenance: { envVar: "STAGE_PROVENANCE", requires: ["LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL"] },
+  mutations: { envVar: "STAGE_MUTATIONS", requires: ["LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL"] },
+  stances: { envVar: "STAGE_STANCES", requires: ["LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL"] },
 };
 
 const stagesDefault = oneOf<ImplMode>("STAGES_DEFAULT", ["mock", "real"], "mock");
@@ -45,7 +56,13 @@ export const config = {
   /** Настройки провайдеров для real-реализаций. Пустая строка = не задано. */
   providers: {
     asr: { provider: env.ASR_PROVIDER ?? "", apiKey: env.ASR_API_KEY ?? "" },
-    llm: { provider: env.LLM_PROVIDER ?? "", apiKey: env.LLM_API_KEY ?? "", model: env.LLM_MODEL ?? "" },
+    llm: {
+      provider: env.LLM_PROVIDER ?? "",
+      apiKey: env.LLM_API_KEY ?? "",
+      model: env.LLM_MODEL ?? "",
+      /** Эмбеддинги для поиска дублей текста в дереве (этап 05) */
+      embeddingModel: env.LLM_EMBEDDING_MODEL || "text-embedding-3-small",
+    },
     search: { provider: env.SEARCH_PROVIDER ?? "", apiKey: env.SEARCH_API_KEY ?? "" },
     /** Google Fact Check Tools — необязательный второй поисковик этапа 04 (разборы фактчекеров) */
     factCheck: { apiKey: env.GOOGLE_FACTCHECK_API_KEY ?? "" },

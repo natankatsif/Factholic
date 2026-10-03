@@ -19,8 +19,9 @@
    Не импортировать ничего из `backend/`.
 2. Состояние — `Map<id, FactCheck>`; `claim.detected` и `claim.checked` с тем же `id` **заменяют** объект.
 3. Показ на таймкоде: `currentTime ∈ [range.start, range.end + LINGER_SEC]`. Таймкод строкой — `formatRange()`.
-4. Все состояния карточки должны быть нарисованы: `checking`, `done` с score 0–10, `done` с `score: null`
-   (`unverifiable`), `failed`. Данные для всех — в `MOCK_VIDEO_REPORT`.
+4. Все состояния карточки должны быть нарисованы: `checking`, `done` со сторонами (`consensus.status`: agree / split /
+   mostly_against / few_sources) и деревом (`provenance`: таймлайн, флаги «старый контент» / «раздули»), `failed`.
+   `verdict` (0–10) — старая концепция, всегда `null`. Данные для всех — в `MOCK_VIDEO_REPORT` (дерево — `clm_05`, `clm_09`).
 5. UI в content script — внутри **Shadow DOM**, чтобы стили сайта не ломали оверлей и наоборот.
 6. Не перекрывать элементы управления и субтитры плеера; учитывать полноэкранный режим.
 7. SPA-навигация (YouTube меняет видео без перезагрузки) — переподключаться к новому видео.

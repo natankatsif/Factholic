@@ -359,6 +359,8 @@ describe("searchSourcesReal", () => {
       assert.equal(s.retrievedAt, out.sources[0].retrievedAt);
       assert.ok(!Number.isNaN(Date.parse(s.retrievedAt)));
     }
+    assert.ok(out.copies && out.copies.length >= out.sources.length);
+    assert.ok(out.copies.some((c) => c.id === "clm_05_s1"));
   });
 
   it("возвращает не больше maxSources", async () => {

@@ -408,6 +408,8 @@ describe("toFoundSource", () => {
       domain: "reuters.com",
       sourceType: "news",
       publishedAt: "2026-10-02T08:00:00.000Z",
+      dateFrom: "search",
+      links: [],
       language: "en",
       country: "GB",
       excerpt: "reuters",
@@ -424,5 +426,17 @@ describe("toFoundSource", () => {
     const s = toFoundSource(e, "id", "now");
     assert.equal(s.title, "Издание");
     assert.equal(s.publishedAt, undefined);
+    assert.equal(s.dateFrom, null);
+  });
+
+  it("извлекает дату из URL и ссылки из текста страницы", () => {
+    const e = item("x", 0.5, { publisher: "Издание" });
+    e.candidate.url = "https://example.md/news/2023/03/14/fire-incident";
+    e.candidate.text = "Подробнее на https://reuters.com/world и https://gov.md/press.";
+    delete e.candidate.publishedAt;
+    const s = toFoundSource(e, "id", "now");
+    assert.equal(s.publishedAt, "2023-03-14T00:00:00.000Z");
+    assert.equal(s.dateFrom, "url");
+    assert.deepEqual(new Set(s.links), new Set(["https://reuters.com/world", "https://gov.md/press"]));
   });
 });

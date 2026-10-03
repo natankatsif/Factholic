@@ -46,6 +46,45 @@ export interface Claim {
   /** Из каких сегментов собран тезис */
   segmentIds: SegmentId[];
   speaker?: string;
+  /**
+   * Структура тезиса: по этим полям сравниваются узлы дерева первоисточника (этапы 05–07).
+   * Необязательное, пока этап 03 её не извлекает (TODO backend-1) — без неё этап 05 извлекает структуру сам.
+   */
+  structure?: ClaimStructure;
+}
+
+/** Число из тезиса: «около шестисот тысяч человек» → { value: 600000, unit: "человек", approximate: true, … } */
+export interface ClaimNumber {
+  value: number;
+  /** «человек», «%», «см», «долларов»; "" — безразмерное */
+  unit: string;
+  /** «около», «более», «до» */
+  approximate: boolean;
+  /** Как сказано: «около шестисот тысяч» */
+  raw: string;
+}
+
+/**
+ * Маркеры «свежести»: событие подаётся как только что случившееся.
+ * Главный сигнал для проверки старого контента (этап 07): «вчера» — а первая публикация три года назад.
+ */
+export type TimeMarker = "just_now" | "today" | "yesterday" | "this_week" | "recently";
+
+export interface ClaimStructure {
+  numbers: ClaimNumber[];
+  /** Места в начальной форме: ["Кишинёв", "Молдова"] */
+  places: string[];
+  /** Когда произошло событие, если названо явно: «в 2022 году», «24 февраля» */
+  eventTime: {
+    raw: string;
+    /** ISO-дата или её начало: "2022", "2022-02", "2022-02-24"; null — по тексту не определить */
+    date: string | null;
+  } | null;
+  timeMarkers: TimeMarker[];
+  /** asserted — подаётся как факт; hedged — «возможно», «по слухам», «говорят», «предварительно» */
+  certainty: "asserted" | "hedged";
+  /** Кому принадлежит утверждение, если спикер его пересказывает: «ВОЗ», «Reuters»; null — от себя */
+  attributedTo: string | null;
 }
 
 export interface ClaimExtractionOutput {
