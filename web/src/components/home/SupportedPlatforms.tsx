@@ -33,7 +33,7 @@ export function SupportedPlatforms() {
   return (
     <div
       data-pencil-name="Platforms"
-      className="box-border flex flex-row flex-wrap items-center gap-2 pl-1 sm:gap-[10px] sm:pl-3"
+      className="box-border flex flex-row flex-wrap items-center gap-1.5 sm:gap-[10px] pl-1 sm:pl-3 w-full max-w-full min-w-0"
     >
       <span
         data-pencil-name="Works With"
@@ -46,7 +46,7 @@ export function SupportedPlatforms() {
         <div
           key={p.name}
           data-pencil-name={p.name}
-          className="flex w-fit items-center gap-[6px] rounded-[100px] bg-[#FBF8F7] px-3 py-1 sm:p-[7px_14px_7px_10px]"
+          className="flex w-fit items-center gap-[6px] rounded-[100px] bg-[#FBF8F7] px-3 py-1 sm:p-[7px_14px_7px_10px] [box-shadow:0px_2px_8px_rgba(74,51,51,0.06)]"
         >
           <svg
             viewBox="0 0 14 14"

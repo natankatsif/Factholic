@@ -209,27 +209,38 @@ interface Layout {
   cols: number;
   rows: number;
   hiddenCount: number;
+  /** Ряд публикаций без установленной связи (при «показать все»); нет — не показаны */
+  looseRow?: number;
 }
 
 function buildLayout(tree: ProvenanceTree, showAll: boolean): Layout {
   const linked = new Set(tree.edges.flatMap((e) => [e.fromNodeId, e.toNodeId]));
   const important = (n: ProvenanceNode) =>
     linked.has(n.id) || n.isPrimary || n.role === "primary" || n.role === "target";
-  const visible = showAll ? tree.nodes : tree.nodes.filter(important);
+  const visible = tree.nodes.filter(important);
   const shown = visible.length ? visible : tree.nodes.slice(0, 4);
 
   // Колонки бэкенда (хронология) сжимаем до 0..k, сохраняя порядок; строки — как есть
   const colOf = (n: ProvenanceNode, i: number) => n.column ?? i;
   const cols = [...new Set(shown.map(colOf))].sort((a, b) => a - b);
   const nodes = shown.map((n, i) => ({ ...n, col: cols.indexOf(colOf(n, i)), rowIdx: n.row ?? 0 }));
+  const chainRows = Math.max(1, ...nodes.map((n) => n.rowIdx + 1));
+
+  // Публикации без связи — отдельным рядом под цепочкой, по порядку дат. Если вставить их в ряд цепочки,
+  // связь «A → этот материал» проходит под чужой карточкой и читается как цепочка из трёх.
+  const shownIds = new Set(shown.map((n) => n.id));
+  const loose = showAll ? tree.nodes.filter((n) => !shownIds.has(n.id)) : [];
+  nodes.push(...loose.map((n, i) => ({ ...n, col: i, rowIdx: chainRows })));
+
   const ids = new Set(nodes.map((n) => n.id));
   return {
     nodes,
     edges: tree.edges.filter((e) => ids.has(e.fromNodeId) && ids.has(e.toNodeId)),
     gap: MIN_COL_GAP,
-    cols: cols.length,
-    rows: Math.max(1, ...nodes.map((n) => n.rowIdx + 1)),
-    hiddenCount: tree.nodes.length - shown.length,
+    cols: Math.max(cols.length, loose.length),
+    rows: chainRows + (loose.length ? 1 : 0),
+    hiddenCount: tree.nodes.length - shown.length - loose.length,
+    looseRow: loose.length ? chainRows : undefined,
   };
 }
 
@@ -338,6 +349,15 @@ function Canvas({
             distorted={distortedTargets.has(n.id) || n.role === "distortion"}
           />
         ))}
+
+        {layout.looseRow !== undefined && (
+          <span
+            className="absolute left-0 text-[12px] font-extrabold uppercase tracking-[0.4px] text-[#A27C7A]"
+            style={{ top: rowY(layout.looseRow) - 30 }}
+          >
+            Без установленной связи
+          </span>
+        )}
 
         {cornerFree && <SurprisedFace />}
       </div>
@@ -557,9 +577,11 @@ function NodeCard({
 // Таймлайн
 
 function Timeline({ layout, tree }: { layout: Layout; tree: ProvenanceTree }) {
-  // одна точка на колонку: самая ранняя публикация колонки
-  const points = Array.from({ length: layout.cols }, (_, col) => {
-    const inCol = layout.nodes.filter((n) => n.col === col).sort((a, b) => a.rowIdx - b.rowIdx);
+  // одна точка на колонку цепочки: самая ранняя публикация колонки (ряд без связи — не на таймлайне)
+  const chain = layout.nodes.filter((n) => n.rowIdx !== layout.looseRow);
+  const chainCols = Math.max(0, ...chain.map((n) => n.col + 1));
+  const points = Array.from({ length: chainCols }, (_, col) => {
+    const inCol = chain.filter((n) => n.col === col).sort((a, b) => a.rowIdx - b.rowIdx);
     const node = inCol[0];
     return {
       col,

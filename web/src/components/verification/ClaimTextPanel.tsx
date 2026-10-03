@@ -1,5 +1,6 @@
 import React from "react";
 import type { ClaimConsensus, FactCheck } from "@news/contracts";
+import { CORNER_BLOB_PEEK, CornerEmojis } from "./CornerEmojis";
 
 export interface ClaimTextPanelProps {
   factChecks: FactCheck[];
@@ -38,14 +39,18 @@ export function ClaimTextPanel({
   isDimmed,
 }: ClaimTextPanelProps) {
   return (
-    <section className="flex min-h-[280px] flex-1 flex-col rounded-[28px] bg-[#FBF8F7] p-6 sm:p-[30px] lg:min-h-0">
+    <section className="relative flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-[28px] bg-[#FBF8F7] p-6 sm:p-[30px] lg:min-h-0">
       <h2 className="shrink-0 text-lg font-black uppercase tracking-[-0.2px] text-[#4A3333] sm:text-[20px]">
         Текст который спросили
       </h2>
 
       {/* запас p-1 под обводку выбранного утверждения (ring выходит за кнопку, overflow её обрезает);
           -mx-1 и mt-4 вместо mt-5 — чтобы текст остался на месте */}
-      <div className="-mx-1 mt-4 min-h-0 flex-1 overflow-y-auto p-1">
+      {/* снизу — место под смайлик в углу: текст прокручивается выше и под него не заходит */}
+      <div
+        className="-mx-1 mt-4 min-h-0 flex-1 overflow-y-auto p-1"
+        style={{ marginBottom: CORNER_BLOB_PEEK - 24 }}
+      >
         {/* flex с зазорами, а не строки текста: подсветки не касаются, обводка выбранного не наезжает на соседей */}
         <div className="flex flex-wrap items-start gap-x-1.5 gap-y-3 text-[17px] font-semibold leading-[1.6] text-[#4A3333] sm:text-[19px]">
           {factChecks.map((fc) => {
@@ -72,6 +77,8 @@ export function ClaimTextPanel({
           })}
         </div>
       </div>
+
+      <CornerEmojis />
     </section>
   );
 }

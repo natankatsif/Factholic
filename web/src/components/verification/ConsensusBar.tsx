@@ -1,109 +1,135 @@
 import React from "react";
-import { Flag, Frown, Meh, MousePointerClick, Smile, type LucideIcon } from "lucide-react";
-import { CornerEmojis } from "./CornerEmojis";
-import { plural, type ClaimFilter, type FilterCounts } from "./filters";
+import { formatTimecode, type FactCheck } from "@news/contracts";
+import { History, MousePointerClick, TrendingUp, type LucideIcon } from "lucide-react";
+import { plural } from "./filters";
+import type { MaterialKind } from "./material";
 
 export interface ConsensusBarProps {
-  counts: FilterCounts;
-  activeFilter: ClaimFilter;
-  onSelectFilter: (filter: ClaimFilter) => void;
+  factChecks: FactCheck[];
+  totalSources: number;
+  material: MaterialKind;
+  onSelectClaimId: (id: string) => void;
 }
 
-const ITEMS: Array<{
-  id: ClaimFilter;
-  title: string;
-  subtitle: string;
-  color: string;
-  icon: LucideIcon;
-  iconColor: string;
-}> = [
-  {
-    id: "converge",
-    title: "Сходятся",
-    subtitle: "позиции совпадают",
-    color: "#1DA57A",
-    icon: Smile,
-    iconColor: "#fff",
-  },
-  {
-    id: "split",
-    title: "Разделились",
-    subtitle: "мнения расходятся",
-    color: "#FFC20E",
-    icon: Meh,
-    iconColor: "#4A3333",
-  },
-  {
-    id: "against",
-    title: "Большинство против",
-    subtitle: "источники возражают",
-    color: "#E2353F",
-    icon: Frown,
-    iconColor: "#fff",
-  },
-  {
-    id: "flagged",
-    title: "С флагами",
-    subtitle: "раздуто · старое",
-    color: "#FF7A12",
-    icon: Flag,
-    iconColor: "#fff",
-  },
-];
+const MATERIAL_ACC: Record<MaterialKind, string> = { video: "видео", text: "текст", article: "статью" };
 
-/** Нижняя плашка: сколько утверждений в каждой позиции. Клик — фильтр, повторный клик — сброс. */
-export function ConsensusBar({ counts, activeFilter, onSelectFilter }: ConsensusBarProps) {
-  const total = counts.all;
+/**
+ * Нижняя плашка «Что нашли»: старое событие и цифры, выросшие по пути. Каждый пункт кликабелен — выбирает
+ * своё утверждение (справа откроются источники и цепочка). Позиции по утверждениям — в фильтрах «Разбора».
+ */
+export function ConsensusBar({ factChecks, totalSources, material, onSelectClaimId }: ConsensusBarProps) {
+  // у видео — таймкод, у текста и статьи таймкодов нет: начало утверждения
+  const where = (fc: FactCheck) =>
+    material === "video" ? formatTimecode(fc.range.start) : `«${shorten(fc.claim || fc.quote, 28)}»`;
+
+  const outdated = factChecks.flatMap((fc) => {
+    const flag = fc.flags.find((f) => f.type === "outdated");
+    return flag ? [{ fc, flag }] : [];
+  })[0];
+  const exaggerated = factChecks.flatMap((fc) => {
+    const flag = fc.flags.find((f) => f.type === "exaggerated");
+    return flag ? [{ fc, flag }] : [];
+  })[0];
+
   return (
-    <section className="relative flex shrink-0 flex-col overflow-hidden rounded-[28px] bg-[#FBF8F7] p-6 pb-5 sm:px-6 sm:pt-7 lg:min-h-[255px] [@media(max-height:780px)]:lg:min-h-[220px]">
+    <section className="flex shrink-0 flex-col rounded-[28px] bg-[#FBF8F7] p-6 pb-5 sm:px-6 sm:pt-7 lg:min-h-[255px] [@media(max-height:780px)]:lg:min-h-[220px]">
       <div className="text-[13px] font-semibold text-[#A27C7A]">
-        Позиции источников по {total} {plural(total, ["утверждению", "утверждениям", "утверждениям"])}
+        Что нашли · {factChecks.length}{" "}
+        {plural(factChecks.length, ["утверждение", "утверждения", "утверждений"])} · {totalSources}{" "}
+        {plural(totalSources, ["источник", "источника", "источников"])}
       </div>
       <div className="mt-0.5 text-base font-black text-[#4A3333] sm:text-[17px]">
-        Общего вердикта нет — смотрите каждое утверждение
+        Мы не оцениваем {MATERIAL_ACC[material]} — показываем, откуда что взялось
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3">
-        {ITEMS.map((it) => {
-          const active = activeFilter === it.id;
-          const Icon = it.icon;
-          return (
-            <React.Fragment key={it.id}>
-              {it.id === "flagged" && <div className="hidden h-10 w-px bg-[#E3D9D6] min-[1440px]:block" />}
-              <button
-                type="button"
-                onClick={() => onSelectFilter(active ? "all" : it.id)}
-                className={`flex cursor-pointer items-center gap-3 rounded-2xl border-none bg-transparent p-1 text-left transition-colors ${
-                  active ? "bg-[#F1EBE9]" : "hover:bg-[#F1EBE9]/70"
-                }`}
-              >
-                <span
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: it.color }}
-                >
-                  <Icon className="h-6 w-6" strokeWidth={2.2} style={{ color: it.iconColor }} />
-                </span>
-                <span className="flex flex-col">
-                  <span className="whitespace-nowrap text-[15px] font-extrabold text-[#4A3333]">
-                    <span className="mr-1.5 text-[20px] font-black">{counts[it.id]}</span>
-                    {it.title}
-                  </span>
-                  <span className="whitespace-nowrap text-xs font-semibold text-[#A27C7A]">
-                    {it.subtitle}
-                  </span>
-                </span>
-              </button>
-            </React.Fragment>
-          );
-        })}
+      <div className="mt-5 grid gap-5 sm:grid-cols-2 sm:gap-6">
+        <Finding icon={History} iconBg="#E8DCFD" iconColor="#6E1EF0" title="Старое событие">
+          {outdated ? (
+            <ItemButton onClick={() => onSelectClaimId(outdated.fc.id)}>
+              {where(outdated.fc)} · {outdated.flag.detail}
+              {outdated.fc.keyFinding?.title && `, ${lowerFirst(outdated.fc.keyFinding.title)}`}
+            </ItemButton>
+          ) : (
+            <Empty>старый контент не нашли</Empty>
+          )}
+        </Finding>
+
+        <Finding icon={TrendingUp} iconBg="#FFE1C7" iconColor="#FF7A12" title="Цифры выросли по пути">
+          {exaggerated ? (
+            <ItemButton onClick={() => onSelectClaimId(exaggerated.fc.id)}>
+              {where(exaggerated.fc)} · {beforeAfter(exaggerated.flag.detail)}
+            </ItemButton>
+          ) : (
+            <Empty>раздутых цифр не нашли</Empty>
+          )}
+        </Finding>
+
       </div>
 
-      <div className="relative z-10 mt-auto flex items-center gap-2 pt-6 text-xs font-semibold text-[#A27C7A] min-[1440px]:pr-[300px]">
+      <div className="mt-auto flex items-center gap-2 pt-6 text-xs font-semibold text-[#A27C7A]">
         <MousePointerClick className="h-4 w-4 shrink-0" />
-        Каждое утверждение кликабельно — откроются источники и цепочка пересказов
+        Каждый пункт кликабелен — ведёт к источникам и цепочке пересказов
       </div>
-
-      <CornerEmojis />
     </section>
   );
+}
+
+function Finding({
+  icon: Icon,
+  iconBg,
+  iconColor,
+  title,
+  children,
+}: {
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-3">
+      <span
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+        style={{ backgroundColor: iconBg }}
+      >
+        <Icon className="h-5 w-5" style={{ color: iconColor }} />
+      </span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="text-[15px] font-extrabold text-[#4A3333]">{title}</span>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ItemButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="cursor-pointer rounded-md border-none bg-transparent p-0 text-left text-[13px] font-semibold leading-snug text-[#A27C7A] transition-colors hover:text-[#4A3333]"
+    >
+      {children}
+    </button>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return <span className="text-[13px] font-semibold text-[#C9B8B6]">{children}</span>;
+}
+
+/** «2 → 200 пострадавших» → «было 2, стало 200 пострадавших» */
+function beforeAfter(detail: string): string {
+  const [before, after] = detail.split(/\s*→\s*/);
+  return after ? `было ${before}, стало ${after}` : detail;
+}
+
+function shorten(text: string, max: number): string {
+  const t = text.trim().replace(/[.!?]+$/, "");
+  return t.length > max ? `${t.slice(0, max).trimEnd()}…` : t;
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }

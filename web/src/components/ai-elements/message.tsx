@@ -42,6 +42,8 @@ export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+      // ссылки на источники — суть ответа: открываем сразу, без окна «Open external link?»
+      linkSafety={{ enabled: false }}
       {...props}
     />
   ),

@@ -70,14 +70,16 @@ export function AssistantChat({ jobId, claimId, intro, suggestedQuestions }: Ass
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="flex shrink-0 flex-col gap-3 border-t border-border p-4 [@media(max-height:780px)]:gap-2 [@media(max-height:780px)]:p-3">
-        <Suggestions>
-          {questions
-            .filter((q) => !asked.has(q))
-            .map((q) => (
-              <Suggestion key={q} suggestion={q} onClick={ask} disabled={busy} />
-            ))}
-        </Suggestions>
+      <div className="flex shrink-0 flex-col min-w-0 gap-3 border-t border-border p-4 [@media(max-height:780px)]:gap-2 [@media(max-height:780px)]:p-3">
+        {questions.some((q) => !asked.has(q)) && (
+          <Suggestions>
+            {questions
+              .filter((q) => !asked.has(q))
+              .map((q) => (
+                <Suggestion key={q} suggestion={q} onClick={ask} disabled={busy} />
+              ))}
+          </Suggestions>
+        )}
         <PromptInput onSubmit={({ text }) => ask(text)}>
           <PromptInputTextarea placeholder="Спросите про это утверждение…" />
           <PromptInputSubmit status={status} onStop={() => void stop()} className="self-end" />

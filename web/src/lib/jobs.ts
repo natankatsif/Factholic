@@ -239,10 +239,31 @@ export function updateJobRecord(jobId: JobId, report: VideoReport) {
     jobs[index] = {
       ...jobs[index]!,
       report,
-      input: report.video.title || jobs[index]!.input,
+      input: report.video?.title || jobs[index]!.input,
     };
     save(jobs);
+  } else {
+    const isUrl = Boolean(report.video?.pageUrl && !report.video.pageUrl.startsWith("text:"));
+    const newRecord: JobRecord = {
+      jobId,
+      input: report.video?.title || report.video?.pageUrl || jobId,
+      isUrl,
+      createdAt: new Date().toISOString(),
+      report,
+    };
+    save([newRecord, ...jobs].slice(0, MAX_STORED));
   }
+}
+
+export function deleteJob(jobId: JobId): void {
+  if (typeof window === "undefined") return;
+  const jobs = listJobs().filter((j) => j.jobId !== jobId);
+  save(jobs);
+}
+
+export function clearJobs(): void {
+  if (typeof window === "undefined") return;
+  save([]);
 }
 
 /** Все проверки этого браузера, новые сверху — для страницы «История» */

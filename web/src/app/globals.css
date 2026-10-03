@@ -40,8 +40,11 @@ body {
   100% {
     transform: translateY(0px) scale(1, 1);
   }
-  50% {
-    transform: translateY(-4px) scale(1.018, 0.985);
+  35% {
+    transform: translateY(-8px) scale(0.97, 1.05);
+  }
+  70% {
+    transform: translateY(3px) scale(1.04, 0.97);
   }
 }
 
@@ -50,8 +53,11 @@ body {
   100% {
     transform: translateY(0px) scale(1, 1) rotate(0deg);
   }
-  50% {
-    transform: translateY(-5px) scale(1.015, 0.988) rotate(-0.8deg);
+  38% {
+    transform: translateY(-9px) scale(1.04, 0.96) rotate(-1.5deg);
+  }
+  72% {
+    transform: translateY(4px) scale(0.96, 1.04) rotate(1deg);
   }
 }
 
@@ -60,18 +66,24 @@ body {
   100% {
     transform: translateY(0px) scale(1, 1) rotate(0deg);
   }
-  50% {
-    transform: translateY(-3px) scale(1.02, 0.98) rotate(1deg);
+  33% {
+    transform: translateY(-8px) scale(0.96, 1.05) rotate(1.5deg);
+  }
+  68% {
+    transform: translateY(3px) scale(1.04, 0.96) rotate(-1deg);
   }
 }
 
 @keyframes blob-breathe-4 {
   0%,
   100% {
-    transform: translateY(0px) scale(1, 1);
+    transform: translateY(0px) scale(1, 1) rotate(0deg);
   }
-  50% {
-    transform: translateY(-4.5px) scale(1.012, 0.99);
+  40% {
+    transform: translateY(-10px) scale(1.05, 0.95) rotate(-1.2deg);
+  }
+  75% {
+    transform: translateY(4px) scale(0.95, 1.04) rotate(1deg);
   }
 }
 
@@ -156,4 +168,60 @@ body {
   50% {
     transform: translateY(-5px);
   }
+}
+
+@keyframes eye-read-scan {
+  0%,
+  100% {
+    transform: translateX(-2.5px);
+  }
+  50% {
+    transform: translateX(2.5px);
+  }
+}
+
+@keyframes detective-scan {
+  0%,
+  100% {
+    transform: translateX(-2.5px);
+  }
+  50% {
+    transform: translateX(2.5px);
+  }
+}
+
+@keyframes bounce-gentle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-read-scan {
+  animation: eye-read-scan 2.2s ease-in-out infinite;
+}
+
+.animate-detective-scan {
+  animation: detective-scan 2.2s ease-in-out infinite;
+}
+
+@keyframes stage-face-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.025);
+  }
+}
+
+.animate-stage-breathe {
+  animation: stage-face-breathe 4s ease-in-out infinite;
+}
+
+.animate-bounce-gentle {
+  animation: bounce-gentle 2.4s ease-in-out infinite;
 }

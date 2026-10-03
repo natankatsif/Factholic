@@ -29,6 +29,8 @@ export interface JobRecord {
   abort: AbortController;
   /** Пайплайн уже запущен (запускаем при первом подключении по WS) */
   started: boolean;
+  /** Таймер задержки отмены перед store.cancel() */
+  cancelTimer?: NodeJS.Timeout;
 }
 
 const REPORTS_DIR = join(tmpdir(), "factcheck-reports");
@@ -110,6 +112,10 @@ export class JobStore {
 
   /** Отменили (все ушли) — помечаем failed и убираем из кэша, чтобы следующая заявка начала заново */
   cancel(job: JobRecord): void {
+    if (job.cancelTimer) {
+      clearTimeout(job.cancelTimer);
+      job.cancelTimer = undefined;
+    }
     job.abort.abort();
     job.report.status = "failed";
     this.forget(job);

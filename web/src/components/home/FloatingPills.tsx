@@ -39,11 +39,11 @@ export function FloatingPills() {
         <div
           key={p.name}
           data-pencil-name={p.name}
-          className={`absolute z-10 hidden w-fit lg:block ${p.wrapperClass} pointer-events-auto`}
+          className={`absolute z-10 hidden w-fit lg:block ${p.wrapperClass} pointer-events-none`}
         >
           <div
             style={{ animation: p.floatAnimation }}
-            className="flex w-fit items-center gap-[10px] rounded-[100px] bg-[#FBF8F7] p-[10px_18px_10px_12px] [box-shadow:0px_8px_24px_#4A33331F] cursor-default select-none transition-transform duration-300 hover:scale-105"
+            className="flex w-fit items-center gap-[10px] rounded-[100px] bg-[#FBF8F7] p-[10px_18px_10px_12px] [box-shadow:0px_8px_24px_#4A33331F] cursor-default select-none pointer-events-none"
           >
             <div className="h-[12px] w-[12px] shrink-0 rounded-full" style={{ backgroundColor: p.dot }} />
             <div className="whitespace-nowrap text-[17px] font-extrabold leading-normal text-[#4A3333]">

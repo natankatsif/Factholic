@@ -22,6 +22,14 @@ import { PipelineError } from "./pipeline/context.ts";
 import { runPipeline } from "./pipeline/orchestrator.ts";
 import { JobStore, type JobRecord } from "./pipeline/store.ts";
 
+process.on("unhandledRejection", (reason) => {
+  console.error("server: unhandledRejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("server: uncaughtException:", err);
+});
+
 const errors = configErrors();
 if (errors.length) {
   console.error("Ошибка конфигурации (.env):\n  " + errors.join("\n  "));
@@ -99,14 +107,27 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 function handleJobSocket(ws: WebSocket, job: JobRecord) {
+  if (job.cancelTimer) {
+    clearTimeout(job.cancelTimer);
+    job.cancelTimer = undefined;
+  }
   const send = (e: ServerEvent) => ws.readyState === ws.OPEN && ws.send(JSON.stringify(e));
   // Сначала придёт всё, что уже было (для готового видео — сразу весь отчёт), потом новые события
   const unsubscribe = store.subscribe(job, send);
 
   const leave = () => {
     unsubscribe();
-    // Все ушли, а проверка не закончена — останавливаем, чтобы не тратить деньги на API впустую
-    if (job.subscribers.size === 0 && store.isRunning(job)) store.cancel(job);
+    // Даём 30 секунд запаса на случай перезагрузки страницы или переподключения WS
+    if (job.subscribers.size === 0 && store.isRunning(job)) {
+      if (!job.cancelTimer) {
+        job.cancelTimer = setTimeout(() => {
+          if (job.subscribers.size === 0 && store.isRunning(job)) {
+            store.cancel(job);
+          }
+          job.cancelTimer = undefined;
+        }, 30_000);
+      }
+    }
   };
   ws.on("close", leave);
   ws.on("message", (raw) => {

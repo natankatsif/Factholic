@@ -50,11 +50,11 @@ export function VerificationScreen({ report, view, onViewChange, onGoHome }: Ver
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-[#F1EBE9] font-sans text-[#4A3333] lg:h-[100svh] lg:overflow-hidden">
-      <VerificationHeader onGoHome={onGoHome} />
+      <VerificationHeader onGoHome={onGoHome} currentJobId={report.jobId} />
 
       {isTreeView && currentClaim ? (
         // lg+: колонка во всю высоту экрана, прокрутка — внутри холста и панели дерева; мобильные — обычная прокрутка
-        <main className="mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col overflow-y-auto px-4 pb-5 sm:px-8 lg:overflow-hidden">
+        <main className="mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col overflow-y-auto px-6 pb-5 sm:px-10 lg:px-20 lg:overflow-hidden">
           <TreeView
             factCheck={currentClaim}
             material={materialKind(report.video)}
@@ -62,7 +62,7 @@ export function VerificationScreen({ report, view, onViewChange, onGoHome }: Ver
           />
         </main>
       ) : (
-        <main className="mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col gap-5 px-4 pb-5 pt-1 sm:px-8 lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(380px,35.6vw,456px)] lg:gap-8 lg:pb-8">
+        <main className="mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col gap-5 px-6 pb-5 pt-1 sm:px-10 lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(380px,35.6vw,456px)] lg:gap-8 lg:px-20 lg:pb-8">
           <div className="flex min-h-0 flex-col gap-5 lg:gap-[22px]">
             <ClaimTextPanel
               factChecks={factChecks}
@@ -70,7 +70,12 @@ export function VerificationScreen({ report, view, onViewChange, onGoHome }: Ver
               onSelectClaimId={setSelectedClaimId}
               isDimmed={(fc) => !matchesFilter(fc, activeFilter)}
             />
-            <ConsensusBar counts={counts} activeFilter={activeFilter} onSelectFilter={changeFilter} />
+            <ConsensusBar
+              factChecks={factChecks}
+              totalSources={totalSources}
+              material={materialKind(report.video)}
+              onSelectClaimId={setSelectedClaimId}
+            />
           </div>
 
           <AnalysisCard

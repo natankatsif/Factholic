@@ -45,7 +45,7 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
   }
 
   const copiesPromise = findCopies(claim, planned, ctx).catch((err: unknown) => {
-    if (ctx.signal.aborted) throw err;
+    if (ctx.signal.aborted) return [];
     ctx.log("04 copies: упал поиск копий", String(err));
     return [];
   });

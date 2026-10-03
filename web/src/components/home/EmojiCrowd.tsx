@@ -19,7 +19,6 @@ const BLOBS = [
     cx: 250,
     cy: 190,
     maxGaze: 6,
-    breathe: "blob-breathe-1 4.4s ease-in-out infinite",
   },
   {
     id: 1,
@@ -27,7 +26,6 @@ const BLOBS = [
     cx: 445,
     cy: 165,
     maxGaze: 6,
-    breathe: "blob-breathe-2 3.8s ease-in-out infinite",
   },
   {
     id: 2,
@@ -35,7 +33,6 @@ const BLOBS = [
     cx: 595,
     cy: 205,
     maxGaze: 8,
-    breathe: "blob-breathe-3 4.6s ease-in-out infinite",
   },
   {
     id: 3,
@@ -43,7 +40,6 @@ const BLOBS = [
     cx: 725,
     cy: 305,
     maxGaze: 8,
-    breathe: "blob-breathe-4 4.8s ease-in-out infinite 0.5s",
   },
   {
     id: 4,
@@ -51,7 +47,6 @@ const BLOBS = [
     cx: 140,
     cy: 360,
     maxGaze: 9,
-    breathe: "blob-breathe-1 3.4s ease-in-out infinite 0.2s",
   },
   {
     id: 5,
@@ -59,7 +54,6 @@ const BLOBS = [
     cx: 325,
     cy: 425,
     maxGaze: 10,
-    breathe: "blob-breathe-2 4.1s ease-in-out infinite 1.0s",
   },
   {
     id: 6,
@@ -67,7 +61,6 @@ const BLOBS = [
     cx: 485,
     cy: 365,
     maxGaze: 10,
-    breathe: "blob-breathe-3 3.5s ease-in-out infinite 0.4s",
   },
   {
     id: 7,
@@ -75,7 +68,6 @@ const BLOBS = [
     cx: 650,
     cy: 430,
     maxGaze: 10,
-    breathe: "blob-breathe-4 3.9s ease-in-out infinite 1.2s",
   },
 ];
 
@@ -200,7 +192,7 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
   return (
     <div
       aria-hidden
-      className="pointer-events-none relative h-[200px] w-full shrink-0 overflow-hidden sm:h-[250px] md:h-[340px] lg:absolute lg:inset-0 lg:h-auto lg:overflow-visible"
+      className="pointer-events-none relative h-[200px] w-full shrink-0 overflow-hidden sm:h-[250px] md:h-[340px] lg:absolute lg:inset-0 lg:h-auto lg:overflow-visible lg:z-10"
     >
       <div
         ref={crowdRef}
@@ -217,10 +209,11 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         <div
           data-pencil-name="Blue Blob"
           onClick={() => handlePoke(0)}
+          onPointerDown={() => handlePoke(0)}
           style={{
-            animation: pokedBlob === 0 ? "blob-poke 0.48s ease-out" : BLOBS[0].breathe,
+            animation: pokedBlob === 0 ? "blob-poke 0.48s ease-out" : undefined,
           }}
-          className={`box-border w-[240px] h-[240px] absolute left-[130px] top-[70px] bg-[#1660D6] rounded-[120px] [z-index:0] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
+          className={`box-border w-[240px] h-[240px] absolute left-[130px] top-[70px] bg-[#1660D6] rounded-[120px] [z-index:0] [box-shadow:0px_14px_32px_rgba(22,96,214,0.32),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
             hasText ? "translate-x-[-4px]" : ""
           }`}
         >
@@ -265,10 +258,11 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         <div
           data-pencil-name="Teal Blob"
           onClick={() => handlePoke(1)}
+          onPointerDown={() => handlePoke(1)}
           style={{
-            animation: pokedBlob === 1 ? "blob-poke 0.48s ease-out" : BLOBS[1].breathe,
+            animation: pokedBlob === 1 ? "blob-poke 0.48s ease-out" : undefined,
           }}
-          className={`box-border w-[250px] h-[250px] absolute left-[320px] top-[40px] bg-[#1DA57A] rounded-[125px] [z-index:1] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
+          className={`box-border w-[250px] h-[250px] absolute left-[320px] top-[40px] bg-[#0AA6C2] rounded-[125px] [z-index:1] [box-shadow:0px_14px_32px_rgba(10,166,194,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
             hasText ? "translate-x-[-3px]" : ""
           }`}
         >
@@ -321,10 +315,11 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         <div
           data-pencil-name="Green Blob"
           onClick={() => handlePoke(2)}
+          onPointerDown={() => handlePoke(2)}
           style={{
-            animation: pokedBlob === 2 ? "blob-poke 0.48s ease-out" : BLOBS[2].breathe,
+            animation: pokedBlob === 2 ? "blob-poke 0.48s ease-out" : undefined,
           }}
-          className={`box-border w-[190px] h-[190px] absolute left-[500px] top-[110px] bg-[#1DA57A] rounded-[95px] [z-index:2] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
+          className={`box-border w-[190px] h-[190px] absolute left-[500px] top-[110px] bg-[#1DA57A] rounded-[95px] [z-index:2] [box-shadow:0px_14px_32px_rgba(29,165,122,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
             hasText ? "rotate-[-3deg] scale-[1.03]" : ""
           }`}
         >
@@ -358,10 +353,11 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         <div
           data-pencil-name="Purple Blob"
           onClick={() => handlePoke(3)}
+          onPointerDown={() => handlePoke(3)}
           style={{
-            animation: pokedBlob === 3 ? "blob-poke 0.48s ease-out" : BLOBS[3].breathe,
+            animation: pokedBlob === 3 ? "blob-poke 0.48s ease-out" : undefined,
           }}
-          className={`box-border w-[270px] h-[270px] absolute left-[590px] top-[170px] bg-[#6E1EF0] rounded-[135px] [z-index:3] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
+          className={`box-border w-[270px] h-[270px] absolute left-[590px] top-[170px] bg-[#6E1EF0] rounded-[135px] [z-index:3] [box-shadow:0px_14px_32px_rgba(110,30,240,0.32),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
             hasText ? "scale-[1.02]" : ""
           }`}
         >
@@ -402,10 +398,11 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         <div
           data-pencil-name="Red Blob"
           onClick={() => handlePoke(4)}
+          onPointerDown={() => handlePoke(4)}
           style={{
-            animation: pokedBlob === 4 ? "blob-poke 0.48s ease-out" : BLOBS[4].breathe,
+            animation: pokedBlob === 4 ? "blob-poke 0.48s ease-out" : undefined,
           }}
-          className={`box-border w-[240px] h-[240px] absolute left-[20px] top-[240px] bg-[#E2353F] rounded-[120px] [z-index:4] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
+          className={`box-border w-[240px] h-[240px] absolute left-[20px] top-[240px] bg-[#E2353F] rounded-[120px] [z-index:4] [box-shadow:0px_14px_32px_rgba(226,53,63,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
             hasText ? "rotate-[2deg]" : ""
           }`}
         >
@@ -450,10 +447,11 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         <div
           data-pencil-name="Pink Blob"
           onClick={() => handlePoke(5)}
+          onPointerDown={() => handlePoke(5)}
           style={{
-            animation: pokedBlob === 5 ? "blob-poke 0.48s ease-out" : BLOBS[5].breathe,
+            animation: pokedBlob === 5 ? "blob-poke 0.48s ease-out" : undefined,
           }}
-          className={`box-border w-[250px] h-[250px] absolute left-[200px] top-[300px] bg-[#E0368A] rounded-[125px] [z-index:5] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
+          className={`box-border w-[250px] h-[250px] absolute left-[200px] top-[300px] bg-[#E0368A] rounded-[125px] [z-index:5] [box-shadow:0px_14px_32px_rgba(224,54,138,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
             hasText ? "scale-[1.02]" : ""
           }`}
         >
@@ -486,10 +484,11 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         <div
           data-pencil-name="Yellow Blob"
           onClick={() => handlePoke(6)}
+          onPointerDown={() => handlePoke(6)}
           style={{
-            animation: pokedBlob === 6 ? "blob-poke 0.48s ease-out" : BLOBS[6].breathe,
+            animation: pokedBlob === 6 ? "blob-poke 0.48s ease-out" : undefined,
           }}
-          className={`box-border w-[230px] h-[230px] absolute left-[370px] top-[250px] bg-[#FFC20E] rounded-[115px] [z-index:6] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
+          className={`box-border w-[230px] h-[230px] absolute left-[370px] top-[250px] bg-[#FFC20E] rounded-[115px] [z-index:6] [box-shadow:0px_14px_32px_rgba(255,194,14,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
             hasText ? "scale-[1.04] translate-y-[-4px]" : ""
           }`}
         >
@@ -524,10 +523,11 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         <div
           data-pencil-name="Orange Blob"
           onClick={() => handlePoke(7)}
+          onPointerDown={() => handlePoke(7)}
           style={{
-            animation: pokedBlob === 7 ? "blob-poke 0.48s ease-out" : BLOBS[7].breathe,
+            animation: pokedBlob === 7 ? "blob-poke 0.48s ease-out" : undefined,
           }}
-          className={`box-border w-[220px] h-[220px] absolute left-[540px] top-[320px] bg-[#FF7A12] rounded-[110px] [z-index:7] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
+          className={`box-border w-[220px] h-[220px] absolute left-[540px] top-[320px] bg-[#FF7A12] rounded-[110px] [z-index:7] [box-shadow:0px_14px_32px_rgba(255,122,18,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
             hasText ? "scale-[1.05]" : ""
           }`}
         >
