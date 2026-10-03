@@ -134,8 +134,6 @@ function isRefuting(e: Enriched): boolean {
 }
 
 export function toFoundSource(e: Enriched, id: string, retrievedAt: string): FoundSource {
-  const { publishedAt, dateFrom } = resolveDate(e.candidate);
-  const links = extractLinks(e.candidate.text, e.candidate.url);
   return {
     id,
     url: e.candidate.url,
@@ -143,9 +141,7 @@ export function toFoundSource(e: Enriched, id: string, retrievedAt: string): Fou
     publisher: e.info.publisher,
     domain: e.domain,
     sourceType: e.info.type,
-    publishedAt,
-    dateFrom,
-    links,
+    publishedAt: toIso(e.candidate.publishedAt),
     language: e.language,
     country: e.info.country,
     excerpt: e.excerpt,
@@ -153,63 +149,6 @@ export function toFoundSource(e: Enriched, id: string, retrievedAt: string): Fou
     domainReliability: e.info.reliability,
     retrievedAt,
   };
-}
-
-function resolveDate(c: Candidate): { publishedAt?: string; dateFrom?: "search" | "page" | "url" | null } {
-  const fromSearch = toIso(c.publishedAt);
-  if (fromSearch) return { publishedAt: fromSearch, dateFrom: "search" };
-
-  // Из URL: /2023/03/14/ или /2023-03-14/ или 14-03-2023
-  const urlMatch = c.url.match(/(?:^|[/-])(20\d\d)[/-](0[1-9]|1[0-2])[/-](0[1-9]|[12]\d|3[01])(?:[/-]|$)/);
-  if (urlMatch) {
-    const [, y, m, d] = urlMatch;
-    const iso = toIso(`${y}-${m}-${d}T00:00:00Z`);
-    if (iso) return { publishedAt: iso, dateFrom: "url" };
-  }
-
-  // Из текста страницы / сниппета (первые 2000 символов)
-  const textSample = c.text.slice(0, 2000);
-  const textIsoMatch = textSample.match(/\b(20\d\d)-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/);
-  if (textIsoMatch) {
-    const [, y, m, d] = textIsoMatch;
-    const iso = toIso(`${y}-${m}-${d}T00:00:00Z`);
-    if (iso) return { publishedAt: iso, dateFrom: "page" };
-  }
-  const textRuMatch = textSample.match(/\b(0[1-9]|[12]\d|3[01])\.(0[1-9]|1[0-2])\.(20\d\d)\b/);
-  if (textRuMatch) {
-    const [, d, m, y] = textRuMatch;
-    const iso = toIso(`${y}-${m}-${d}T00:00:00Z`);
-    if (iso) return { publishedAt: iso, dateFrom: "page" };
-  }
-
-  return { publishedAt: undefined, dateFrom: null };
-}
-
-function extractLinks(text: string, selfUrl: string): string[] {
-  let selfHost: string;
-  try {
-    selfHost = normalizeHost(new URL(selfUrl).hostname);
-  } catch {
-    return [];
-  }
-
-  const links = new Set<string>();
-  const matches = text.matchAll(/https?:\/\/[^\s"'<>)\]]+/g);
-  for (const m of matches) {
-    const raw = m[0].replace(/[.,;:!?)]+$/, "");
-    try {
-      const parsed = new URL(raw);
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") continue;
-      const host = normalizeHost(parsed.hostname);
-      if (host === selfHost || /\.(png|jpe?g|gif|svg|webp|css|js|ico|woff2?)$/i.test(parsed.pathname)) {
-        continue;
-      }
-      links.add(parsed.origin + parsed.pathname);
-    } catch {
-      // игнорируем некорректные URL
-    }
-  }
-  return [...links].slice(0, 20);
 }
 
 function canonicalUrl(raw: string): string | undefined {

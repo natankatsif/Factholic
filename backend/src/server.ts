@@ -17,6 +17,7 @@ import {
 } from "@news/contracts";
 import { MOCK_EVENTS, MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
 import { config, configErrors, describeConfig } from "./config.ts";
+import { PipelineError } from "./pipeline/context.ts";
 import { runPipeline } from "./pipeline/orchestrator.ts";
 import { JobStore, type JobRecord } from "./pipeline/store.ts";
 
@@ -103,8 +104,13 @@ function handleJobSocket(ws: WebSocket, job: JobRecord) {
   const emit = (e: ServerEvent) => store.emit(job, e);
   runPipeline({ jobId: job.id, request: job.request, emit, signal: job.abort.signal }).catch((err) => {
     if (job.abort.signal.aborted) return; // отменили сами — это не ошибка
-    console.error(err);
-    emit({ type: "job.failed", jobId: job.id, error: { code: "INTERNAL", message: String(err) } });
+    // В лог — всё, включая техническую причину (cause); фронту — код и понятный текст
+    console.error(`[${job.id}] job.failed:`, err);
+    const error =
+      err instanceof PipelineError
+        ? { code: err.code, message: err.message }
+        : { code: "INTERNAL" as const, message: "Что-то пошло не так на сервере, попробуй ещё раз" };
+    emit({ type: "job.failed", jobId: job.id, error });
   });
 }
 

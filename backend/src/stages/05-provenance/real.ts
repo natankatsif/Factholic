@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { SourceId } from "@news/contracts";
 import type { Stage, StageContext } from "../../pipeline/context.ts";
-import type { Claim, ClaimStructure, TimeMarker } from "../03-claim-extraction/types.ts";
-import type { FoundSource } from "../04-source-search/types.ts";
+import type { Claim, ClaimStructure } from "../03-claim-extraction/types.ts";
+import type { SourceCopy } from "../04-source-search/types.ts";
 import { askJson, embed, LlmConfigError } from "./llm.ts";
 import { buildPrompt, SYSTEM_PROMPT } from "./prompt.ts";
 import {
@@ -19,23 +19,14 @@ import { VIDEO_NODE_ID, type ProvenanceInput, type ProvenanceTree } from "./type
 
 // ===================== LLM: СТРУКТУРА В КАЖДОЙ КОПИИ =====================
 
-const TIME_MARKERS = [
-  "just_now",
-  "today",
-  "yesterday",
-  "this_week",
-  "recently",
-] as const satisfies readonly TimeMarker[];
-
-/** ClaimStructure из 03-claim-extraction/types.ts */
+/** Ровно ClaimStructure из 03-claim-extraction/types.ts (structured output: все поля обязательны, «нет» — null) */
 const StructureSchema = z.object({
-  numbers: z.array(
-    z.object({ value: z.number(), unit: z.string(), approximate: z.boolean(), raw: z.string() }),
-  ),
+  event: z.string(),
+  numbers: z.array(z.object({ value: z.string(), about: z.string() })),
   places: z.array(z.string()),
-  eventTime: z.object({ raw: z.string(), date: z.string().nullable() }).nullable(),
-  timeMarkers: z.array(z.enum(TIME_MARKERS)),
-  certainty: z.enum(["asserted", "hedged"]),
+  time: z.object({ text: z.string(), date: z.string().nullable(), relative: z.boolean() }).nullable(),
+  certainty: z.enum(["asserted", "reported", "hedged"]),
+  certaintyMarkers: z.array(z.string()),
   attributedTo: z.string().nullable(),
 });
 
@@ -63,8 +54,9 @@ interface Extraction {
  * REAL-РЕАЛИЗАЦИЯ (STAGE_PROVENANCE=real). Подробно — README этапа, раздел «Реализация».
  *  1. Похожесть текстов: эмбеддинги утверждения и копий одним batch-запросом; упали — шинглы (лог, без исключения).
  *  2. Структура (LLM, один вызов, effort low): есть ли утверждение в копии, его ClaimStructure, на кого ссылается.
+ *     Атрибуции этапа 04 (copy.attributions) дерево добавит к ответу LLM само — они работают и без LLM.
  *     Копий больше MAX_COPIES — LLM читает самые датированные/похожие, остальные — без структуры.
- *     Сбой LLM (кроме LlmConfigError и отмены) — дерево без структур и атрибуций, с логом.
+ *     Сбой LLM (кроме LlmConfigError и отмены) — дерево без структур, атрибуции — только от 04, с логом.
  *  3. Дерево (tree.ts): рёбра link > attribution > duplicate, один родитель, корень, видео, voteGroups.
  */
 export const buildProvenanceTreeReal: Stage<ProvenanceInput, ProvenanceTree> = async (input, ctx) => {
@@ -120,7 +112,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-async function textSimilarity(claim: Claim, copies: FoundSource[], ctx: StageContext): Promise<Similarity> {
+async function textSimilarity(claim: Claim, copies: SourceCopy[], ctx: StageContext): Promise<Similarity> {
   const texts = copies.map(copyText);
   try {
     const [claimVector, ...copyVectors] = await embed([claimText(claim), ...texts], ctx);
@@ -134,7 +126,7 @@ async function textSimilarity(claim: Claim, copies: FoundSource[], ctx: StageCon
 
 async function extractStructures(
   input: ProvenanceInput,
-  copies: FoundSource[],
+  copies: SourceCopy[],
   ctx: StageContext,
 ): Promise<Extraction | null> {
   const { claim } = input;
@@ -164,7 +156,10 @@ async function extractStructures(
     return { video: cleanStructure(data.video), copies: byId };
   } catch (err) {
     if (isFatal(err, ctx)) throw err;
-    ctx.log(`05: ${claim.id}: структура не извлечена — дерево без структур и атрибуций`, errorMessage(err));
+    ctx.log(
+      `05: ${claim.id}: структура не извлечена — дерево без структур, атрибуции только от 04`,
+      errorMessage(err),
+    );
     return null;
   }
 }
@@ -173,18 +168,21 @@ async function extractStructures(
 
 const PARTIAL_DATE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
 
+/** Подчистить ответ LLM (как cleanStructure в 03): пустые строки — убрать, дату — только YYYY[-MM[-DD]] */
 function cleanStructure(raw: RawStructure): ClaimStructure {
-  const eventRaw = raw.eventTime?.raw.trim() ?? "";
-  const eventDate = raw.eventTime?.date?.trim() ?? "";
-  const date = PARTIAL_DATE.test(eventDate) ? eventDate : null;
+  const rawDate = raw.time?.date?.trim() ?? "";
+  const date = PARTIAL_DATE.test(rawDate) ? rawDate : null;
+  const text = raw.time?.text.trim() || date;
   return {
+    event: raw.event.trim(),
     numbers: raw.numbers
-      .filter((n) => Number.isFinite(n.value))
-      .map((n) => ({ value: n.value, unit: n.unit.trim(), approximate: n.approximate, raw: n.raw.trim() })),
-    places: unique(raw.places.map((p) => p.trim()).filter(Boolean)),
-    eventTime: eventRaw || date ? { raw: eventRaw || (date ?? ""), date } : null,
-    timeMarkers: unique(raw.timeMarkers),
+      .map((n) => ({ value: n.value.trim(), about: n.about.trim() }))
+      .filter((n) => n.value),
+    places: strings(raw.places),
+    // без текста, но с датой — время всё же названо: текстом служит дата
+    time: raw.time && text ? { text, date, relative: raw.time.relative } : null,
     certainty: raw.certainty,
+    certaintyMarkers: strings(raw.certaintyMarkers),
     attributedTo: raw.attributedTo?.trim() || null,
   };
 }
@@ -202,12 +200,13 @@ function cleanCites(cites: string[]): string[] {
     });
 }
 
-function unique<T>(items: T[]): T[] {
-  return [...new Set(items)];
+/** Без пустых и повторов */
+function strings(items: string[]): string[] {
+  return [...new Set(items.map((x) => x.trim()).filter(Boolean))];
 }
 
 /** Повтор id из 04 — одна и та же копия: оставляем первую */
-function uniqueById(copies: FoundSource[]): FoundSource[] {
+function uniqueById(copies: SourceCopy[]): SourceCopy[] {
   const seen = new Set<SourceId>();
   return copies.filter((c) => {
     if (seen.has(c.id)) return false;

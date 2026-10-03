@@ -30,12 +30,12 @@ export const mockClaim: Claim = {
   segmentIds: ["0_1"],
   speaker: "SPEAKER_1",
   structure: {
+    event: "война в Украине",
     numbers: [],
     places: ["Украина"],
-    eventTime: null,
-    // «сейчас идёт» — подаётся как происходящее на момент видео
-    timeMarkers: ["today"],
+    time: { text: "сейчас", date: null, relative: true },
     certainty: "asserted",
+    certaintyMarkers: [],
     attributedTo: null,
   },
 };

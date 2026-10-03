@@ -5,6 +5,7 @@ import type { ProvenanceInput, ProvenanceTree } from "./types.ts";
 
 export type * from "./types.ts";
 export { VIDEO_NODE_ID } from "./types.ts";
+export { copiesFromSources, voteGroupsForSources } from "./copies.ts";
 
 /** mock или real — по STAGE_PROVENANCE в .env (см. backend/src/config.ts) */
 export const buildProvenanceTree = selectImpl<ProvenanceInput, ProvenanceTree>("provenance", {

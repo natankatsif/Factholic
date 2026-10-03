@@ -2,11 +2,13 @@ import type { Stage } from "../../pipeline/context.ts";
 import { mockClaim } from "../03-claim-extraction/mock.ts";
 import type { ClaimStructure } from "../03-claim-extraction/types.ts";
 import { mockSourceSearchOutput } from "../04-source-search/mock.ts";
+import { copiesFromSources } from "./copies.ts";
 import { VIDEO_NODE_ID, type ProvenanceInput, type ProvenanceTree } from "./types.ts";
 
 export const mockProvenanceInput: ProvenanceInput = {
   claim: mockClaim,
-  copies: mockSourceSearchOutput.copies ?? mockSourceSearchOutput.sources,
+  // как в оркестраторе: copies из 04, у старых моков их нет — источники как копии
+  copies: mockSourceSearchOutput.copies ?? copiesFromSources(mockSourceSearchOutput.sources),
   video: {
     url: "https://www.youtube.com/watch?v=MOCK123",
     title: "Большое интервью: экономика, наука и мировые события",
@@ -14,12 +16,13 @@ export const mockProvenanceInput: ProvenanceInput = {
   },
 };
 
-// в моке этапа 03 структура заполнена (в real она пока необязательная — TODO backend-1)
+// в моке этапа 03 структура заполнена (в типе она необязательная — ради старых моков)
 const sameClaim: ClaimStructure = mockClaim.structure!;
 
 /**
- * Reuters (корень) ← DW (ссылка на Reuters) ← Point.md (ссылка на DW); видео — вероятно, пересказ DW.
- * ООН и Википедия без дат и без связей — отдельные ветки (и отдельные голоса в «сторонах»).
+ * Пример выхода на источниках 04 (src_05_*): Reuters (корень) ← DW (ссылка на Reuters) ← Point.md (ссылка на DW);
+ * видео — вероятно, пересказ DW. ООН и Википедия без дат и без связей — отдельные ветки (и отдельные голоса
+ * в «сторонах»). На id и датах этого дерева построены моки 06–09 — меняй вместе с ними.
  */
 export const mockProvenanceTree: ProvenanceTree = {
   claimId: "clm_05",
@@ -47,7 +50,12 @@ export const mockProvenanceTree: ProvenanceTree = {
       parentId: "src_05_2",
       via: "link",
       confidence: "confirmed",
-      structure: { ...sameClaim, attributedTo: "Reuters" },
+      structure: {
+        ...sameClaim,
+        certainty: "reported",
+        certaintyMarkers: ["по данным Reuters"],
+        attributedTo: "Reuters",
+      },
     },
     {
       id: "src_05_5",
@@ -59,7 +67,12 @@ export const mockProvenanceTree: ProvenanceTree = {
       parentId: "src_05_3",
       via: "link",
       confidence: "confirmed",
-      structure: { ...sameClaim, attributedTo: "DW" },
+      structure: {
+        ...sameClaim,
+        certainty: "reported",
+        certaintyMarkers: ["как сообщает DW"],
+        attributedTo: "DW",
+      },
     },
     {
       id: "src_05_1",
@@ -84,8 +97,8 @@ export const mockProvenanceTree: ProvenanceTree = {
       // о начале войны, а не о том, что она идёт сейчас
       structure: {
         ...sameClaim,
-        timeMarkers: [],
-        eventTime: { raw: "24 февраля 2022 года", date: "2022-02-24" },
+        event: "начало войны в Украине",
+        time: { text: "24 февраля 2022 года", date: "2022-02-24", relative: false },
       },
     },
     {

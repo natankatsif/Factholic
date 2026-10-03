@@ -1,10 +1,11 @@
 /**
- * Тексты, которые этап 06 пишет сам, без LLM: подписи для before / after (уверенность, маркеры времени,
+ * Тексты, которые этап 06 пишет сам, без LLM: подписи для before / after (уверенность,
  * «без ссылки на источник», даты) и шаблонные note — когда LLM не ответила или пропустила кандидата.
+ * Время в before / after — как сказано в публикации (time.text), его не переводим.
  * Языки UI, которых нет в списке, получают английский.
  */
 import type { LanguageCode } from "@news/contracts";
-import type { ClaimStructure, TimeMarker } from "../03-claim-extraction/types.ts";
+import type { ClaimStructure } from "../03-claim-extraction/types.ts";
 import type { ClaimMutation, MutationField } from "./types.ts";
 
 type Direction = ClaimMutation["direction"];
@@ -15,7 +16,6 @@ interface Texts {
   certainty: Record<ClaimStructure["certainty"], string>;
   /** attributedTo: null — утверждение подано от себя */
   noAttribution: string;
-  markers: Record<TimeMarker, string>;
   /** Родитель о времени молчит — событие было не позже его публикации */
   notLaterThan: (date: string) => string;
   /** Месяцы для «20 декабря 2024» */
@@ -27,15 +27,8 @@ interface Texts {
 const TEXTS: Record<string, Texts> = {
   ru: {
     absent: "—",
-    certainty: { asserted: "как факт", hedged: "предположительно" },
+    certainty: { asserted: "как факт", reported: "со ссылкой на источник", hedged: "предположительно" },
     noAttribution: "без ссылки на источник",
-    markers: {
-      just_now: "только что",
-      today: "сегодня",
-      yesterday: "вчера",
-      this_week: "на этой неделе",
-      recently: "недавно",
-    },
     notLaterThan: (date) => `не позднее ${date}`,
     months: [
       "января",
@@ -52,12 +45,18 @@ const TEXTS: Record<string, Texts> = {
       "декабря",
     ],
     notes: {
-      numbers: { inflated: "Число выросло", deflated: "Число уменьшилось", changed: "Число изменилось" },
+      numbers: {
+        inflated: "Число выросло",
+        deflated: "Число уменьшилось",
+        added: "Появилось число",
+        removed: "Пропало число",
+        changed: "Число изменилось",
+      },
       place: { changed: "Изменилось место" },
-      time: { changed: "Изменилось время события" },
+      time: { shifted: "Событие сдвинуто во времени", changed: "Изменилось время события" },
       certainty: {
-        inflated: "Предположение подано как факт",
-        deflated: "Факт подан как предположение",
+        inflated: "Подано увереннее",
+        deflated: "Подано осторожнее",
         changed: "Изменилась уверенность",
       },
       attribution: { changed: "Изменилось, на кого ссылаются" },
@@ -65,15 +64,8 @@ const TEXTS: Record<string, Texts> = {
   },
   uk: {
     absent: "—",
-    certainty: { asserted: "як факт", hedged: "імовірно" },
+    certainty: { asserted: "як факт", reported: "з посиланням на джерело", hedged: "імовірно" },
     noAttribution: "без посилання на джерело",
-    markers: {
-      just_now: "щойно",
-      today: "сьогодні",
-      yesterday: "учора",
-      this_week: "цього тижня",
-      recently: "нещодавно",
-    },
     notLaterThan: (date) => `не пізніше ${date}`,
     months: [
       "січня",
@@ -90,12 +82,18 @@ const TEXTS: Record<string, Texts> = {
       "грудня",
     ],
     notes: {
-      numbers: { inflated: "Число зросло", deflated: "Число зменшилося", changed: "Число змінилося" },
+      numbers: {
+        inflated: "Число зросло",
+        deflated: "Число зменшилося",
+        added: "З’явилося число",
+        removed: "Зникло число",
+        changed: "Число змінилося",
+      },
       place: { changed: "Змінилося місце" },
-      time: { changed: "Змінився час події" },
+      time: { shifted: "Подію зсунуто в часі", changed: "Змінився час події" },
       certainty: {
-        inflated: "Припущення подано як факт",
-        deflated: "Факт подано як припущення",
+        inflated: "Подано впевненіше",
+        deflated: "Подано обережніше",
         changed: "Змінилася впевненість",
       },
       attribution: { changed: "Змінилося, на кого посилаються" },
@@ -103,15 +101,8 @@ const TEXTS: Record<string, Texts> = {
   },
   en: {
     absent: "—",
-    certainty: { asserted: "as fact", hedged: "possibly" },
+    certainty: { asserted: "as fact", reported: "citing a source", hedged: "possibly" },
     noAttribution: "no attribution",
-    markers: {
-      just_now: "just now",
-      today: "today",
-      yesterday: "yesterday",
-      this_week: "this week",
-      recently: "recently",
-    },
     notLaterThan: (date) => `no later than ${date}`,
     months: [
       "January",
@@ -128,12 +119,18 @@ const TEXTS: Record<string, Texts> = {
       "December",
     ],
     notes: {
-      numbers: { inflated: "The number grew", deflated: "The number shrank", changed: "The number changed" },
+      numbers: {
+        inflated: "The number grew",
+        deflated: "The number shrank",
+        added: "A number appeared",
+        removed: "A number disappeared",
+        changed: "The number changed",
+      },
       place: { changed: "The place changed" },
-      time: { changed: "The time of the event changed" },
+      time: { shifted: "The event was shifted in time", changed: "The time of the event changed" },
       certainty: {
-        inflated: "A possibility is presented as fact",
-        deflated: "A fact is presented as a possibility",
+        inflated: "Presented with more certainty",
+        deflated: "Presented with less certainty",
         changed: "The certainty changed",
       },
       attribution: { changed: "The attributed source changed" },

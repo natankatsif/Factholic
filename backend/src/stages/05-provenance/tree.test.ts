@@ -3,13 +3,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { mockClaim } from "../03-claim-extraction/mock.ts";
 import type { ClaimStructure } from "../03-claim-extraction/types.ts";
-import type { FoundSource } from "../04-source-search/types.ts";
+import type { FoundSource, SourceCopy } from "../04-source-search/types.ts";
+import { copiesFromSources } from "./copies.ts";
 import {
   attributionEdges,
   buildTree,
   canonicalUrl,
   citeMatches,
   compareDates,
+  copyCites,
   cosine,
   duplicateEdges,
   embeddingSimilarity,
@@ -18,6 +20,7 @@ import {
   pickForExtraction,
   shingles,
   shingleSimilarity,
+  siteName,
   type CopyFacts,
   type Similarity,
   type VideoFacts,
@@ -28,7 +31,8 @@ import { VIDEO_NODE_ID, type ProvenanceTree } from "./types.ts";
 
 const S: ClaimStructure = mockClaim.structure!;
 
-function src(id: string, over: Partial<FoundSource> = {}): FoundSource {
+/** Копия из этапа 04: без ссылок, атрибуций и даты, если не заданы */
+function src(id: string, over: Partial<SourceCopy> = {}): SourceCopy {
   return {
     id,
     url: `https://www.${id}.example/news/${id}`,
@@ -38,15 +42,16 @@ function src(id: string, over: Partial<FoundSource> = {}): FoundSource {
     sourceType: "news",
     language: "ru",
     excerpt: "",
-    snippet: "",
-    domainReliability: 0.5,
+    outboundLinks: [],
+    attributions: [],
+    earliestSearch: false,
     retrievedAt: "2026-10-03T00:00:00Z",
     ...over,
   };
 }
 
-/** Копия с утверждением (structure = S), без атрибуций */
-function copy(id: string, over: Partial<FoundSource> = {}, facts: Partial<CopyFacts> = {}): CopyFacts {
+/** Копия с утверждением (structure = S), без атрибуций от LLM */
+function copy(id: string, over: Partial<SourceCopy> = {}, facts: Partial<CopyFacts> = {}): CopyFacts {
   return { source: src(id, over), structure: S, cites: [], ...facts };
 }
 
@@ -147,6 +152,26 @@ describe("citeMatches", () => {
     assert.ok(!citeMatches("Reuters", { publisher: "Deutsche Welle", domain: "dw.com" }));
     assert.ok(!citeMatches("D", { publisher: "D", domain: "d.md" }));
   });
+
+  it("фразы этапа 04: издатель внутри фразы или имя сайта из домена с заглавной", () => {
+    assert.ok(citeMatches("как сообщает Reuters", { publisher: "Reuters", domain: "reuters.com" }));
+    assert.ok(citeMatches("potrivit Agerpres", { publisher: "Agenția Agerpres", domain: "agerpres.ro" }));
+    assert.ok(citeMatches("по данным DW", { publisher: "Deutsche Welle", domain: "www.dw.com" }));
+    assert.ok(citeMatches("according to BBC", { publisher: "Би-би-си", domain: "news.bbc.co.uk" }));
+    assert.ok(!citeMatches("according to news reports", { publisher: "Știri", domain: "news.md" }));
+    assert.ok(!citeMatches("по данным Генштаба", { publisher: "Reuters", domain: "reuters.com" }));
+    assert.ok(!citeMatches("по данным AP", { publisher: "Rap News", domain: "rap.md" }));
+  });
+});
+
+describe("siteName", () => {
+  it("имя сайта — метка перед зоной (и перед co/com/org второго уровня)", () => {
+    assert.equal(siteName("dw.com"), "dw");
+    assert.equal(siteName("www.Reuters.com"), "reuters");
+    assert.equal(siteName("news.bbc.co.uk"), "bbc");
+    assert.equal(siteName("ru.wikipedia.org"), "wikipedia");
+    assert.equal(siteName("localhost"), "localhost");
+  });
 });
 
 // ---------- рёбра ----------
@@ -155,7 +180,7 @@ describe("рёбра link", () => {
   it("ссылка на url другой копии (с www, utm, # и /) → родитель, link, confirmed", () => {
     const tree = build([
       copy("a", { url: "https://www.dw.com/ru/news-1/", publishedAt: D1 }),
-      copy("b", { publishedAt: D2, links: ["http://dw.com/ru/news-1?utm_source=tg#x"] }),
+      copy("b", { publishedAt: D2, outboundLinks: ["http://dw.com/ru/news-1?utm_source=tg#x"] }),
     ]);
     assert.deepEqual(edge(tree, "b"), ["a", "link", "confirmed"]);
     assert.deepEqual(edge(tree, "a"), [null, null, null]);
@@ -164,10 +189,10 @@ describe("рёбра link", () => {
   it("родитель позже потомка — не родитель; родитель без даты — можно (только для ссылки)", () => {
     const later = build([
       copy("a", { publishedAt: D3 }),
-      copy("b", { publishedAt: D2, links: [src("a").url] }),
+      copy("b", { publishedAt: D2, outboundLinks: [src("a").url] }),
     ]);
     assert.deepEqual(edge(later, "b"), [null, null, null]);
-    const undated = build([copy("a"), copy("b", { publishedAt: D2, links: [src("a").url] })]);
+    const undated = build([copy("a"), copy("b", { publishedAt: D2, outboundLinks: [src("a").url] })]);
     assert.deepEqual(edge(undated, "b"), ["a", "link", "confirmed"]);
   });
 
@@ -176,7 +201,7 @@ describe("рёбра link", () => {
       copy("a", { publishedAt: D1 }),
       copy("b", { publishedAt: D2 }),
       copy("c", { publishedAt: D2 }, { structure: null }),
-      copy("d", { publishedAt: D3, links: [src("a").url, src("c").url, src("b").url] }),
+      copy("d", { publishedAt: D3, outboundLinks: [src("a").url, src("c").url, src("b").url] }),
     ];
     assert.deepEqual(
       linkEdges(copies).map((e) => e.parent),
@@ -189,7 +214,7 @@ describe("рёбра link", () => {
     const url = "https://site.md/a";
     const copies = [
       copy("a", { url, publishedAt: D1 }),
-      copy("b", { url: `${url}/`, publishedAt: D2, links: [url] }),
+      copy("b", { url: `${url}/`, publishedAt: D2, outboundLinks: [url] }),
     ];
     assert.deepEqual(linkEdges(copies), []);
   });
@@ -245,6 +270,48 @@ describe("рёбра attribution", () => {
       copy("x", {}, { cites: ["Reuters"] }),
     ]);
     assert.deepEqual(edge(undatedChild, "x"), ["r", "attribution", "probable"]);
+  });
+
+  it("атрибуции этапа 04 работают и без LLM: «как сообщает Reuters» → Reuters", () => {
+    const tree = build([
+      copy("r", { publisher: "Reuters", domain: "reuters.com", publishedAt: D1 }),
+      copy("x", { publishedAt: D2, attributions: ["как сообщает Reuters", "по данным Генштаба"] }),
+    ]);
+    assert.deepEqual(edge(tree, "x"), ["r", "attribution", "probable"]);
+  });
+
+  it("cites от LLM — раньше атрибуций 04: LLM назвала DW, а в тексте ещё «по данным Reuters»", () => {
+    const copies = [
+      copy("r", { publisher: "Reuters", domain: "reuters.com", publishedAt: D1 }),
+      copy("dw", { publisher: "Deutsche Welle", domain: "dw.com", publishedAt: D2 }),
+      copy("x", { publishedAt: D3, attributions: ["по данным Reuters"] }, { cites: ["DW"] }),
+    ];
+    assert.deepEqual(copyCites(copies[2]), ["DW", "по данным Reuters"]);
+    assert.deepEqual(edge(build(copies), "x"), ["dw", "attribution", "probable"]);
+  });
+
+  it("объединение без повторов (без регистра и знаков) и без упоминаний самой копии", () => {
+    const own = copy(
+      "nm2",
+      {
+        publisher: "NewsMaker",
+        domain: "newsmaker.md",
+        attributions: ["сообщает NewsMaker", "по данным Reuters", "По данным  Reuters!"],
+      },
+      { cites: ["Reuters", "reuters"] },
+    );
+    assert.deepEqual(copyCites(own), ["Reuters", "по данным Reuters"]);
+    // «сообщает NewsMaker» в статье NewsMaker — не ребро к более ранней статье NewsMaker
+    const tree = build([
+      copy("nm1", { publisher: "NewsMaker", domain: "newsmaker.md", publishedAt: D1 }),
+      copy("nm2", {
+        publisher: "NewsMaker",
+        domain: "newsmaker.md",
+        publishedAt: D2,
+        attributions: ["сообщает NewsMaker"],
+      }),
+    ]);
+    assert.deepEqual(edge(tree, "nm2"), [null, null, null]);
   });
 });
 
@@ -302,7 +369,7 @@ describe("один родитель", () => {
     copy("d", { publishedAt: D1 }),
     copy(
       "x",
-      { publishedAt: D2, links: withLink ? [src("l").url] : [] },
+      { publishedAt: D2, outboundLinks: withLink ? [src("l").url] : [] },
       { cites: withCite ? ["Reuters"] : [] },
     ),
   ];
@@ -315,16 +382,19 @@ describe("один родитель", () => {
   });
 
   it("взаимные ссылки без дат → ребро одно, цикла нет", () => {
-    const tree = build([copy("a", { links: [src("b").url] }), copy("b", { links: [src("a").url] })]);
+    const tree = build([
+      copy("a", { outboundLinks: [src("b").url] }),
+      copy("b", { outboundLinks: [src("a").url] }),
+    ]);
     assert.deepEqual(edge(tree, "a"), ["b", "link", "confirmed"]);
     assert.deepEqual(edge(tree, "b"), [null, null, null]);
   });
 
   it("кольцо из трёх ссылок → два ребра, у всех один корень ветки", () => {
     const tree = build([
-      copy("a", { links: [src("b").url] }),
-      copy("b", { links: [src("c").url] }),
-      copy("c", { links: [src("a").url] }),
+      copy("a", { outboundLinks: [src("b").url] }),
+      copy("b", { outboundLinks: [src("c").url] }),
+      copy("c", { outboundLinks: [src("a").url] }),
     ]);
     const parentless = tree.nodes.filter((n) => n.id !== VIDEO_NODE_ID && n.parentId === null);
     assert.equal(parentless.length, 1);
@@ -335,7 +405,10 @@ describe("один родитель", () => {
   it("дубль не перебивает ссылку и не замыкает с ней цикл", () => {
     // a ссылается на b (тот же день); по тексту a — «родитель» b, но ссылка надёжнее
     const tree = build(
-      [copy("a", { publishedAt: "2026-10-02", links: [src("b").url] }), copy("b", { publishedAt: D2 })],
+      [
+        copy("a", { publishedAt: "2026-10-02", outboundLinks: [src("b").url] }),
+        copy("b", { publishedAt: D2 }),
+      ],
       sim(2, [[0, 1, 0.99]]),
     );
     assert.deepEqual(edge(tree, "a"), ["b", "link", "confirmed"]);
@@ -348,8 +421,8 @@ describe("один родитель", () => {
 describe("корень и voteGroups", () => {
   it("цепочка ссылок: корень — самый ранний без родителя; группа ветки — её корень", () => {
     const tree = build([
-      copy("p", { publishedAt: D3, links: [src("dw").url] }),
-      copy("dw", { publishedAt: D2, links: [src("r").url] }),
+      copy("p", { publishedAt: D3, outboundLinks: [src("dw").url] }),
+      copy("dw", { publishedAt: D2, outboundLinks: [src("r").url] }),
       copy("r", { publishedAt: D1 }),
       copy("un"),
     ]);
@@ -371,7 +444,7 @@ describe("корень и voteGroups", () => {
     assert.equal(build([copy("a"), copy("b", { publishedAt: D1 }, { structure: null })]).rootId, null);
     const tree = build([
       copy("x", { publishedAt: D1 }, { structure: null }),
-      copy("y", { publishedAt: D2, links: [src("x").url] }),
+      copy("y", { publishedAt: D2, outboundLinks: [src("x").url] }),
     ]);
     assert.equal(tree.rootId, null);
   });
@@ -389,7 +462,7 @@ describe("корень и voteGroups", () => {
 
 describe("узел видео", () => {
   it("последний: id video, «Это видео», домен без www, дата и структура видео", () => {
-    const structure = { ...S, timeMarkers: ["yesterday" as const] };
+    const structure: ClaimStructure = { ...S, time: { text: "вчера", date: "2026-10-02", relative: true } };
     const tree = build([copy("a", { publishedAt: D1 })], sim(1), {
       ...VIDEO,
       publishedAt: D3,
@@ -447,6 +520,60 @@ describe("порядок узлов", () => {
       ["a", "b", "c", "u1", "u2", "bad", VIDEO_NODE_ID],
     );
     assert.ok(!("publishedAt" in node(tree, "bad")), "неразбираемая дата не попадает в узел");
+  });
+});
+
+// ---------- вход без copies ----------
+
+describe("copiesFromSources", () => {
+  it("источник → копия: без ссылок и атрибуций, не из поиска раннего упоминания; без даты — без publishedAt", () => {
+    const source: FoundSource = {
+      id: "src_1",
+      url: "https://www.dw.com/ru/a",
+      title: "Заголовок",
+      publisher: "Deutsche Welle",
+      domain: "dw.com",
+      sourceType: "news",
+      publishedAt: D1,
+      language: "ru",
+      country: "DE",
+      excerpt: "Текст",
+      snippet: "Цитата",
+      domainReliability: 0.9,
+      retrievedAt: D3,
+    };
+    const { publishedAt: _, ...undated } = source;
+    assert.deepEqual(copiesFromSources([source, { ...undated, id: "src_2" }]), [
+      {
+        id: "src_1",
+        url: source.url,
+        title: "Заголовок",
+        publisher: "Deutsche Welle",
+        domain: "dw.com",
+        sourceType: "news",
+        language: "ru",
+        publishedAt: D1,
+        excerpt: "Текст",
+        outboundLinks: [],
+        attributions: [],
+        earliestSearch: false,
+        retrievedAt: D3,
+      },
+      {
+        id: "src_2",
+        url: source.url,
+        title: "Заголовок",
+        publisher: "Deutsche Welle",
+        domain: "dw.com",
+        sourceType: "news",
+        language: "ru",
+        excerpt: "Текст",
+        outboundLinks: [],
+        attributions: [],
+        earliestSearch: false,
+        retrievedAt: D3,
+      },
+    ]);
   });
 });
 

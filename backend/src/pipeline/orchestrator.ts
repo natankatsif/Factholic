@@ -1,17 +1,28 @@
 /**
- * Склеивает этапы 01 → 06 и шлёт события во фронт.
+ * Склеивает этапы 01 → 09 и шлёт события во фронт.
  *
- *   ingest ──chunk──▶ transcribe ──segments──▶ extractClaims ──claim──▶ (claim.detected)
- *                                                                 └──▶ searchSources ──▶ verify ──▶ (claim.checked)
+ *   ingest ─▶ transcribe ─▶ extractClaims ─claim─▶ (claim.detected)
+ *                                  └─▶ searchSources ─copies─▶ buildProvenanceTree ─tree─┬▶ findMutations ─┐
+ *                                             │                                         ├▶ checkRootDate ─┤
+ *                                             └─sources───────────────────────────────▶ └▶ assessStances ─┴▶ toFactCheck ─▶ (claim.checked)
  *
- * Куски обрабатываются по порядку, а тезисы внутри куска — параллельно.
+ * Конвейер: куски транскрибируются и разбираются на тезисы по порядку, а проверка тезисов (поиск + LLM —
+ * самое долгое) идёт в фоне. Следующий кусок не ждёт, пока проверятся тезисы предыдущего.
+ * Проверяются только самые важные тезисы (config.limits) — каждый стоит ~9 запросов к поиску.
+ * Дерево и проверки на нём не валят тезис: ошибка этапа 05 → отчёт без дерева, но со сторонами.
  */
 import type { FactCheck, JobId, ServerEvent, StartAnalysisRequest } from "@news/contracts";
+import { config } from "../config.ts";
 import { ingest, type LiveAudioChunk } from "../stages/01-ingest/index.ts";
 import { transcribe, type TranscriptSegment } from "../stages/02-transcription/index.ts";
 import { CHECKWORTHINESS_THRESHOLD, extractClaims, type Claim } from "../stages/03-claim-extraction/index.ts";
-import { searchSources } from "../stages/04-source-search/index.ts";
-import { buildProvenanceTree, type ProvenanceTree } from "../stages/05-provenance/index.ts";
+import { searchSources, type SourceCopy } from "../stages/04-source-search/index.ts";
+import {
+  buildProvenanceTree,
+  copiesFromSources,
+  voteGroupsForSources,
+  type ProvenanceTree,
+} from "../stages/05-provenance/index.ts";
 import { findMutations } from "../stages/06-mutations/index.ts";
 import { checkRootDate } from "../stages/07-root-date/index.ts";
 import { assessStances } from "../stages/08-stances/index.ts";
@@ -19,6 +30,9 @@ import { toFactCheck, type ProvenanceResult } from "../stages/09-report/index.ts
 import type { StageContext } from "./context.ts";
 
 const CONTEXT_WINDOW_SEC = 60;
+/** Сколько соседних предложений давать этапу 08 (стороны) как контекст тезиса */
+const SURROUNDING_SEGMENTS = 2;
+const MAX_SURROUNDING_CHARS = 1500;
 
 export interface RunPipelineParams {
   jobId: JobId;
@@ -34,14 +48,22 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
     signal,
     log: (msg, data) => console.log(`[${jobId}] ${msg}`, data ?? ""),
   };
+  const { maxClaimsPerChunk, maxClaimsPerJob } = config.limits;
 
   const { video, chunks } = await ingest({ jobId, request, liveAudio, chunkSec: 30 }, ctx);
   emit({ type: "job.started", jobId, video });
 
   const results = new Map<string, FactCheck>();
   let history: TranscriptSegment[] = [];
-  const claims: Claim[] = [];
+  /** Все найденные тезисы (и отобранные, и нет) — чтобы этап 03 не находил их повторно */
+  const seen: Claim[] = [];
+  let checkedCount = 0;
   let processedUntil = request.startFrom;
+  /**
+   * Цепочка «кусок проверен»: прогресс verification шлём по порядку кусков, даже если тезисы
+   * позднего куска проверились раньше — иначе полоса прогресса на фронте прыгала бы вперёд-назад.
+   */
+  let verified: Promise<void> = Promise.resolve();
 
   for await (const chunk of chunks) {
     if (signal.aborted) return;
@@ -55,105 +77,43 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
         video,
         segments: transcript.segments,
         context: history.filter((s) => s.end >= chunk.range.start - CONTEXT_WINDOW_SEC),
-        previousClaims: claims.map(({ id, normalized }) => ({ id, normalized })),
+        previousClaims: seen.map(({ id, normalized }) => ({ id, normalized })),
         language: transcript.language,
       },
       ctx,
     );
     history = [...history, ...transcript.segments];
+    seen.push(...found);
 
-    const toCheck = found.filter((c) => c.checkworthiness >= CHECKWORTHINESS_THRESHOLD);
-    claims.push(...toCheck);
+    // Самые важные тезисы, в пределах лимитов на кусок и на весь материал
+    const toCheck = found
+      .filter((c) => c.checkworthiness >= CHECKWORTHINESS_THRESHOLD)
+      .sort((a, b) => b.checkworthiness - a.checkworthiness)
+      .slice(0, Math.min(maxClaimsPerChunk, maxClaimsPerJob - checkedCount));
+    checkedCount += toCheck.length;
+    if (found.length > toCheck.length) {
+      ctx.log(
+        `тезисов ${found.length}, проверяем ${toCheck.length} (лимиты: ${maxClaimsPerChunk}/кусок, ${maxClaimsPerJob}/всего)`,
+      );
+    }
 
-    await Promise.all(
-      toCheck.map(async (claim) => {
-        emit({ type: "claim.detected", jobId, factCheck: toFactCheck({ kind: "pending", claim }) });
-        let fc: FactCheck;
-        try {
-          const { sources, copies } = await searchSources(
-            {
-              claim,
-              maxSources: 5,
-              searchLanguages: [...new Set([claim.language, "en", "ro"])],
-            },
-            ctx,
-          );
+    for (const claim of toCheck) {
+      emit({ type: "claim.detected", jobId, factCheck: toFactCheck({ kind: "pending", claim }) });
+    }
 
-          // 1. Дерево первоисточника (05)
-          let tree: ProvenanceTree | null = null;
-          try {
-            tree = await buildProvenanceTree(
-              {
-                claim,
-                copies: copies?.length ? copies : sources,
-                video: {
-                  url: video.pageUrl,
-                  title: video.title,
-                },
-              },
-              ctx,
-            );
-          } catch (treeErr) {
-            ctx.log("05: ошибка построения дерева", treeErr);
-          }
-
-          // 2. Параллельно: мутации (06) и стороны (08)
-          const surroundingText = history
-            .filter((s) => Math.abs(s.start - claim.range.start) <= 30)
-            .map((s) => s.text)
-            .join(" ");
-
-          const [mutationsResult, stancesResult] = await Promise.all([
-            tree
-              ? findMutations({ claim, tree, uiLanguage: request.uiLanguage }, ctx).catch((err) => {
-                  ctx.log("06: ошибка поиска мутаций", err);
-                  return null;
-                })
-              : Promise.resolve(null),
-            assessStances(
-              {
-                claim,
-                sources,
-                surroundingText,
-                uiLanguage: request.uiLanguage,
-                voteGroups: tree?.voteGroups,
-              },
-              ctx,
-            ),
-          ]);
-
-          // 3. Дата корня (07)
-          const rootDateResult = tree
-            ? checkRootDate({ claim, tree })
-            : { claimId: claim.id, claimedAt: null, rootPublishedAt: null, flag: null };
-
-          const provenanceResult: ProvenanceResult | null = tree
-            ? {
-                tree,
-                mutations: mutationsResult,
-                rootDate: rootDateResult,
-              }
-            : null;
-
-          fc = toFactCheck({
-            kind: "checked",
-            claim,
-            sources,
-            stances: stancesResult,
-            provenance: provenanceResult,
-          });
-        } catch (err) {
-          ctx.log("claim failed", err);
-          fc = toFactCheck({ kind: "failed", claim, error: "Не удалось проверить тезис" });
-        }
-        results.set(fc.id, fc);
-        emit({ type: "claim.checked", jobId, factCheck: fc });
-      }),
-    );
-
-    processedUntil = chunk.range.end;
-    emit({ type: "job.progress", jobId, processedUntil, stage: "verification" });
+    // Проверка — в фоне; цикл сразу идёт за следующим куском
+    const snapshot = history;
+    const chunkEnd = chunk.range.end;
+    const checks = Promise.all(toCheck.map((claim) => checkClaim(claim, snapshot)));
+    verified = Promise.all([verified, checks]).then(() => {
+      if (signal.aborted) return;
+      processedUntil = Math.max(processedUntil, chunkEnd);
+      emit({ type: "job.progress", jobId, processedUntil, stage: "verification" });
+    });
   }
+
+  await verified;
+  if (signal.aborted) return;
 
   emit({
     type: "job.completed",
@@ -166,4 +126,86 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio }: R
       factChecks: [...results.values()].sort((a, b) => a.range.start - b.range.start),
     },
   });
+
+  /**
+   * Поиск источников → дерево → проверки на нём → отчёт по одному тезису.
+   * Никогда не бросает: ошибка поиска или сторон → FactCheck "failed".
+   */
+  async function checkClaim(claim: Claim, segments: TranscriptSegment[]): Promise<void> {
+    let fc: FactCheck;
+    try {
+      const { sources, copies } = await searchSources(
+        // язык материала + румынский и русский (молдавское инфопространство) + английский
+        {
+          claim,
+          maxSources: 5,
+          searchLanguages: [...new Set([claim.language, "ro", "ru", "en"])],
+        },
+        ctx,
+      );
+      // copies заполняет real-реализация 04; у старых моков их нет — тогда дерево по sources
+      const treeCopies = copies ?? copiesFromSources(sources);
+      const tree = await buildTree(claim, treeCopies);
+      // три проверки висят на дереве: мутации и стороны — параллельно, дата корня — без внешних API
+      const [mutations, stances] = await Promise.all([
+        tree
+          ? findMutations({ claim, tree, uiLanguage: request.uiLanguage }, ctx).catch((err: unknown) => {
+              ctx.log("06: мутации не найдены", err);
+              return null;
+            })
+          : null,
+        // перепечатки одного корня — один голос
+        assessStances(
+          {
+            claim,
+            sources,
+            surroundingText: surroundingText(claim, segments),
+            uiLanguage: request.uiLanguage,
+            voteGroups: tree ? voteGroupsForSources(tree, treeCopies, sources) : undefined,
+          },
+          ctx,
+        ),
+      ]);
+      const provenance: ProvenanceResult | null = tree
+        ? { tree, mutations, rootDate: checkRootDate({ claim, tree, videoPublishedAt: video.publishedAt }) }
+        : null;
+      fc = toFactCheck({ kind: "checked", claim, sources, stances, provenance });
+    } catch (err) {
+      if (signal.aborted) return;
+      ctx.log("claim failed", err);
+      fc = toFactCheck({ kind: "failed", claim, error: "Не удалось проверить тезис" });
+    }
+    results.set(fc.id, fc);
+    emit({ type: "claim.checked", jobId, factCheck: fc });
+  }
+
+  /** Дерево первоисточника; ошибка — null, тезис проверяется дальше (стороны без группировки) */
+  async function buildTree(claim: Claim, copies: SourceCopy[]): Promise<ProvenanceTree | null> {
+    try {
+      return await buildProvenanceTree(
+        { claim, copies, video: { url: video.pageUrl, title: video.title, publishedAt: video.publishedAt } },
+        ctx,
+      );
+    } catch (err) {
+      if (!signal.aborted) ctx.log("05: дерево не построено", err);
+      return null;
+    }
+  }
+}
+
+/**
+ * Контекст тезиса для этапа 08: соседние предложения вокруг тех, где он прозвучал.
+ * Раньше брали «всё в пределах 30 секунд» — у текста статьи все таймкоды 0, и в промпт уходила вся статья.
+ */
+function surroundingText(claim: Claim, segments: TranscriptSegment[]): string {
+  const ids = new Set(claim.segmentIds);
+  const first = segments.findIndex((s) => ids.has(s.id));
+  const picked =
+    first < 0
+      ? segments.filter((s) => Math.abs(s.start - claim.range.start) <= 30)
+      : segments.slice(Math.max(0, first - SURROUNDING_SEGMENTS), first + ids.size + SURROUNDING_SEGMENTS);
+  return picked
+    .map((s) => s.text)
+    .join(" ")
+    .slice(0, MAX_SURROUNDING_CHARS);
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { mockClaim } from "../03-claim-extraction/mock.ts";
-import type { Claim, ClaimStructure, TimeMarker } from "../03-claim-extraction/types.ts";
+import type { Claim, ClaimStructure } from "../03-claim-extraction/types.ts";
 import { VIDEO_NODE_ID, type ProvenanceTree, type TreeNode } from "../05-provenance/types.ts";
 import { checkRootDate } from "./index.ts";
 import { mockOldContentOutput, mockRootDateInput, mockRootDateOutput } from "./mock.ts";
@@ -11,14 +11,22 @@ import type { RootDateInput } from "./types.ts";
 
 const VIDEO_AT = "2026-10-02T09:00:00Z";
 
+type Time = ClaimStructure["time"];
+
 const baseStructure: ClaimStructure = {
+  event: "пожар на складе",
   numbers: [],
   places: ["Кишинёв"],
-  eventTime: null,
-  timeMarkers: [],
+  time: null,
   certainty: "asserted",
+  certaintyMarkers: [],
   attributedTo: null,
 };
+
+/** Относительное время: «вчера»; date — если её посчитал этап 03 от даты публикации */
+const rel = (text: string, date: string | null = null): Time => ({ text, date, relative: true });
+/** Явная дата: «24 февраля 2022» */
+const abs = (date: string | null, text = "когда-то"): Time => ({ text, date, relative: false });
 
 function node(id: string, publishedAt: string | undefined, structure: ClaimStructure | null): TreeNode {
   return {
@@ -36,9 +44,8 @@ function node(id: string, publishedAt: string | undefined, structure: ClaimStruc
 }
 
 interface Case {
-  markers?: TimeMarker[];
-  /** eventTime.date */
-  date?: string | null;
+  /** structure.time; по умолчанию null */
+  time?: Time;
   /** publishedAt корня; null — корня нет (rootId: null) */
   rootAt?: string | null;
   videoAt?: string;
@@ -50,11 +57,7 @@ interface Case {
 }
 
 function makeInput(c: Case): RootDateInput {
-  const structure: ClaimStructure = {
-    ...baseStructure,
-    timeMarkers: c.markers ?? [],
-    eventTime: c.date === undefined ? null : { raw: "когда-то", date: c.date },
-  };
+  const structure: ClaimStructure = { ...baseStructure, time: c.time ?? null };
   const claimStructure = c.claimStructure === undefined ? structure : c.claimStructure;
   const claim: Claim = { ...mockClaim, id: "clm_t", structure: claimStructure ?? undefined };
   const videoStructure = c.videoStructure === undefined ? claimStructure : c.videoStructure;
@@ -78,45 +81,67 @@ const flagged = (c: Case) => run(c).flag !== null;
 // ---------- тесты ----------
 
 describe("checkRootDate: примеры из mock.ts", () => {
-  it("«сейчас идёт война» (today), корень Reuters того же дня → mockRootDateOutput, флага нет", () => {
+  it("«сейчас идёт война» (relative «сейчас»), корень Reuters того же дня → mockRootDateOutput, флага нет", () => {
     assert.deepEqual(checkRootDate(mockRootDateInput), mockRootDateOutput);
   });
 
   it("«вчера» в видео от 2 октября 2026, корень — январь 2021 → mockOldContentOutput", () => {
-    const out = run({ markers: ["yesterday"], rootAt: "2021-01-14T07:30:00Z" });
-    assert.deepEqual(out, { ...mockOldContentOutput, claimId: "clm_t" });
+    // дату посчитал этап 03 или нет — результат тот же
+    for (const time of [rel("вчера"), rel("вчера", "2026-10-01")]) {
+      const out = run({ time, rootAt: "2021-01-14T07:30:00Z" });
+      assert.deepEqual(out, { ...mockOldContentOutput, claimId: "clm_t" }, JSON.stringify(time));
+    }
   });
 });
 
-describe("checkRootDate: claimedAt по маркерам — от даты видео, начало суток UTC", () => {
-  const cases: Array<[TimeMarker, string]> = [
-    ["just_now", "2026-10-02T00:00:00Z"],
-    ["today", "2026-10-02T00:00:00Z"],
+describe("checkRootDate: claimedAt по словам относительного времени — от даты видео, начало суток UTC", () => {
+  const cases: Array<[string, string]> = [
+    ["только что", "2026-10-02T00:00:00Z"],
+    ["сейчас", "2026-10-02T00:00:00Z"],
+    ["сегодня утром", "2026-10-02T00:00:00Z"],
+    ["acum", "2026-10-02T00:00:00Z"],
+    ["azi", "2026-10-02T00:00:00Z"],
+    ["astăzi", "2026-10-02T00:00:00Z"],
+    ["now", "2026-10-02T00:00:00Z"],
+    ["Today", "2026-10-02T00:00:00Z"],
+    ["вчера", "2026-10-01T00:00:00Z"],
+    ["вчера вечером", "2026-10-01T00:00:00Z"],
+    ["ieri", "2026-10-01T00:00:00Z"],
     ["yesterday", "2026-10-01T00:00:00Z"],
-    ["this_week", "2026-09-25T00:00:00Z"],
+    ["на этой неделе", "2026-09-25T00:00:00Z"],
+    ["недавно", "2026-09-25T00:00:00Z"],
+    ["săptămâna aceasta", "2026-09-25T00:00:00Z"],
+    ["recent", "2026-09-25T00:00:00Z"],
+    ["this week", "2026-09-25T00:00:00Z"],
     ["recently", "2026-09-25T00:00:00Z"],
   ];
-  for (const [marker, expected] of cases) {
-    it(`${marker} → ${expected}`, () => {
-      assert.equal(claimedAt({ markers: [marker] }), expected);
+  for (const [text, expected] of cases) {
+    it(`«${text}» → ${expected}`, () => {
+      assert.equal(claimedAt({ time: rel(text) }), expected);
     });
   }
 
-  it("несколько маркеров → самый «свежий»", () => {
-    assert.equal(claimedAt({ markers: ["recently", "yesterday"] }), "2026-10-01T00:00:00Z");
-    assert.equal(claimedAt({ markers: ["this_week", "today", "yesterday"] }), "2026-10-02T00:00:00Z");
+  it("несколько слов → самое «свежее»", () => {
+    assert.equal(claimedAt({ time: rel("недавно, а именно вчера") }), "2026-10-01T00:00:00Z");
+    assert.equal(claimedAt({ time: rel("на этой неделе, сегодня и вчера") }), "2026-10-02T00:00:00Z");
+  });
+
+  it("слова не узнаны → claimedAt null («позавчера», «acum 3 ani» — «три года назад», «snow»)", () => {
+    for (const text of ["позавчера", "alaltăieri", "acum 3 ani", "acum 30 de ani", "snow", "в прошлом", ""]) {
+      assert.equal(claimedAt({ time: rel(text) }), null, text);
+    }
   });
 
   it("нет даты видео → от now", () => {
     assert.equal(
-      claimedAt({ markers: ["yesterday"], videoAt: undefined, now: "2026-10-03T23:59:00Z" }),
+      claimedAt({ time: rel("вчера"), videoAt: undefined, now: "2026-10-03T23:59:00Z" }),
       "2026-10-02T00:00:00Z",
     );
   });
 
   it("дата видео не разбирается → от now", () => {
     assert.equal(
-      claimedAt({ markers: ["today"], videoAt: "вчера", now: "2026-10-03T12:00:00Z" }),
+      claimedAt({ time: rel("сегодня"), videoAt: "вчера", now: "2026-10-03T12:00:00Z" }),
       "2026-10-03T00:00:00Z",
     );
   });
@@ -127,52 +152,56 @@ describe("checkRootDate: claimedAt по маркерам — от даты ви�
         .toISOString()
         .replace(".000Z", "Z");
     const before = day(1);
-    const got = claimedAt({ markers: ["yesterday"], videoAt: undefined });
+    const got = claimedAt({ time: rel("вчера"), videoAt: undefined });
     const after = day(1);
     // тест мог пересечь полночь UTC
     assert.ok(got === before || got === after, got ?? "null");
   });
 });
 
-describe("checkRootDate: claimedAt по явной дате", () => {
+describe("checkRootDate: claimedAt по time.date", () => {
   it('"2022" → начало года, "2022-02" → начало месяца, "2022-02-24" → этот день', () => {
-    assert.equal(claimedAt({ date: "2022" }), "2022-01-01T00:00:00Z");
-    assert.equal(claimedAt({ date: "2022-02" }), "2022-02-01T00:00:00Z");
-    assert.equal(claimedAt({ date: "2022-02-24" }), "2022-02-24T00:00:00Z");
-    assert.equal(claimedAt({ date: " 2022-02-24T15:30:00Z " }), "2022-02-24T00:00:00Z");
+    assert.equal(claimedAt({ time: abs("2022") }), "2022-01-01T00:00:00Z");
+    assert.equal(claimedAt({ time: abs("2022-02") }), "2022-02-01T00:00:00Z");
+    assert.equal(claimedAt({ time: abs("2022-02-24") }), "2022-02-24T00:00:00Z");
+    assert.equal(claimedAt({ time: abs(" 2022-02-24T15:30:00Z ") }), "2022-02-24T00:00:00Z");
   });
 
-  it("явная дата важнее маркеров", () => {
-    assert.equal(claimedAt({ date: "2021-01-14", markers: ["yesterday"] }), "2021-01-14T00:00:00Z");
+  it("у относительного времени дата от этапа 03 важнее слов", () => {
+    assert.equal(claimedAt({ time: rel("вчера", "2021-01-14") }), "2021-01-14T00:00:00Z");
+    assert.equal(claimedAt({ time: rel("позавчера", "2026-09-30") }), "2026-09-30T00:00:00Z");
+    assert.equal(claimedAt({ time: rel("в прошлом месяце", "2026-09") }), "2026-09-01T00:00:00Z");
   });
 
-  it("дата не разбирается или её нет (date: null) → по маркерам", () => {
+  it("относительное время, дата не разбирается или её нет (date: null) → по словам", () => {
     for (const date of ["2022-13", "2022-02-30", "вчера", "", "22-02-2022", null]) {
-      assert.equal(claimedAt({ date, markers: ["yesterday"] }), "2026-10-01T00:00:00Z", String(date));
+      assert.equal(claimedAt({ time: rel("вчера", date) }), "2026-10-01T00:00:00Z", String(date));
     }
   });
 
-  it("ни даты, ни маркеров → claimedAt null, флага нет; дата корня всё равно есть", () => {
-    assert.deepEqual(run({ date: "когда-то", rootAt: "2001-01-01T00:00:00Z" }), {
+  it("не относительное время без разбираемой даты, или времени нет → claimedAt null, флага нет", () => {
+    assert.deepEqual(run({ time: abs("когда-то"), rootAt: "2001-01-01T00:00:00Z" }), {
       claimId: "clm_t",
       claimedAt: null,
       rootPublishedAt: "2001-01-01T00:00:00Z",
       flag: null,
     });
+    // relative: false — слова не смотрим, даже если там «вчера»
+    assert.equal(claimedAt({ time: abs(null, "вчера") }), null);
     assert.equal(claimedAt({}), null);
   });
 });
 
 describe("checkRootDate: дата корня", () => {
   it("rootId null → rootPublishedAt null, флага нет", () => {
-    const out = run({ markers: ["yesterday"], rootAt: null });
+    const out = run({ time: rel("вчера"), rootAt: null });
     assert.equal(out.claimedAt, "2026-10-01T00:00:00Z");
     assert.equal(out.rootPublishedAt, null);
     assert.equal(out.flag, null);
   });
 
   it("у корня нет даты или она не разбирается → null, флага нет", () => {
-    const noDate = makeInput({ markers: ["yesterday"] });
+    const noDate = makeInput({ time: rel("вчера") });
     noDate.tree.nodes[0] = { ...noDate.tree.nodes[0], publishedAt: undefined };
     assert.deepEqual([checkRootDate(noDate).rootPublishedAt, checkRootDate(noDate).flag], [null, null]);
     noDate.tree.nodes[0] = { ...noDate.tree.nodes[0], publishedAt: "давно" };
@@ -180,7 +209,7 @@ describe("checkRootDate: дата корня", () => {
   });
 
   it("rootId указывает на узел, которого нет в дереве → null", () => {
-    const input = makeInput({ markers: ["yesterday"], rootAt: "2001-01-01T00:00:00Z" });
+    const input = makeInput({ time: rel("вчера"), rootAt: "2001-01-01T00:00:00Z" });
     input.tree.rootId = "src_missing";
     assert.equal(checkRootDate(input).rootPublishedAt, null);
     assert.equal(checkRootDate(input).flag, null);
@@ -191,41 +220,59 @@ describe("checkRootDate: допуски на границе (больше доп
   const cases: Array<{ name: string; c: Case; edge: string; past: string }> = [
     // заявлено 2026-10-02 → допуск 3 дня → граница 2026-09-29T00:00Z
     {
-      name: "just_now — 3 дня",
-      c: { markers: ["just_now"] },
+      name: "«только что» — 3 дня",
+      c: { time: rel("только что") },
       edge: "2026-09-29T00:00:00Z",
       past: "2026-09-28T23:59:59Z",
     },
     {
-      name: "today — 3 дня",
-      c: { markers: ["today"] },
+      name: "«сейчас» — 3 дня",
+      c: { time: rel("сейчас") },
+      edge: "2026-09-29T00:00:00Z",
+      past: "2026-09-28T23:59:59Z",
+    },
+    {
+      name: "«сегодня» — 3 дня",
+      c: { time: rel("сегодня") },
       edge: "2026-09-29T00:00:00Z",
       past: "2026-09-28T23:59:59Z",
     },
     // заявлено 2026-10-01
     {
-      name: "yesterday — 3 дня",
-      c: { markers: ["yesterday"] },
+      name: "«вчера» — 3 дня",
+      c: { time: rel("вчера") },
       edge: "2026-09-28T00:00:00Z",
       past: "2026-09-27T23:59:59Z",
     },
+    {
+      name: "«вчера» с датой от этапа 03 — 3 дня",
+      c: { time: rel("вчера", "2026-10-01") },
+      edge: "2026-09-28T00:00:00Z",
+      past: "2026-09-27T23:59:59Z",
+    },
+    {
+      name: "незнакомое слово с датой от этапа 03 — 3 дня",
+      c: { time: rel("позавчера", "2026-09-30") },
+      edge: "2026-09-27T00:00:00Z",
+      past: "2026-09-26T23:59:59Z",
+    },
     // заявлено 2026-09-25 → допуск 14 дней
     {
-      name: "this_week — 14 дней",
-      c: { markers: ["this_week"] },
+      name: "«на этой неделе» — 14 дней",
+      c: { time: rel("на этой неделе") },
       edge: "2026-09-11T00:00:00Z",
       past: "2026-09-10T23:59:59Z",
     },
     {
-      name: "recently — 14 дней",
-      c: { markers: ["recently"] },
+      name: "«недавно» — 14 дней",
+      c: { time: rel("недавно") },
       edge: "2026-09-11T00:00:00Z",
       past: "2026-09-10T23:59:59Z",
     },
     // явная дата 2024-12-20 → допуск 2 дня
     {
       name: "явная дата — 2 дня",
-      c: { date: "2024-12-20" },
+      c: { time: abs("2024-12-20") },
       edge: "2024-12-18T00:00:00Z",
       past: "2024-12-17T23:59:59Z",
     },
@@ -238,12 +285,12 @@ describe("checkRootDate: допуски на границе (больше доп
   }
 
   it("корень позже заявленной даты → флага нет", () => {
-    assert.equal(flagged({ markers: ["yesterday"], rootAt: "2026-10-02T08:00:00Z" }), false);
-    assert.equal(flagged({ date: "2022", rootAt: "2022-06-01T00:00:00Z" }), false);
+    assert.equal(flagged({ time: rel("вчера"), rootAt: "2026-10-02T08:00:00Z" }), false);
+    assert.equal(flagged({ time: abs("2022"), rootAt: "2022-06-01T00:00:00Z" }), false);
   });
 
   it("флаг несёт обе даты: rootPublishedAt — как в узле, claimedAt — начало суток", () => {
-    const out = run({ markers: ["today"], rootAt: "2025-03-08T17:45:00+02:00" });
+    const out = run({ time: rel("сегодня"), rootAt: "2025-03-08T17:45:00+02:00" });
     assert.equal(out.rootPublishedAt, "2025-03-08T17:45:00+02:00");
     assert.deepEqual(
       { ...out.flag, note: undefined },
@@ -261,44 +308,63 @@ describe("checkRootDate: note — по-русски, с обеими датам�
   const ROOT = "2021-01-14T07:30:00Z";
   const note = (c: Case) => run({ ...c, rootAt: ROOT }).flag?.note;
 
-  it("маркеры: как подано в видео и заявленная дата", () => {
+  it("относительное время: как подано в видео и заявленная дата", () => {
     assert.equal(
-      note({ markers: ["just_now"] }),
+      note({ time: rel("только что") }),
       "Первая публикация — 14 января 2021, а в видео это подано как только что случившееся (2 октября 2026).",
     );
     assert.equal(
-      note({ markers: ["today"] }),
+      note({ time: rel("сейчас") }),
+      "Первая публикация — 14 января 2021, а в видео это подано как происходящее сейчас (2 октября 2026).",
+    );
+    assert.equal(
+      note({ time: rel("azi") }),
       "Первая публикация — 14 января 2021, а в видео это подано как сегодняшнее событие (2 октября 2026).",
     );
     assert.equal(
-      note({ markers: ["this_week"] }),
+      note({ time: rel("на этой неделе") }),
       "Первая публикация — 14 января 2021, а в видео это подано как событие этой недели (не раньше 25 сентября 2026).",
     );
     assert.equal(
-      note({ markers: ["recently"] }),
+      note({ time: rel("recently") }),
       "Первая публикация — 14 января 2021, а в видео это подано как недавнее событие (не раньше 25 сентября 2026).",
+    );
+  });
+
+  it("относительное время с датой от этапа 03: дата с её точностью, незнакомое слово — цитатой", () => {
+    assert.equal(
+      note({ time: rel("вчера", "2026-10-01") }),
+      "Первая публикация — 14 января 2021, а в видео это подано как вчерашнее событие (1 октября 2026).",
+    );
+    assert.equal(
+      note({ time: rel("позавчера", "2026-09-30") }),
+      "Первая публикация — 14 января 2021, а в видео это подано словами «позавчера» (30 сентября 2026).",
+    );
+    assert.equal(
+      note({ time: rel("в прошлом месяце", "2026-09") }),
+      "Первая публикация — 14 января 2021, а в видео это подано словами «в прошлом месяце» (в сентябре 2026).",
     );
   });
 
   it("явная дата: с точностью до дня, месяца или года", () => {
     assert.equal(
-      note({ date: "2024-12-20" }),
+      note({ time: abs("2024-12-20") }),
       "Первая публикация — 14 января 2021, а по словам видео событие произошло 20 декабря 2024.",
     );
     assert.equal(
-      note({ date: "2024-05" }),
+      note({ time: abs("2024-05") }),
       "Первая публикация — 14 января 2021, а по словам видео событие произошло в мае 2024.",
     );
     assert.equal(
-      note({ date: "2024" }),
+      note({ time: abs("2024") }),
       "Первая публикация — 14 января 2021, а по словам видео событие произошло в 2024 году.",
     );
   });
 });
 
 describe("checkRootDate: откуда берётся структура", () => {
-  const yesterday: ClaimStructure = { ...baseStructure, timeMarkers: ["yesterday"] };
-  const today: ClaimStructure = { ...baseStructure, timeMarkers: ["today"] };
+  const yesterday: ClaimStructure = { ...baseStructure, time: rel("вчера") };
+  const today: ClaimStructure = { ...baseStructure, time: rel("сегодня") };
 
   it("у claim нет structure → берётся structure узла video", () => {
     const out = run({ claimStructure: null, videoStructure: yesterday, rootAt: "2021-01-14T07:30:00Z" });

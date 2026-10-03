@@ -77,3 +77,30 @@ function capitalize(s: string): string {
 function round(t: Seconds): Seconds {
   return Math.round(t * 1000) / 1000;
 }
+
+/** Частые сокращения (ru / ro / en): после них точка — не конец предложения */
+const ABBREVIATION =
+  /(?:^|[\s(«"])(г|гг|ул|пр|пл|д|т|им|см|стр|тыс|млн|млрд|руб|коп|св|проф|акад|ген|mun|str|nr|dl|dna|bd|sec|or|prof|dr|mr|mrs|ms|st|vs|etc|jr|sr)\.$/iu;
+
+/**
+ * Текст статьи → предложения. Таймкодов нет (start = end = 0), слов тоже: этап 03 для текста
+ * берёт range как есть. Абзац не склеиваем с соседним — это разные мысли.
+ */
+export function textToSegments(text: string, seq: number): TranscriptSegment[] {
+  const sentences = text
+    .split(/\n\n+/)
+    // точка + пробел + заглавная/кавычка/цифра — конец предложения; «т. е.» и «г. Кишинёв» почти не ломает
+    .flatMap((p) => p.split(/(?<=[.!?…])\s+(?=[«"„(A-ZА-ЯЁĂÂÎȘŞȚŢ0-9])/))
+    .map((s) => s.trim())
+    .filter((s) => s.length > 1)
+    // «2 окт. 2026», «ул. 31 Августа», «т. 5» — короткое сокращение перед числом не конец предложения
+    .reduce<string[]>((acc, s) => {
+      const prev = acc.at(-1);
+      const glue =
+        prev && (ABBREVIATION.test(prev) || (/^\d/.test(s) && /(?:^|\s)\p{Ll}{1,4}\.$/u.test(prev)));
+      if (glue) acc[acc.length - 1] = `${prev} ${s}`;
+      else acc.push(s);
+      return acc;
+    }, []);
+  return sentences.map((s, i) => ({ id: `${seq}_${i}`, start: 0, end: 0, text: s }));
+}

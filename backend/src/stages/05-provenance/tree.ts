@@ -1,11 +1,12 @@
 /**
  * Построение дерева первоисточника — чистые функции без LLM и сети (тестируются отдельно, tree.test.ts).
- * На входе — копии со структурой и атрибуциями (шаг 1, LLM) и похожесть текстов (эмбеддинги или шинглы).
+ * На входе — копии из этапа 04 (внешние ссылки, «по данным …» из текста) со структурой и атрибуциями от LLM
+ * (шаг 1) и похожесть текстов (эмбеддинги или шинглы).
  * Внутри копии адресуются индексами во входном массиве; id появляются только в выходе.
  */
 import type { ClaimId, ISODateString, SourceId } from "@news/contracts";
 import type { Claim, ClaimStructure } from "../03-claim-extraction/types.ts";
-import type { FoundSource } from "../04-source-search/types.ts";
+import type { SourceCopy } from "../04-source-search/types.ts";
 import { VIDEO_NODE_ID, type ProvenanceTree, type ProvenanceVia, type TreeNode } from "./types.ts";
 
 // ===================== КОНСТАНТЫ =====================
@@ -26,10 +27,13 @@ export const VIDEO_PUBLISHER = "Это видео";
 
 /** Копия после шага 1 (LLM) */
 export interface CopyFacts {
-  source: FoundSource;
+  source: SourceCopy;
   /** null — самого утверждения в копии нет (или структуру не извлекали) */
   structure: ClaimStructure | null;
-  /** Кого копия называет источником утверждения («по данным Reuters»); непосредственный — первым */
+  /**
+   * Кого копия называет источником утверждения по мнению LLM («Reuters»); непосредственный — первым.
+   * Фразы-атрибуции этапа 04 (`source.attributions`) добавляются к ним в `copyCites`.
+   */
   cites: string[];
 }
 
@@ -60,7 +64,7 @@ export interface Edge {
 // ===================== ТЕКСТЫ И ПОХОЖЕСТЬ =====================
 
 /** Текст копии для эмбеддингов и шинглов: заголовок + фрагмент (непустой — API эмбеддингов пустых не берёт) */
-export function copyText(s: Pick<FoundSource, "title" | "excerpt" | "url">): string {
+export function copyText(s: Pick<SourceCopy, "title" | "excerpt" | "url">): string {
   return `${s.title}\n${s.excerpt.slice(0, MAX_EXCERPT_CHARS)}`.trim() || s.url;
 }
 
@@ -130,7 +134,11 @@ export function shingleSimilarity(claim: string, texts: string[]): Similarity {
 }
 
 /** Какие копии отправить LLM на шаге 1: сначала датированные (дата — главный материал дерева), внутри — самые похожие на утверждение */
-export function pickForExtraction(copies: FoundSource[], toClaim: number[], max = MAX_COPIES): number[] {
+export function pickForExtraction(
+  copies: Pick<SourceCopy, "publishedAt">[],
+  toClaim: number[],
+  max = MAX_COPIES,
+): number[] {
   const dated = (i: number) => (validDate(copies[i].publishedAt) ? 1 : 0);
   return copies
     .map((_, i) => i)
@@ -221,23 +229,71 @@ function containsPhrase(haystack: string, needle: string): boolean {
   return needle.length >= 2 && ` ${haystack} `.includes(` ${needle} `);
 }
 
+/** Зоны второго уровня: news.bbc.co.uk → имя сайта bbc, а не co */
+const SECOND_LEVEL = new Set(["co", "com", "org", "net", "gov", "edu", "ac", "gob", "or"]);
+
+/** Имя сайта из домена: dw.com → "dw", news.bbc.co.uk → "bbc", ru.wikipedia.org → "wikipedia" */
+export function siteName(domain: string): string {
+  const labels = domain
+    .toLowerCase()
+    .replace(/^www\./, "")
+    .split(".")
+    .filter(Boolean);
+  if (labels.length < 2) return labels[0] ?? "";
+  labels.pop();
+  if (labels.length >= 2 && SECOND_LEVEL.has(labels[labels.length - 1])) labels.pop();
+  return labels[labels.length - 1];
+}
+
+/**
+ * Фраза называет сайт по имени домена («по данным DW» ↔ dw.com). Только с заглавной буквы:
+ * «according to news reports» — не news.md.
+ */
+function namesSite(cite: string, name: string): boolean {
+  const target = words(name);
+  if (target.join(" ").length < 2) return false;
+  const tokens = cite.normalize("NFKC").match(/[\p{L}\p{N}]+/gu) ?? [];
+  return tokens.some(
+    (t, i) => /^\p{Lu}/u.test(t) && target.every((w, k) => tokens[i + k]?.toLowerCase() === w),
+  );
+}
+
 /**
  * «По данным X» указывает на копию, если X совпадает с её издателем или доменом — без регистра, по вхождению
  * целыми словами в любую сторону: "DW" ↔ dw.com, "агентство Reuters" ↔ Reuters; но "AP" ≠ rap.md.
+ * Фразы этапа 04 длиннее имени («как сообщает Reuters», «по данным DW») — совпадают по издателю внутри фразы
+ * или по имени сайта из домена (с заглавной).
  */
-export function citeMatches(cite: string, source: Pick<FoundSource, "publisher" | "domain">): boolean {
+export function citeMatches(cite: string, source: Pick<SourceCopy, "publisher" | "domain">): boolean {
   const c = phrase(cite);
   if (c.length < 2) return false;
-  return [phrase(source.publisher), phrase(source.domain.replace(/^www\./i, ""))].some(
-    (t) => containsPhrase(t, c) || containsPhrase(c, t),
+  const domain = source.domain.replace(/^www\./i, "");
+  return (
+    [phrase(source.publisher), phrase(domain)].some((t) => containsPhrase(t, c) || containsPhrase(c, t)) ||
+    namesSite(cite, siteName(domain))
   );
+}
+
+/**
+ * На кого копия ссылается словами: сначала источники от LLM (только этого утверждения, непосредственный —
+ * первым), затем фразы-атрибуции этапа 04 из текста копии. Без повторов и без упоминаний самой копии
+ * («сообщает NewsMaker» в статье NewsMaker — не ребро к другой статье NewsMaker).
+ */
+export function copyCites(c: Pick<CopyFacts, "source" | "cites">): string[] {
+  const seen = new Set<string>();
+  return [...c.cites, ...c.source.attributions].filter((cite) => {
+    const key = phrase(cite);
+    if (key.length < 2 || seen.has(key) || citeMatches(cite, c.source)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // ===================== РЁБРА-КАНДИДАТЫ =====================
 // Каждая функция отдаёт допустимые по датам рёбра; кандидаты одного потомка — в порядке предпочтения.
 
 /**
- * link: среди ссылок копии есть url другой копии → confirmed.
+ * link: среди внешних ссылок копии (`outboundLinks` из 04) есть url другой копии → confirmed.
  * Родитель не позже потомка, если даты есть у обоих; родитель без даты допустим.
  * Из нескольких — сначала копии с самим утверждением, затем самая поздняя (ближайшая к потомку), без даты — последней.
  */
@@ -249,7 +305,7 @@ export function linkEdges(copies: CopyFacts[]): Edge[] {
 
   return copies.flatMap((c, child) => {
     const parents = new Set<number>();
-    for (const link of c.source.links ?? []) {
+    for (const link of c.source.outboundLinks) {
       for (const p of byUrl.get(canonicalUrl(link)) ?? []) {
         // та же страница под другим id — не родитель
         if (urls[p] === urls[child]) continue;
@@ -268,7 +324,7 @@ export function linkEdges(copies: CopyFacts[]): Edge[] {
 }
 
 /**
- * attribution: «по данным X» совпадает с издателем/доменом другой копии → probable.
+ * attribution: «по данным X» (`copyCites`: от LLM и от этапа 04) совпадает с издателем/доменом другой копии → probable.
  * Родитель обязательно с датой и не позже потомка (если у потомка дата есть).
  * Порядок: по порядку cites (непосредственный источник — первым), внутри издателя — самая ранняя копия.
  */
@@ -276,7 +332,7 @@ export function attributionEdges(copies: CopyFacts[]): Edge[] {
   const dates = copies.map((c) => validDate(c.source.publishedAt));
   return copies.flatMap((c, child) => {
     const ordered: number[] = [];
-    for (const cite of c.cites) {
+    for (const cite of copyCites(c)) {
       const matches = copies
         .map((_, p) => p)
         .filter((p) => {

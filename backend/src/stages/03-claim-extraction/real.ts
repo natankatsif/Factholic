@@ -7,7 +7,7 @@ import type { TranscriptSegment } from "../02-transcription/types.ts";
 import { askJson, LlmConfigError } from "./llm.ts";
 import { buildPrompt, SYSTEM_PROMPT } from "./prompt.ts";
 import { findQuote, tokenize } from "./range.ts";
-import type { Claim, ClaimExtractionInput, ClaimExtractionOutput, TimeMarker } from "./types.ts";
+import type { Claim, ClaimExtractionInput, ClaimExtractionOutput, ClaimStructure } from "./types.ts";
 
 const CATEGORIES = [
   "event",
@@ -19,35 +19,6 @@ const CATEGORIES = [
   "other",
 ] as const satisfies readonly ClaimCategory[];
 
-const TIME_MARKERS = [
-  "just_now",
-  "today",
-  "yesterday",
-  "this_week",
-  "recently",
-] as const satisfies readonly TimeMarker[];
-
-const StructureSchema = z.object({
-  numbers: z.array(
-    z.object({
-      value: z.number(),
-      unit: z.string(),
-      approximate: z.boolean(),
-      raw: z.string(),
-    }),
-  ),
-  places: z.array(z.string()),
-  eventTime: z
-    .object({
-      raw: z.string(),
-      date: z.string().nullable(),
-    })
-    .nullable(),
-  timeMarkers: z.array(z.enum(TIME_MARKERS)),
-  certainty: z.enum(["asserted", "hedged"]),
-  attributedTo: z.string().nullable(),
-});
-
 const ExtractionSchema = z.object({
   claims: z.array(
     z.object({
@@ -57,7 +28,16 @@ const ExtractionSchema = z.object({
       category: z.enum(CATEGORIES),
       checkworthiness: z.number(),
       entities: z.array(z.string()),
-      structure: StructureSchema.optional().nullable(),
+      // structured output OpenAI: все поля обязательны, «нет значения» — через null
+      structure: z.object({
+        event: z.string(),
+        numbers: z.array(z.object({ value: z.string(), about: z.string() })),
+        places: z.array(z.string()),
+        time: z.object({ text: z.string(), date: z.string().nullable(), relative: z.boolean() }).nullable(),
+        certainty: z.enum(["asserted", "reported", "hedged"]),
+        certaintyMarkers: z.array(z.string()),
+        attributedTo: z.string().nullable(),
+      }),
     }),
   ),
 });
@@ -147,7 +127,7 @@ function toClaims(raw: RawClaim[], input: ClaimExtractionInput): Claim[] {
       entities: [...new Set(r.entities.map((e) => e.trim()).filter(Boolean))],
       segmentIds: segments.map((s) => s.id),
       speaker: segments[0].speaker,
-      ...(r.structure && { structure: r.structure }),
+      structure: cleanStructure(r.structure),
     });
   }
   return claims;
@@ -175,4 +155,27 @@ function placeQuote(quote: string, listed: TranscriptSegment[], all: TranscriptS
 
 function dedupKey(text: string): string {
   return tokenize(text).join(" ");
+}
+
+/** Подчистить ответ LLM: пустые строки → убрать, дату — только в формате YYYY[-MM[-DD]] */
+function cleanStructure(raw: RawClaim["structure"]): ClaimStructure {
+  const strings = (list: string[]) => [...new Set(list.map((x) => x.trim()).filter(Boolean))];
+  const date = raw.time?.date?.trim();
+  return {
+    event: raw.event.trim(),
+    numbers: raw.numbers
+      .map((n) => ({ value: n.value.trim(), about: n.about.trim() }))
+      .filter((n) => n.value),
+    places: strings(raw.places),
+    time: raw.time?.text.trim()
+      ? {
+          text: raw.time.text.trim(),
+          date: date && /^\d{4}(-\d{2}(-\d{2})?)?$/.test(date) ? date : null,
+          relative: raw.time.relative,
+        }
+      : null,
+    certainty: raw.certainty,
+    certaintyMarkers: strings(raw.certaintyMarkers),
+    attributedTo: raw.attributedTo?.trim() || null,
+  };
 }

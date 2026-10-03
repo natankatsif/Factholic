@@ -41,7 +41,7 @@ export interface IngestOutput {
   chunks: AsyncIterable<MediaChunk>;
 }
 
-export type MediaChunk = AudioChunk | CaptionsChunk;
+export type MediaChunk = AudioChunk | CaptionsChunk | TextChunk | ImageChunk;
 
 /** Кусок звука, который надо распознать */
 export interface AudioChunk {
@@ -67,4 +67,32 @@ export interface CaptionsChunk {
   /** manual — загружены автором (точнее), auto — автосубтитры платформы */
   origin: "manual" | "auto";
   cues: Array<{ start: Seconds; end: Seconds; text: string }>;
+}
+
+/**
+ * Готовый текст — статья по ссылке или вставленный пост. Ни ASR, ни таймкодов:
+ * range = { start: 0, end: 0 }, порядок задаёт seq. Длинный текст режется на куски по абзацам.
+ */
+export interface TextChunk {
+  kind: "text";
+  jobId: JobId;
+  seq: number;
+  range: TimeRange;
+  /** Язык, если известен (подсказка от клиента или разметка страницы) */
+  language?: LanguageCode;
+  /** article — вытащили со страницы по ссылке, pasted — пользователь вставил сам */
+  origin: "article" | "pasted";
+  text: string;
+}
+
+/** Картинка (скриншот поста, фото текста) — этап 02 распознаёт на ней текст (OCR). Таймкодов нет: 0–0. */
+export interface ImageChunk {
+  kind: "image";
+  jobId: JobId;
+  seq: number;
+  range: TimeRange;
+  mimeType: string;
+  data: Uint8Array;
+  /** url — скачали по ссылке, upload — пользователь загрузил файл */
+  origin: "url" | "upload";
 }

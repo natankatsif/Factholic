@@ -10,6 +10,7 @@
  *
  * Хранится в памяти процесса: для хакатона хватает. Для продакшена — Redis/Postgres.
  */
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -157,8 +158,11 @@ export class JobStore {
   }
 }
 
-/** YouTube: по id видео (ссылки ?v=…&t=… и youtu.be/… дают один ключ); остальное — по URL страницы */
+/** Текст — по хешу содержимого; YouTube: по id видео (ссылки ?v=…&t=… и youtu.be/… дают один ключ); остальное — по URL страницы */
 export function videoKeyOf(request: StartAnalysisRequest): string {
+  // вставленный текст: ключ по содержимому (у всех текстов может быть одинаковый pageUrl-заглушка)
+  if (request.text?.trim()) return `text:${createHash("sha256").update(request.text.trim()).digest("hex")}`;
+  if (request.imageDataUrl) return `image:${createHash("sha256").update(request.imageDataUrl).digest("hex")}`;
   const { platform, platformVideoId, pageUrl } = request.video;
   return platformVideoId ? `${platform}:${platformVideoId}` : `url:${pageUrl}`;
 }

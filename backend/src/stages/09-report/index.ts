@@ -130,7 +130,8 @@ function buildFlags(
         detail: `${m.before} → ${m.after}`,
         severity: "danger",
       });
-    } else if (m.direction === "shifted" || m.direction === "changed") {
+    } else if (m.direction === "shifted" || m.direction === "changed" || m.direction === "added") {
+      // «added» — перепечатка добавила то, чего не было у источника (например, цифры пострадавших)
       flags.push({
         type: "distortion",
         label: "Искажение",

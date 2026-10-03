@@ -7,7 +7,8 @@ describe("buildPrompt", () => {
   it("содержит видео, язык, уже найденные тезисы и новые сегменты с id и таймкодами", () => {
     const prompt = buildPrompt(mockClaimExtractionInput);
     assert.match(prompt, /^Сегодня: \d{4}-\d{2}-\d{2}$/m);
-    assert.ok(prompt.includes(`«${mockClaimExtractionInput.video.title}» (youtube), язык речи: ru`));
+    assert.ok(prompt.includes(`«${mockClaimExtractionInput.video.title}» (youtube), язык: ru`));
+    assert.match(prompt, /^Опубликовано: неизвестно$/m);
     assert.ok(prompt.includes("- В следующем году инфляция снизится вдвое."));
     assert.ok(prompt.includes("[0_1] 1221.0–1223.0 SPEAKER_1: В Украине сейчас идёт война,"));
   });

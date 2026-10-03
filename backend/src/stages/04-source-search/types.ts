@@ -7,28 +7,17 @@ export interface SourceSearchInput {
   claim: Claim;
   /** Сколько источников вернуть максимум (рекомендуется 3–6) */
   maxSources: number;
-  /** На каких языках искать: язык видео + "en" как минимум (для дерева — ещё ro, ru) */
+  /** На каких языках искать: язык видео + "en" как минимум */
   searchLanguages: LanguageCode[];
-  /** Дата публикации видео: самое раннее упоминание ищем ДО неё (запрос intent "earliest"). TODO backend-1 */
-  videoPublishedAt?: ISODateString;
 }
 
 // ===================== ВЫХОД =====================
-
-/**
- * confirm  — подтверждение (первоисточники данных)
- * refute   — опровержение, разборы фактчекеров
- * context  — общая картина по теме
- * earliest — самое раннее упоминание (с ограничением по дате) — корень дерева
- */
-export type QueryIntent = "confirm" | "refute" | "context" | "earliest";
 
 export interface SearchQuery {
   text: string;
   language: LanguageCode;
   /** "tavily" | "brave" | "google" | "factcheck_api" ... */
   engine: string;
-  intent?: QueryIntent;
 }
 
 export interface FoundSource {
@@ -38,12 +27,7 @@ export interface FoundSource {
   publisher: string;
   domain: string;
   sourceType: SourceType;
-  /** Дата публикации — сырьё для дерева первоисточника (сортировка, корень, старый контент) */
   publishedAt?: ISODateString;
-  /** Откуда дата: из выдачи поиска, из разметки страницы (meta, JSON-LD), из URL. TODO backend-1 */
-  dateFrom?: "search" | "page" | "url" | null;
-  /** Ссылки из текста страницы (абсолютные URL) — явные рёбра дерева «кто у кого взял». TODO backend-1 */
-  links?: string[];
   language: LanguageCode;
   /** Страна издателя, ISO 3166-1 alpha-2 */
   country?: string;
@@ -63,11 +47,35 @@ export interface SourceSearchOutput {
   claimId: ClaimId;
   /** Какие запросы делали — для дебага и логов */
   queries: SearchQuery[];
-  /** Для «сторон» (этап 08): разнообразная выборка — разные издатели, типы, страны, языки */
+  /** Разнообразные источники (разные издатели, типы, страны) — для «кто за и кто против» */
   sources: FoundSource[];
   /**
-   * Для дерева (этап 05): ВСЕ страницы по теме, без отбора по издателю — все перепечатки одной новости.
-   * Включает и `sources` (с теми же id). Нет (TODO backend-1) — дерево строится по `sources`.
+   * ВСЕ найденные публикации об утверждении, включая перепечатки одного издателя, — сырьё для дерева
+   * первоисточника. Отсортированы по дате (раньше — первые, без даты — в конце).
+   * Real-реализация заполняет всегда; optional — ради старых моков.
    */
-  copies?: FoundSource[];
+  copies?: SourceCopy[];
+}
+
+/** Одна публикация об утверждении — будущий узел дерева первоисточника */
+export interface SourceCopy {
+  id: SourceId;
+  url: string;
+  title: string;
+  publisher: string;
+  domain: string;
+  sourceType: SourceType;
+  language: LanguageCode;
+  publishedAt?: ISODateString;
+  /** Откуда дата: search — поисковик, url — из адреса (/2023/03/14/), page — разметка страницы */
+  dateSource?: "search" | "url" | "page";
+  /** Кусок текста об утверждении (до ~2000 символов) — по нему backend-2 сравнивает цифры, место, время */
+  excerpt: string;
+  /** Внешние ссылки из текста (на другие сайты) — кандидаты в «взято отсюда» для рёбер дерева */
+  outboundLinks: string[];
+  /** Упоминания источника в тексте: «по данным мэрии», «сообщает NewsMaker», «potrivit poliției» */
+  attributions: string[];
+  /** Найдена запросом «самое раннее упоминание» (поиск по датам до самой старой известной копии) */
+  earliestSearch: boolean;
+  retrievedAt: ISODateString;
 }

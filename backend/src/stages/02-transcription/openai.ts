@@ -6,6 +6,7 @@
  * (response_format=verbose_json + timestamp_granularities). Новые gpt-4o-transcribe так не умеют.
  */
 import type { LanguageCode } from "@news/contracts";
+import { PipelineError } from "../../pipeline/context.ts";
 import type { AudioChunk } from "../01-ingest/types.ts";
 
 const ENDPOINT = "https://api.openai.com/v1/audio/transcriptions";
@@ -43,7 +44,21 @@ export async function whisperTranscribe(
   });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`OpenAI Whisper: HTTP ${res.status} ${body.slice(0, 300)}`);
+    const cause = new Error(`OpenAI Whisper: HTTP ${res.status} ${body.slice(0, 300)}`);
+    // 429 — превышен лимит запросов ИЛИ закончились деньги на счёте (insufficient_quota)
+    if (res.status === 429) {
+      const noMoney = body.includes("insufficient_quota");
+      throw new PipelineError(
+        noMoney ? "INTERNAL" : "RATE_LIMITED",
+        noMoney
+          ? "На счёте OpenAI закончились деньги"
+          : "Сервис распознавания речи перегружен, попробуй через минуту",
+        { cause },
+      );
+    }
+    if (res.status === 401)
+      throw new PipelineError("INTERNAL", "Неверный ключ OpenAI (ASR_API_KEY)", { cause });
+    throw new PipelineError("TRANSCRIPTION_FAILED", "Не удалось распознать речь в видео", { cause });
   }
   return (await res.json()) as WhisperResponse;
 }

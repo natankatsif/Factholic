@@ -53,6 +53,14 @@ export const config = {
       oneOf<ImplMode>(envVar, ["mock", "real"], stagesDefault),
     ]),
   ) as Record<SwitchableStage, ImplMode>,
+  /**
+   * Сколько утверждений проверять (поиск + LLM — самая дорогая часть: ~9 запросов Tavily на утверждение).
+   * Берутся самые важные по checkworthiness. Остальные не показываются.
+   */
+  limits: {
+    maxClaimsPerChunk: positiveInt("MAX_CLAIMS_PER_CHUNK", 5),
+    maxClaimsPerJob: positiveInt("MAX_CLAIMS_PER_JOB", 20),
+  },
   /** Настройки провайдеров для real-реализаций. Пустая строка = не задано. */
   providers: {
     asr: { provider: env.ASR_PROVIDER ?? "", apiKey: env.ASR_API_KEY ?? "" },
@@ -103,4 +111,12 @@ function oneOf<T extends string>(name: string, allowed: readonly T[], fallback: 
     throw new Error(`${name}="${value}" — допустимо: ${allowed.join(" | ")}`);
   }
   return value as T;
+}
+
+function positiveInt(name: string, fallback: number): number {
+  const value = env[name];
+  if (value === undefined || value === "") return fallback;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1) throw new Error(`${name}="${value}" — нужно целое число ≥ 1`);
+  return n;
 }

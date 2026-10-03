@@ -13,7 +13,7 @@ import type { TranscriptSegment } from "../02-transcription/types.ts";
 import { LlmConfigError } from "./llm.ts";
 import { mockClaimExtractionInput } from "./mock.ts";
 import { extractClaimsReal } from "./real.ts";
-import type { ClaimExtractionInput, ClaimStructure } from "./types.ts";
+import type { ClaimExtractionInput } from "./types.ts";
 
 // ---------- фейковый OpenAI ----------
 
@@ -32,7 +32,15 @@ interface RawClaim {
   category: string;
   checkworthiness: number;
   entities: string[];
-  structure?: ClaimStructure;
+  structure: {
+    event: string;
+    numbers: Array<{ value: string; about: string }>;
+    places: string[];
+    time: { text: string; date: string | null; relative: boolean } | null;
+    certainty: "asserted" | "reported" | "hedged";
+    certaintyMarkers: string[];
+    attributedTo: string | null;
+  };
 }
 
 function json(data: unknown, init: ResponseInit = {}): Response {
@@ -76,6 +84,15 @@ const claimDefaults: RawClaim = {
   category: "event",
   checkworthiness: 0.9,
   entities: ["Украина"],
+  structure: {
+    event: "война в Украине",
+    numbers: [],
+    places: ["Украина"],
+    time: { text: "сейчас", date: null, relative: true },
+    certainty: "asserted",
+    certaintyMarkers: [],
+    attributedTo: null,
+  },
 };
 
 let respond: (req: LlmRequest) => Response = () => {
@@ -163,32 +180,6 @@ describe("extractClaimsReal: разбор ответа", () => {
     assert.equal(claim.category, "event");
     assert.deepEqual(claim.segmentIds, ["0_1"]);
     assert.deepEqual(claim.entities, ["Украина", "ООН"]);
-  });
-
-  it("сохраняет структуру тезиса (structure), если модель её вернула", async () => {
-    respond = () =>
-      llmClaims([
-        {
-          structure: {
-            numbers: [{ value: 50000, unit: "человек", approximate: true, raw: "около 50 тысяч" }],
-            places: ["Кишинёв"],
-            eventTime: { raw: "вчера", date: "2026-10-02" },
-            timeMarkers: ["yesterday"],
-            certainty: "asserted",
-            attributedTo: "Минздрав",
-          },
-        },
-      ]);
-    const { claims } = await extractClaimsReal(input, makeCtx());
-    assert.equal(claims.length, 1);
-    assert.deepEqual(claims[0].structure, {
-      numbers: [{ value: 50000, unit: "человек", approximate: true, raw: "около 50 тысяч" }],
-      places: ["Кишинёв"],
-      eventTime: { raw: "вчера", date: "2026-10-02" },
-      timeMarkers: ["yesterday"],
-      certainty: "asserted",
-      attributedTo: "Минздрав",
-    });
   });
 
   it("id генерирует код: формат clm_xxxxxxxx, уникальны в ответе и между вызовами", async () => {
@@ -451,5 +442,44 @@ describe("extractClaimsReal: сбои LLM", () => {
     controller.abort();
     respond = () => llmClaims([{}]);
     await assert.rejects(extractClaimsReal(input, makeCtx(controller.signal)), OpenAI.APIUserAbortError);
+  });
+});
+
+describe("extractClaimsReal: structure", () => {
+  it("структура переносится в тезис и подчищается: пустые строки, дубли, кривая дата", async () => {
+    respond = () =>
+      llmClaims([
+        {
+          structure: {
+            event: "  пожар в ТЦ ",
+            numbers: [
+              { value: " 200 ", about: "пострадавших" },
+              { value: "", about: "мусор" },
+            ],
+            places: ["Кишинёв", "Кишинёв", " "],
+            time: { text: "вчера", date: "2 октября", relative: true },
+            certainty: "reported",
+            certaintyMarkers: ["по данным мэрии"],
+            attributedTo: " ",
+          },
+        },
+      ]);
+    const { claims } = await extractClaimsReal(mockClaimExtractionInput, makeCtx());
+    assert.deepEqual(claims[0]?.structure, {
+      event: "пожар в ТЦ",
+      numbers: [{ value: "200", about: "пострадавших" }],
+      places: ["Кишинёв"],
+      time: { text: "вчера", date: null, relative: true },
+      certainty: "reported",
+      certaintyMarkers: ["по данным мэрии"],
+      attributedTo: null,
+    });
+  });
+
+  it("в промпт уходит дата публикации материала — от неё считается «вчера»", async () => {
+    respond = () => llmClaims([]);
+    const video = { ...mockClaimExtractionInput.video, publishedAt: "2023-03-14T10:00:00.000Z" };
+    await extractClaimsReal({ ...mockClaimExtractionInput, video }, makeCtx());
+    assert.match(requests[0]!.input, /^Опубликовано: 2023-03-14$/m);
   });
 });

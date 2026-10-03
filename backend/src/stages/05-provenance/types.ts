@@ -1,6 +1,6 @@
 import type { ClaimId, ISODateString, SourceId } from "@news/contracts";
 import type { Claim, ClaimStructure } from "../03-claim-extraction/types.ts";
-import type { FoundSource } from "../04-source-search/types.ts";
+import type { SourceCopy } from "../04-source-search/types.ts";
 
 /** id узла самого проверяемого видео в дереве */
 export const VIDEO_NODE_ID = "video";
@@ -12,8 +12,11 @@ export type ProvenanceConfidence = "confirmed" | "probable";
 
 export interface ProvenanceInput {
   claim: Claim;
-  /** Все перепечатки из этапа 04 (`copies`) — с датами, ссылками и текстом */
-  copies: FoundSource[];
+  /**
+   * Все публикации об утверждении из этапа 04 (`SourceSearchOutput.copies`): даты, внешние ссылки
+   * (`outboundLinks`), «по данным …» (`attributions`) и текст. Старые моки 04 без copies → `copiesFromSources`.
+   */
+  copies: SourceCopy[];
   /** Само видео — последний узел дерева (id "video") */
   video: { url: string; title: string; publishedAt?: ISODateString };
 }

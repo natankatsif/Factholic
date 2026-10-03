@@ -56,7 +56,7 @@ ws.on("message", (raw) => {
   switch (e.type) {
     case "job.started":
       console.log(
-        `${time()} 🎬 job.started    ${e.video.title} · ${e.video.durationSec} с · ${e.video.language}`,
+        `${time()} 🎬 job.started    ${e.video.title} · ${e.video.durationSec} с · ${e.video.language} · опубликовано: ${e.video.publishedAt?.slice(0, 10) ?? "неизвестно"}`,
       );
       break;
     case "job.progress":

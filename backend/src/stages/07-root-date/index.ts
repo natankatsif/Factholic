@@ -1,4 +1,4 @@
-import type { ClaimStructure, TimeMarker } from "../03-claim-extraction/types.ts";
+import type { ClaimStructure } from "../03-claim-extraction/types.ts";
 import { VIDEO_NODE_ID } from "../05-provenance/types.ts";
 import {
   DAY_MS,
@@ -6,9 +6,11 @@ import {
   formatPeriodRu,
   parseEventDate,
   parseTime,
+  relativeWord,
   startOfUtcDay,
   toIso,
   type DatePrecision,
+  type RelativeWord,
 } from "./dates.ts";
 import type { OldContentFlag, RootDateInput, RootDateOutput } from "./types.ts";
 
@@ -16,9 +18,10 @@ export type * from "./types.ts";
 
 // ===================== ПРАВИЛА =====================
 
-/** На сколько дней раньше даты видео (или момента анализа) маркер относит событие */
-const MARKER_OFFSET_DAYS: Record<TimeMarker, number> = {
+/** На сколько дней раньше даты видео (или момента анализа) слово относит событие */
+const RELATIVE_OFFSET_DAYS: Record<RelativeWord, number> = {
   just_now: 0,
+  now: 0,
   today: 0,
   yesterday: 1,
   this_week: 7,
@@ -29,23 +32,18 @@ const MARKER_OFFSET_DAYS: Record<TimeMarker, number> = {
  * Допуск: насколько корень может быть раньше заявленной даты, чтобы это ещё не было «старым контентом»
  * (новость выходит не сразу, «вчера» в видео могли записать на день-два раньше публикации).
  */
-const MARKER_TOLERANCE_DAYS: Record<TimeMarker, number> = {
-  just_now: 3,
-  today: 3,
-  yesterday: 3,
-  this_week: 14,
-  recently: 14,
-};
+const RELATIVE_TOLERANCE_DAYS = 3;
+/** «на этой неделе» / «недавно» — размытее, допуск больше */
+const VAGUE_TOLERANCE_DAYS = 14;
+const VAGUE_WORDS: RelativeWord[] = ["this_week", "recently"];
 
-/** Допуск для явной даты («24 февраля 2022») — она точнее маркеров */
+/** Допуск для явной даты («24 февраля 2022») — она точнее относительного времени */
 const EXPLICIT_DATE_TOLERANCE_DAYS = 2;
 
-/** При равном сдвиге (just_now / today, this_week / recently) — первый по этому порядку */
-const MARKER_ORDER: TimeMarker[] = ["just_now", "today", "yesterday", "this_week", "recently"];
-
-/** Как маркер звучит в note: «…а в видео это подано как вчерашнее событие» */
-const MARKER_PHRASE: Record<TimeMarker, string> = {
+/** Как слово звучит в note: «…а в видео это подано как вчерашнее событие» */
+const RELATIVE_PHRASE: Record<RelativeWord, string> = {
   just_now: "как только что случившееся",
+  now: "как происходящее сейчас",
   today: "как сегодняшнее событие",
   yesterday: "как вчерашнее событие",
   this_week: "как событие этой недели",
@@ -56,12 +54,24 @@ const MARKER_PHRASE: Record<TimeMarker, string> = {
 
 /** Какую дату события заявляет видео и откуда она взялась */
 type Claimed =
-  { kind: "date"; at: number; precision: DatePrecision } | { kind: "marker"; at: number; marker: TimeMarker };
+  | { kind: "date"; at: number; precision: DatePrecision }
+  | {
+      kind: "relative";
+      at: number;
+      precision: DatePrecision;
+      /** Как сказано в видео: «вчера», «на днях» */
+      text: string;
+      /** Узнанное слово; null — дату посчитал этап 03, а слово нам незнакомо («позавчера») */
+      word: RelativeWord | null;
+      /** Дата посчитана здесь по слову (а не взята из time.date) — это лишь нижняя граница для «недавно» */
+      estimated: boolean;
+    };
 
 /**
  * Чистая функция без внешних API — не переключается mock/real (как 09-report).
- *  1. claimedAt: structure.eventTime.date (начало года / месяца / дня), иначе самый «свежий» из timeMarkers
- *     от videoPublishedAt (нет — от now, нет — от текущего времени), начало суток UTC.
+ *  1. claimedAt: structure.time.date (начало года / месяца / дня); если даты нет, но время относительное —
+ *     по словам time.text («сейчас», «вчера», «недавно»; ru / ro / en) от videoPublishedAt (нет — от now,
+ *     нет — от текущего времени), начало суток UTC. Слова не узнаны — null.
  *     Структура — claim.structure, нет — structure узла "video" из дерева; нет и её — claimedAt null.
  *  2. rootPublishedAt: publishedAt узла tree.rootId.
  *  3. flag old_content, если корень раньше claimedAt больше чем на допуск; note — по-русски, с обеими датами.
@@ -79,9 +89,7 @@ export function checkRootDate(input: RootDateInput): RootDateOutput {
   const claimedAt = claimed ? toIso(claimed.at) : null;
   let flag: OldContentFlag | null = null;
   if (claimed && claimedAt && rootPublishedAt && rootMs !== null) {
-    const toleranceDays =
-      claimed.kind === "date" ? EXPLICIT_DATE_TOLERANCE_DAYS : MARKER_TOLERANCE_DAYS[claimed.marker];
-    if (claimed.at - rootMs > toleranceDays * DAY_MS) {
+    if (claimed.at - rootMs > toleranceDays(claimed) * DAY_MS) {
       flag = { type: "old_content", rootPublishedAt, claimedAt, note: oldContentNote(rootMs, claimed) };
     }
   }
@@ -90,22 +98,22 @@ export function checkRootDate(input: RootDateInput): RootDateOutput {
 }
 
 function claimedTime(structure: ClaimStructure, anchor: () => number): Claimed | null {
-  const explicit = structure.eventTime?.date ? parseEventDate(structure.eventTime.date) : null;
-  if (explicit) return { kind: "date", ...explicit };
+  const time = structure.time;
+  if (!time) return null;
+  const explicit = time.date ? parseEventDate(time.date) : null;
+  if (!time.relative) return explicit ? { kind: "date", ...explicit } : null;
 
-  const marker = freshestMarker(structure.timeMarkers);
-  if (!marker) return null;
-  return { kind: "marker", marker, at: anchor() - MARKER_OFFSET_DAYS[marker] * DAY_MS };
+  const text = time.text.trim();
+  const word = relativeWord(text);
+  if (explicit) return { kind: "relative", ...explicit, text, word, estimated: false };
+  if (!word) return null;
+  const at = anchor() - RELATIVE_OFFSET_DAYS[word] * DAY_MS;
+  return { kind: "relative", at, precision: "day", text, word, estimated: true };
 }
 
-/** Самый «свежий» маркер — с наименьшим сдвигом назад */
-function freshestMarker(markers: TimeMarker[]): TimeMarker | null {
-  let best: TimeMarker | null = null;
-  for (const m of MARKER_ORDER) {
-    if (!markers.includes(m)) continue;
-    if (best === null || MARKER_OFFSET_DAYS[m] < MARKER_OFFSET_DAYS[best]) best = m;
-  }
-  return best;
+function toleranceDays(claimed: Claimed): number {
+  if (claimed.kind === "date") return EXPLICIT_DATE_TOLERANCE_DAYS;
+  return claimed.word && VAGUE_WORDS.includes(claimed.word) ? VAGUE_TOLERANCE_DAYS : RELATIVE_TOLERANCE_DAYS;
 }
 
 /** Начало суток (UTC), от которых считаются «сегодня» / «вчера» */
@@ -122,7 +130,13 @@ function oldContentNote(rootMs: number, claimed: Claimed): string {
   if (claimed.kind === "date") {
     return `${root}, а по словам видео событие произошло ${formatPeriodRu(claimed.at, claimed.precision)}.`;
   }
-  // «на этой неделе» / «недавно» — заявленная дата лишь нижняя граница
-  const fuzzy = MARKER_OFFSET_DAYS[claimed.marker] > 1 ? "не раньше " : "";
-  return `${root}, а в видео это подано ${MARKER_PHRASE[claimed.marker]} (${fuzzy}${formatDayRu(claimed.at)}).`;
+  const phrase = claimed.word
+    ? RELATIVE_PHRASE[claimed.word]
+    : claimed.text
+      ? `словами «${claimed.text}»`
+      : RELATIVE_PHRASE.recently;
+  // «на этой неделе» / «недавно», посчитанные по слову, — заявленная дата лишь нижняя граница
+  const fuzzy =
+    claimed.estimated && claimed.word && RELATIVE_OFFSET_DAYS[claimed.word] > 1 ? "не раньше " : "";
+  return `${root}, а в видео это подано ${phrase} (${fuzzy}${formatPeriodRu(claimed.at, claimed.precision)}).`;
 }

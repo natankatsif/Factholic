@@ -162,6 +162,9 @@ let respondTavily: (req: Captured) => Response;
 let respondFactCheck: (req: Captured) => Response;
 let llmRequests: LlmRequest[];
 let tavilyRequests: Captured[];
+/** Запросы за sources; у запросов copies include_raw_content = "markdown" (нужны ссылки) */
+const sourceRequests = () => tavilyRequests.filter((r) => r.body.include_raw_content !== "markdown");
+const copyRequests = () => tavilyRequests.filter((r) => r.body.include_raw_content === "markdown");
 let factCheckRequests: Captured[];
 
 const realFetch = globalThis.fetch;
@@ -359,8 +362,6 @@ describe("searchSourcesReal", () => {
       assert.equal(s.retrievedAt, out.sources[0].retrievedAt);
       assert.ok(!Number.isNaN(Date.parse(s.retrievedAt)));
     }
-    assert.ok(out.copies && out.copies.length >= out.sources.length);
-    assert.ok(out.copies.some((c) => c.id === "clm_05_s1"));
   });
 
   it("возвращает не больше maxSources", async () => {
@@ -370,8 +371,11 @@ describe("searchSourcesReal", () => {
 
   it("в Tavily уходят ключ в Authorization и exclude_domains с соцсетями и видеохостингами", async () => {
     await searchSourcesReal(input, makeCtx());
-    assert.equal(tavilyRequests.length, 3);
-    for (const req of tavilyRequests) {
+    // 3 запроса за sources (+ запросы copies — их проверяют тесты ниже)
+    assert.equal(sourceRequests().length, 3);
+    // соцсети исключаем только из sources: для copies пост в соцсети может оказаться первоисточником
+    for (const req of tavilyRequests) assert.equal(req.headers.get("authorization"), "Bearer tvly-test-key");
+    for (const req of sourceRequests()) {
       assert.equal(req.headers.get("authorization"), "Bearer tvly-test-key");
       const excluded = req.body.exclude_domains as string[];
       assert.ok(Array.isArray(excluded));
@@ -397,7 +401,7 @@ describe("searchSourcesReal", () => {
       { text: "Украина fact check", language: "en", engine: "tavily" },
     ]);
     assert.deepEqual(
-      tavilyRequests.map((r) => r.body.query),
+      sourceRequests().map((r) => r.body.query),
       out.queries.map((q) => q.text),
     );
   });
@@ -491,5 +495,90 @@ describe("searchSourcesReal", () => {
     const controller = new AbortController();
     controller.abort();
     await assert.rejects(searchSourcesReal(input, makeCtx(controller.signal)));
+  });
+});
+
+describe("searchSourcesReal: copies (все перепечатки для дерева)", () => {
+  const COPY_PAGES = [
+    {
+      url: "https://zz-novosti.md/2023/03/14/voina-v-ukraine",
+      title: "Война в Украине: главное — Новости MD",
+      score: 0.8,
+      raw_content:
+        "Война в Украине продолжается, по данным Генштаба ВСУ, бои идут на востоке. Источник: [Генштаб](https://zz-genshtab.gov.ua/news/123). [Поделиться](https://facebook.com/sharer/sharer.php?u=x)",
+    },
+    {
+      // тот же издатель второй раз — для дерева нужна каждая копия
+      url: "https://zz-novosti.md/ru/drugaya-statya-pro-voinu-v-ukraine",
+      title: "Ещё о войне в Украине — Новости MD",
+      score: 0.6,
+      published_date: "Wed, 01 Oct 2025 10:00:00 GMT",
+      raw_content: "Война в Украине: как сообщает Reuters, бои не прекращаются уже несколько лет.",
+    },
+  ];
+  const EARLIEST_PAGE = {
+    url: "https://zz-pervyi.md/news/voina-v-ukraine-nachalas",
+    title: "Война в Украине началась — Первый",
+    score: 0.5,
+    published_date: "Thu, 24 Feb 2022 05:00:00 GMT",
+    raw_content: "Война в Украине началась сегодня утром, заявил президент Украины.",
+  };
+
+  beforeEach(() => {
+    respondTavily = (req) => {
+      if (req.body.include_raw_content !== "markdown")
+        return json({ results: PAGES[String(req.body.query)] ?? [] });
+      return json({ results: req.body.end_date ? [EARLIEST_PAGE] : COPY_PAGES });
+    };
+  });
+
+  it("запросы копий: markdown, без ограничения свежести, без запроса-опровержения, Молдова для ru", async () => {
+    await searchSourcesReal(input, makeCtx());
+    const round1 = copyRequests().filter((r) => !r.body.end_date);
+    assert.deepEqual(
+      round1.map((r) => r.body.query),
+      ["война в Украине", "war in Ukraine latest"],
+    );
+    for (const r of round1) assert.equal(r.body.time_range, undefined);
+    assert.equal(round1[0]!.body.country, "moldova");
+    assert.equal(round1[1]!.body.country, undefined);
+  });
+
+  it("второй раунд ищет то, что раньше самой старой найденной копии", async () => {
+    await searchSourcesReal(input, makeCtx());
+    const earliest = copyRequests().filter((r) => r.body.end_date);
+    assert.equal(earliest.length, 1);
+    // самая старая копия первого раунда — 14.03.2023 (из адреса) → ищем до 13.03.2023
+    assert.equal(earliest[0]!.body.end_date, "2023-03-13");
+  });
+
+  it("копии: перепечатки одного издателя не отсеиваются, сортировка по дате, даты, ссылки, «по данным»", async () => {
+    const out = await searchSourcesReal(input, makeCtx());
+    const copies = out.copies ?? [];
+    assert.deepEqual(
+      copies.map((c) => [c.url, c.publishedAt?.slice(0, 10), c.dateSource, c.earliestSearch]),
+      [
+        [EARLIEST_PAGE.url, "2022-02-24", "search", true],
+        [COPY_PAGES[0]!.url, "2023-03-14", "url", false],
+        [COPY_PAGES[1]!.url, "2025-10-01", "search", false],
+      ],
+    );
+    assert.deepEqual(copies[1]!.outboundLinks, ["https://zz-genshtab.gov.ua/news/123"]);
+    assert.ok(copies[1]!.attributions.some((a) => a.startsWith("по данным Генштаба")));
+    assert.ok(copies[2]!.attributions.some((a) => a.startsWith("как сообщает Reuters")));
+    assert.deepEqual(
+      copies.map((c) => c.id),
+      [`${input.claim.id}_c1`, `${input.claim.id}_c2`, `${input.claim.id}_c3`],
+    );
+  });
+
+  it("поиск копий упал — sources всё равно возвращаются", async () => {
+    respondTavily = (req) =>
+      req.body.include_raw_content === "markdown"
+        ? httpError(500)
+        : json({ results: PAGES[String(req.body.query)] ?? [] });
+    const out = await searchSourcesReal(input, makeCtx());
+    assert.ok(out.sources.length > 0);
+    assert.deepEqual(out.copies, []);
   });
 });

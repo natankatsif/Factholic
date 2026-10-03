@@ -8,7 +8,7 @@ export const mockRootDateInput: RootDateInput = {
   videoPublishedAt: "2026-10-02T09:00:00Z",
 };
 
-/** «Сейчас идёт война» (маркер today) — корень Reuters от того же дня, флага нет */
+/** «Сейчас идёт война» (time: «сейчас», relative) — корень Reuters от того же дня, флага нет */
 export const mockRootDateOutput: RootDateOutput = {
   claimId: "clm_05",
   claimedAt: "2026-10-02T00:00:00Z",
@@ -16,7 +16,7 @@ export const mockRootDateOutput: RootDateOutput = {
   flag: null,
 };
 
-/** Как выглядит флаг: «вчера» в видео от 2026-10-02, а первая публикация — январь 2021 */
+/** Как выглядит флаг: «вчера» (2026-10-01) в видео от 2026-10-02, а первая публикация — январь 2021 */
 export const mockOldContentOutput: RootDateOutput = {
   claimId: "clm_09",
   claimedAt: "2026-10-01T00:00:00Z",

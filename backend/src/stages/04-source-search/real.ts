@@ -1,5 +1,6 @@
 import { config } from "../../config.ts";
 import type { Stage } from "../../pipeline/context.ts";
+import { findCopies } from "./copies.ts";
 import { factCheckSearch, limited, tavilySearch, type Candidate } from "./engines.ts";
 import { planQueries, type PlannedQuery } from "./queries.ts";
 import { dedupe, enrich, selectDiverse, toFoundSource, type Enriched } from "./select.ts";
@@ -16,6 +17,8 @@ interface SearchTask {
  *  1. LLM составляет 3–5 запросов на разных языках, включая запрос на опровержение (queries.ts)
  *  2. Tavily (+ Google Fact Check Tools, если есть ключ) — сразу с текстом страниц (engines.ts)
  *  3. Вырезка excerpt/snippet, справочник доменов, отбор по разнообразию (select.ts, domains.ts, text.ts)
+ *  4. Параллельно — copies: все перепечатки с датами, ссылками и «по данным …» + самое раннее упоминание
+ *     (copies.ts). Упал поиск копий — sources всё равно возвращаем, copies будет пустым.
  *
  * Ничего не нашли — пустой sources (этап 05 вернёт unverifiable). Упали все запросы — исключение (failed).
  */
@@ -41,6 +44,11 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
     }
   }
 
+  const copiesPromise = findCopies(claim, planned, ctx).catch((err: unknown) => {
+    if (ctx.signal.aborted) throw err;
+    ctx.log("04 copies: упал поиск копий", String(err));
+    return [];
+  });
   const settled = await Promise.allSettled(tasks.map((t) => t.run()));
   const errors = settled.flatMap((s) => (s.status === "rejected" ? [s.reason] : []));
   if (errors.length === settled.length) {
@@ -57,21 +65,11 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
   );
 
   const retrievedAt = new Date().toISOString();
-  const sources = picked.map((e, i) => toFoundSource(e, `${claim.id}_s${i + 1}`, retrievedAt));
-  const pickedUrls = new Map(sources.map((s) => [s.url, s]));
-
-  let copyIdx = sources.length + 1;
-  const copies = relevant.map((e) => {
-    const existing = pickedUrls.get(e.candidate.url);
-    if (existing) return existing;
-    return toFoundSource(e, `${claim.id}_c${copyIdx++}`, retrievedAt);
-  });
-
   return {
     claimId: claim.id,
     queries: tasks.map((t) => t.query),
-    sources,
-    copies,
+    sources: picked.map((e, i) => toFoundSource(e, `${claim.id}_s${i + 1}`, retrievedAt)),
+    copies: await copiesPromise,
   };
 };
 

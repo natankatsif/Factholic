@@ -1,13 +1,16 @@
 import { config } from "../../config.ts";
-import type { Stage } from "../../pipeline/context.ts";
+import { PipelineError, type Stage } from "../../pipeline/context.ts";
 import type { AudioChunk } from "../01-ingest/types.ts";
+import { ocrImage } from "./ocr.ts";
 import { toLanguageCode, whisperTranscribe } from "./openai.ts";
-import { cuesToWords, wordsToSegments } from "./sentences.ts";
+import { cuesToWords, textToSegments, wordsToSegments } from "./sentences.ts";
 import type { TranscriptSegment, TranscriptionInput, TranscriptionOutput, TranscriptWord } from "./types.ts";
 
 /**
  * REAL-РЕАЛИЗАЦИЯ (STAGE_TRANSCRIPTION=real)
  *  captions → ASR не вызываем: cues → слова → предложения
+ *  text     → статья / вставленный текст: просто режем на предложения (таймкодов нет, 0–0)
+ *  image    → OCR (vision-модель, LLM_* из .env) → предложения
  *  audio    → ASR (сейчас поддержан ASR_PROVIDER=openai, модель whisper-1) с пословными таймкодами,
  *             все времена сдвигаем на chunk.range.start (время куска → время видео)
  */
@@ -21,6 +24,31 @@ export const transcribeReal: Stage<TranscriptionInput, TranscriptionOutput> = as
       language: chunk.language,
       origin: "captions",
       segments: wordsToSegments(cuesToWords(chunk.cues), chunk.seq),
+    };
+  }
+
+  if (chunk.kind === "text") {
+    return {
+      ...base,
+      language: chunk.language ?? input.languageHint ?? "und",
+      origin: "text",
+      segments: textToSegments(chunk.text, chunk.seq),
+    };
+  }
+
+  if (chunk.kind === "image") {
+    const ocr = await ocrImage(chunk, ctx.signal);
+    ctx.log(
+      `02: OCR — ${ocr.text.length} символов, язык ${ocr.language}${ocr.author ? `, автор ${ocr.author}` : ""}`,
+    );
+    // автор и дата с картинки («Канал X · 14 марта») — первой строкой: этап 03 увидит, кто и когда это написал
+    const header = [ocr.author, ocr.date].filter(Boolean).join(" · ");
+    const text = header ? `${header}\n\n${ocr.text}` : ocr.text;
+    return {
+      ...base,
+      language: input.languageHint ?? (/^[a-z]{2}$/.test(ocr.language) ? ocr.language : "und"),
+      origin: "ocr",
+      segments: textToSegments(text, chunk.seq),
     };
   }
 
@@ -38,9 +66,12 @@ async function transcribeAudio(
 ): Promise<Pick<TranscriptionOutput, "language" | "segments">> {
   const { provider, apiKey } = config.providers.asr;
   if (provider !== "openai") {
-    throw new Error(`02-transcription: ASR_PROVIDER="${provider}" не поддержан, сейчас есть только "openai"`);
+    throw new PipelineError(
+      "INTERNAL",
+      `ASR_PROVIDER="${provider}" не поддержан, сейчас есть только "openai"`,
+    );
   }
-  if (!apiKey) throw new Error("02-transcription: ASR_API_KEY пустой — впиши ключ OpenAI в корневой .env");
+  if (!apiKey) throw new PipelineError("INTERNAL", "ASR_API_KEY пустой — впиши ключ OpenAI в корневой .env");
 
   const res = await whisperTranscribe(chunk, apiKey, languageHint, signal);
 

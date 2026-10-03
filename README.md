@@ -49,7 +49,7 @@ extension/             Chrome MV3                                          [fron
 | ------------------------------------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **backend-1** — всё до поиска включительно | _____ | `backend/src/stages/01-ingest/`, `02-transcription/`, `03-claim-extraction/`, `04-source-search/`, `backend/src/pipeline/`, `server.ts`, `config.ts` |
 | **backend-2** — дерево и проверки          | _____ | `backend/src/stages/05-provenance/`, `06-mutations/`, `07-root-date/`, `08-stances/`, `09-report/`                                                   |
-| **frontend** — расширение и отчёт          | _____ | `extension/`                                                                                                                                         |
+| **frontend** — расширение и отчёт          | _____ | `extension/`, `web/`                                                                                                                                 |
 | общее, только по договорённости            | все   | `packages/contracts/`, корневые конфиги, `scripts/`                                                                                                  |
 
 Каждый этап — отдельная функция с типизированным входом/выходом. Каждый этап включается в `mock` или `real` отдельно через `.env`,

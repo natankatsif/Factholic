@@ -135,7 +135,11 @@ export default function HomePage() {
     report.factChecks[0];
 
   return (
-    <div className="min-h-screen bg-[#F1EBE9] flex flex-col font-sans">
+    <div
+      className={`bg-[#F1EBE9] flex flex-col font-sans ${
+        activeScreen === "home" ? "h-screen w-screen overflow-hidden" : "min-h-screen"
+      }`}
+    >
       {/* If in screen 1 or 2, show the top navigation bar */}
       {activeScreen !== "home" && (
         <Header
@@ -148,7 +152,11 @@ export default function HomePage() {
 
       {/* Screen Router */}
       {activeScreen === "home" && (
-        <HomeHero onCheck={handleCheck} isLoading={isLoading} />
+        <div className="w-full h-full flex items-center justify-center overflow-hidden">
+          <div className="w-full max-w-[1440px] h-full flex flex-col justify-between overflow-hidden">
+            <HomeHero onCheck={handleCheck} isLoading={isLoading} />
+          </div>
+        </div>
       )}
 
       {activeScreen === "screen1" && (

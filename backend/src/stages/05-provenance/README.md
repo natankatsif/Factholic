@@ -7,20 +7,33 @@
 
 |        | Тип                                                                        | Файл       |
 | ------ | -------------------------------------------------------------------------- | ---------- |
-| Вход   | `ProvenanceInput` (`Claim` + `copies` из 04 + само видео)                  | `types.ts` |
+| Вход   | `ProvenanceInput` (`Claim` + `SourceCopy[]` из 04 + само видео)            | `types.ts` |
 | Выход  | `ProvenanceTree` (узлы со `structure`, `rootId`, `voteGroups`)             | `types.ts` |
 | Пример | `mockProvenanceInput`, `mockProvenanceTree`                                | `mock.ts`  |
 | Mock   | `STAGE_PROVENANCE=mock` → mock-функция в конце `mock.ts`                   | `mock.ts`  |
 | Real   | `STAGE_PROVENANCE=real`, нужны: `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL` | `real.ts`  |
 
+## Вход
+
+`copies` — `SourceSearchOutput.copies` этапа 04: **все** публикации об утверждении (включая перепечатки одного
+издателя), по дате. У каждой `SourceCopy`: `publishedAt` (+ `dateSource`), `excerpt`, `outboundLinks` (внешние
+ссылки из текста), `attributions` (фразы «по данным мэрии», «как сообщает Reuters», «potrivit poliției» — 04 уже
+вырезал их из текста), `earliestSearch`. Старые моки 04 без `copies` → `copiesFromSources(sources)` (экспорт
+`index.ts`): источники как копии, без ссылок и атрибуций. Структура тезиса в видео — `claim.structure` из 03.
+
 ## Как строить (порядок важен)
 
-1. **Структура в каждой копии.** LLM одним вызовом на все копии извлекает `ClaimStructure` (цифры, места, время,
-   уверенность, автор) — как утверждение подано именно в этой публикации. По ней этап 06 ищет мутации,
-   а «по данным X» даёт рёбра-атрибуции. Копия по теме, но без самого утверждения → `structure: null`.
+1. **Структура в каждой копии.** LLM одним вызовом на все копии извлекает `ClaimStructure` из 03 (`event`,
+   `numbers` {value, about}, `places`, `time` {text, date, relative}, `certainty` asserted/reported/hedged,
+   `certaintyMarkers`, `attributedTo`) — как утверждение подано именно в этой публикации; относительное время
+   («вчера») — от даты публикации копии. По ней этап 06 ищет мутации. Ещё LLM называет, на кого копия ссылается
+   (`cites`). Копия по теме, но без самого утверждения → `structure: null`. Узел видео — `claim.structure`
+   (нет — структура видео от LLM).
 2. **Рёбра:**
-   - явные ссылки: `copy.links` указывает на url другой копии → `via: "link"`, `confidence: "confirmed"`;
-   - «по данным …», «как сообщает …» без ссылки → `via: "attribution"`, `probable`;
+   - явные ссылки: `copy.outboundLinks` указывает на url другой копии → `via: "link"`, `confidence: "confirmed"`;
+   - «по данным …», «как сообщает …» без ссылки → `via: "attribution"`, `probable`. Источники — `cites` от LLM
+     (первыми) плюс `copy.attributions` от 04 (работают и без LLM); совпадение с издателем или доменом другой
+     копии («по данным DW» ↔ dw.com), упоминания самой копии не считаются;
    - дубли текста по эмбеддингам (`config.providers.llm.embeddingModel`) → `via: "duplicate"`, `probable`.
 3. **Один родитель:** ссылка > атрибуция > дубль; родитель не позже потомка; циклы запрещены.
 4. **Даты и корень:** сортировка по `publishedAt`; корень — самый ранний узел без родителя (с датой).

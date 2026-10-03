@@ -1,7 +1,10 @@
 node_modules/
 dist/
+.next/
+*.tsbuildinfo
 .env
 *.log
 .DS_Store
 tmp/
 .claude/settings.local.json
+*.png

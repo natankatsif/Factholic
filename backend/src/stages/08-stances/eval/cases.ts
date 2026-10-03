@@ -40,11 +40,12 @@ const RETRIEVED_AT = "2026-10-03T10:00:00Z";
 
 /** Структура тезиса этапу 08 не нужна (по ней строится дерево, этапы 05–07) — пустая по умолчанию */
 const EMPTY_STRUCTURE: ClaimStructure = {
+  event: "",
   numbers: [],
   places: [],
-  eventTime: null,
-  timeMarkers: [],
+  time: null,
   certainty: "asserted",
+  certaintyMarkers: [],
   attributedTo: null,
 };
 
@@ -84,8 +85,6 @@ function fixture(s: {
     domain: new URL(s.url).hostname.replace(/^www\./, ""),
     sourceType: s.type,
     publishedAt: s.publishedAt,
-    dateFrom: s.publishedAt ? "search" : null,
-    links: [],
     language: s.language,
     country: s.country,
     excerpt: s.excerpt,

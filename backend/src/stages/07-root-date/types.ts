@@ -5,7 +5,7 @@ import type { ProvenanceTree } from "../05-provenance/types.ts";
 // ===================== ВХОД =====================
 
 export interface RootDateInput {
-  /** claim.structure: timeMarkers («вчера», «сегодня») и eventTime — какую дату заявляет видео */
+  /** claim.structure.time («вчера», «24 февраля 2022») — какую дату заявляет видео */
   claim: Claim;
   tree: ProvenanceTree;
   /** От этой даты считаются «вчера», «сегодня»; нет — от момента анализа */

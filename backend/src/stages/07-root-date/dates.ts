@@ -1,4 +1,4 @@
-/** Даты этапа 07: всё в UTC, сутки начинаются в 00:00Z. */
+/** Даты этапа 07 и слова относительного времени («вчера», «недавно»): всё в UTC, сутки начинаются в 00:00Z. */
 
 export const DAY_MS = 86_400_000;
 
@@ -20,8 +20,59 @@ export function toIso(ms: number): string {
   return new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+// ===================== ОТНОСИТЕЛЬНОЕ ВРЕМЯ =====================
+
+export type RelativeWord = "just_now" | "now" | "today" | "yesterday" | "this_week" | "recently";
+
+/** Начало слова (не середина: «позавчера» — не «вчера», «alaltăieri» — не «ieri») */
+const B = "(?<![\\p{L}\\p{N}])";
+/** Конец слова */
+const E = "(?![\\p{L}\\p{N}])";
+
 /**
- * Дата события из ClaimStructure.eventTime.date: "2022" → 1 января 2022, "2022-02" → 1 февраля,
+ * Слова относительного времени (ru / ro / en) — в порядке «свежести»; «acum» без срока после него
+ * («acum 3 ani» — «три года назад»).
+ */
+const RELATIVE_WORDS: Array<[RelativeWord, RegExp]> = [
+  ["just_now", new RegExp(`${B}(?:только что|just now)${E}`, "u")],
+  [
+    "now",
+    new RegExp(
+      `${B}(?:сейчас|now|currently|în prezent|in prezent|acum${E}(?!\\s+(?:\\d+|o|un|una|doi|două|doua|trei|câteva|cateva|câțiva|cativa|mai|zeci|ani|luni|zile)${E}))${E}`,
+      "u",
+    ),
+  ],
+  ["today", new RegExp(`${B}(?:сегодня\\p{L}*|today|azi|astăzi|astazi)${E}`, "u")],
+  ["yesterday", new RegExp(`${B}(?:вчера\\p{L}*|yesterday|ieri)${E}`, "u")],
+  [
+    "this_week",
+    new RegExp(
+      `${B}(?:на этой неделе|this week|săptămâna aceasta|saptamana aceasta|săptămâna asta)${E}`,
+      "u",
+    ),
+  ],
+  ["recently", new RegExp(`${B}(?:недавн\\p{L}*|на днях|recent\\p{L}*|lately)${E}`, "u")],
+];
+
+/**
+ * Самое «свежее» слово относительного времени в ClaimStructure.time.text: «сейчас» / «azi» / «today»,
+ * «вчера» / «ieri», «недавно» / «săptămâna aceasta» / «recently». Не узнано — null.
+ */
+export function relativeWord(text: string): RelativeWord | null {
+  const s = text
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/ş/g, "ș")
+    .replace(/ţ/g, "ț")
+    .replace(/\s+/g, " ")
+    .trim();
+  return RELATIVE_WORDS.find(([, re]) => re.test(s))?.[0] ?? null;
+}
+
+// ===================== ДАТЫ =====================
+
+/**
+ * Дата события из ClaimStructure.time.date: "2022" → 1 января 2022, "2022-02" → 1 февраля,
  * "2022-02-24" (можно со временем после T) → этот день. Несуществующая дата ("2022-13", "2022-02-30") — null.
  */
 export function parseEventDate(date: string): { at: number; precision: DatePrecision } | null {
