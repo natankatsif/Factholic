@@ -126,6 +126,9 @@ interface Vote {
   relevance?: number;
   /** Группа независимости (voteGroups); не задана — источник сам по себе */
   group?: string;
+  /** Тип источника; по умолчанию — как у первого источника мока */
+  type?: FoundSource["sourceType"];
+  publisher?: string;
 }
 
 /** Прогон на своих источниках s1..sN: позиция (ответ LLM), надёжность и группа — на каждый источник */
@@ -135,6 +138,8 @@ async function runVotes(votes: Vote[], uiLanguage: LanguageCode = "ru") {
     ...input.sources[0],
     id: id(i),
     domainReliability: v.reliability ?? 0.8,
+    ...(v.type ? { sourceType: v.type } : {}),
+    ...(v.publisher ? { publisher: v.publisher } : {}),
   }));
   const grouped = votes.flatMap((v, i) => (v.group ? [[id(i), v.group] as const] : []));
   respond = () =>
@@ -415,5 +420,41 @@ describe("assessStancesReal: сбои LLM — исключение (оркест
     llmConfig.provider = "anthropic";
     await assert.rejects(assessStancesReal(input, ctx), LlmConfigError);
     assert.equal(requests.length, 0);
+  });
+});
+
+describe("assessStancesReal: один официальный первоисточник", () => {
+  beforeEach(() => {
+    Object.assign(llmConfig, { provider: "openai", apiKey: "sk-test", model: "gpt-6.1-sol" });
+  });
+  const un = { type: "international_org" as const, reliability: 0.95, publisher: "ООН", group: "g" };
+
+  it("все пересказывают ООН, ООН «за» — agree с authority, а не «мало источников»", async () => {
+    const c = await consensusOf([s(un), s({ group: "g" }), s({ group: "g" })]);
+    assert.equal(c.status, "agree");
+    assert.equal(c.authority, "ООН");
+  });
+
+  it("официальный первоисточник опровергает — mostly_against", async () => {
+    const c = await consensusOf([r(un), r({ group: "g" })]);
+    assert.equal(c.status, "mostly_against");
+    assert.equal(c.authority, "ООН");
+  });
+
+  it("корень — обычное СМИ (даже надёжное) — по-прежнему «мало источников»", async () => {
+    const c = await consensusOf([s({ type: "news", reliability: 0.9, group: "g" }), s({ group: "g" })]);
+    assert.equal(c.status, "few_sources");
+    assert.equal(c.authority, undefined);
+  });
+
+  it("министерство без записи в справочнике (.gov → 0.8) — не официальный первоисточник для вывода", async () => {
+    const c = await consensusOf([s({ type: "government", reliability: 0.8, group: "g" }), s({ group: "g" })]);
+    assert.equal(c.status, "few_sources");
+  });
+
+  it("независимых групп две и больше — authority не ставится, считаем как раньше", async () => {
+    const c = await consensusOf([s(un), s({ group: "h" }), s({ group: "k" })]);
+    assert.equal(c.status, "agree");
+    assert.equal(c.authority, undefined);
   });
 });

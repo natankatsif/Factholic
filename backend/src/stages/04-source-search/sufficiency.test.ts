@@ -90,3 +90,16 @@ describe("mentionsNumber: число рядом с тем, что оно счи�
     assert.ok(mentionsNumber("около 200 метров", "200", []));
   });
 });
+
+describe("mentionsNumber: одно число в разной записи", () => {
+  it("«4» в утверждении — «4,0%» и «4.0» в источнике; «4.0» в утверждении — «4» в источнике", () => {
+    assert.ok(mentionsNumber("безработица 4.0%", "4", []));
+    assert.ok(mentionsNumber("безработица 4%", "4.0", []));
+    assert.ok(mentionsNumber("безработица 2.50 млн", "2.5", []));
+  });
+  it("«4» не совпадает с «4.5», «14» и «40»", () => {
+    assert.ok(!mentionsNumber("4.5%", "4", []));
+    assert.ok(!mentionsNumber("14%", "4", []));
+    assert.ok(!mentionsNumber("40%", "4", []));
+  });
+});

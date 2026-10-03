@@ -60,6 +60,9 @@ export const config = {
   limits: {
     maxClaimsPerChunk: positiveInt("MAX_CLAIMS_PER_CHUNK", 5),
     maxClaimsPerJob: positiveInt("MAX_CLAIMS_PER_JOB", 20),
+    /** Сколько запросов к поиску (Tavily) одновременно — на весь сервер */
+    // замер (5 тезисов статьи): 6 → 40 с, 15 → 25 с, 30 → 16 с, ожидание слота 0, ошибок нет
+    searchParallel: positiveInt("SEARCH_MAX_PARALLEL", 30),
   },
   /** Настройки провайдеров для real-реализаций. Пустая строка = не задано. */
   providers: {

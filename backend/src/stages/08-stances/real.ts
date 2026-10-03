@@ -27,6 +27,15 @@ const AGREE_SHARE = 0.7;
 /** Доля веса «за» не выше этого порога — большинство против (mostly_against); между порогами — split */
 const AGAINST_SHARE = 0.3;
 
+/**
+ * Официальный первоисточник: одной его группы хватает для вывода (все пересказывают ООН — это не «мало
+ * источников», а подтверждение от ООН). По справочнику доменов (этап 04) надёжность ≥ 0.85 у таких типов —
+ * только международные организации, статслужбы, центробанки и наука; министерства и администрации
+ * (.gov без записи в справочнике — 0.8) и политические сайты сюда не попадают.
+ */
+const AUTHORITY_TYPES = new Set(["international_org", "government", "academic"]);
+const AUTHORITY_RELIABILITY = 0.85;
+
 // ===================== LLM =====================
 
 const STANCES = ["supports", "refutes", "mixed", "neutral"] as const satisfies readonly SourceStance[];
@@ -81,6 +90,7 @@ export const assessStancesReal: Stage<StancesInput, StancesOutput> = async (inpu
       groupsAgainst: votes.groupsAgainst,
       summary: data.summary.trim(),
       explanation: data.explanation.trim(),
+      ...(votes.groups < MIN_GROUPS && votes.authority ? { authority: votes.authority.publisher } : {}),
     },
     sourceAssessments,
     model,
@@ -106,6 +116,8 @@ interface Votes {
   groupsAgainst: number;
   /** Доля веса «за» среди групп с позицией, 0..1 */
   forShare: number;
+  /** Группа одна, и в ней официальный источник с позицией — вывод по нему */
+  authority?: { publisher: string; vote: number };
 }
 
 function countVotes(
@@ -114,12 +126,26 @@ function countVotes(
   voteGroups: Record<SourceId, string> | undefined,
 ): Votes {
   const reliability = new Map(sources.map((s) => [s.id, clamp01(s.domainReliability)]));
-  const groups = new Map<string, { sum: number; weight: number }>();
+  const byId = new Map(sources.map((s) => [s.id, s]));
+  const groups = new Map<
+    string,
+    { sum: number; weight: number; authority?: { publisher: string; vote: number } }
+  >();
   for (const a of assessments) {
     if (a.stance === "neutral" || a.relevance < MIN_VOTE_RELEVANCE) continue;
     const key = voteGroups && Object.hasOwn(voteGroups, a.sourceId) ? voteGroups[a.sourceId] : a.sourceId;
     const group = groups.get(key) ?? { sum: 0, weight: 0 };
     group.sum += STANCE_VOTE[a.stance];
+    const src = byId.get(a.sourceId);
+    if (
+      src &&
+      a.stance !== "mixed" &&
+      AUTHORITY_TYPES.has(src.sourceType) &&
+      clamp01(src.domainReliability) >= AUTHORITY_RELIABILITY &&
+      !group.authority
+    ) {
+      group.authority = { publisher: src.publisher, vote: STANCE_VOTE[a.stance] };
+    }
     // перепечатки не добавляют веса: группа весит как её самый надёжный источник
     group.weight = Math.max(group.weight, reliability.get(a.sourceId) ?? 0);
     groups.set(key, group);
@@ -127,7 +153,14 @@ function countVotes(
 
   // у всех групп надёжность 0 — делить нечего, считаем каждую группу за 1
   const unitWeights = [...groups.values()].every((g) => g.weight === 0);
-  const votes = { groups: groups.size, groupsFor: 0, groupsAgainst: 0, forShare: 0 };
+  const only = groups.size === 1 ? [...groups.values()][0] : undefined;
+  const votes: Votes = {
+    groups: groups.size,
+    groupsFor: 0,
+    groupsAgainst: 0,
+    forShare: 0,
+    authority: only?.authority,
+  };
   let forWeight = 0;
   let totalWeight = 0;
   for (const { sum, weight } of groups.values()) {
@@ -147,7 +180,12 @@ function countVotes(
 }
 
 function consensusStatus(votes: Votes): ConsensusStatus {
-  if (votes.groups < MIN_GROUPS) return "few_sources";
+  if (votes.groups < MIN_GROUPS) {
+    // одна группа, но её первоисточник официальный — его позиции достаточно
+    if (votes.authority?.vote === 1) return "agree";
+    if (votes.authority?.vote === -1) return "mostly_against";
+    return "few_sources";
+  }
   if (votes.forShare >= AGREE_SHARE) return "agree";
   if (votes.forShare <= AGAINST_SHARE) return "mostly_against";
   return "split";

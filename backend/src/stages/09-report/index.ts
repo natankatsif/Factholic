@@ -86,7 +86,12 @@ export function toFactCheck(input: ReportInput): ReportOutput {
       const { stances, provenance } = input;
       const flags = buildFlags(provenance?.rootDate, provenance?.mutations);
       const unconfirmed = input.search?.unconfirmed ?? [];
-      const { consensus, consensusSummary } = buildConsensus(stances.consensus.status, flags, unconfirmed);
+      const { consensus, consensusSummary } = buildConsensus(
+        stances.consensus.status,
+        flags,
+        unconfirmed,
+        stances.consensus.authority,
+      );
       const keyFinding =
         buildKeyFinding(flags, provenance?.rootDate, claim.structure?.time?.relative ?? true) ??
         (consensus === "unverifiable" && unconfirmed.length
@@ -251,9 +256,16 @@ function buildConsensus(
   flags: ClaimFlag[],
   /** Жёсткие пробелы поиска: «ни один источник не называет число 200» */
   unconfirmed: string[] = [],
+  /** Вывод по одному официальному первоисточнику (этап 08): «ООН» */
+  authority?: string,
 ): { consensus: ClaimConsensus; consensusSummary: string } {
   // источники утверждению возражают — это главное, флаги остаются в карточке, но вывод «против»
-  if (status === "mostly_against") return { consensus: "against", consensusSummary: "источники возражают" };
+  if (status === "mostly_against") {
+    return {
+      consensus: "against",
+      consensusSummary: authority ? `опровергает первоисточник: ${authority}` : "источники возражают",
+    };
+  }
   // итог меняют только серьёзные флаги; мягкие (ссылка на источник, уверенность, расхождение цифр) — только в карточке
   const major = flags.filter(isMajorFlag);
   if (major.length > 0) {
@@ -273,7 +285,10 @@ function buildConsensus(
 
   switch (status) {
     case "agree":
-      return { consensus: "converge", consensusSummary: "позиции совпадают" };
+      return {
+        consensus: "converge",
+        consensusSummary: authority ? `подтверждает первоисточник: ${authority}` : "позиции совпадают",
+      };
     case "split":
       return { consensus: "split", consensusSummary: "мнения расходятся" };
     case "few_sources":

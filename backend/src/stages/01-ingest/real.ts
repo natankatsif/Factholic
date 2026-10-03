@@ -260,6 +260,8 @@ function ytDlpError(err: unknown): PipelineError {
   return new PipelineError("VIDEO_UNAVAILABLE", `Не удалось открыть видео: ${reason}`, { cause: err });
 }
 
+const FIRST_CHUNK_CHARS = 1200;
+
 /** Текст (статья или вставленный) → куски по абзацам. Таймкодов нет: range = 0–0, порядок — seq. */
 function textOutput(
   jobId: string,
@@ -267,7 +269,8 @@ function textOutput(
   text: string,
   video: VideoInfo,
 ): IngestOutput {
-  const parts = splitText(text);
+  // первый кусок короткий — первые тезисы на экране через ~10 с, а не ~20 с
+  const parts = splitText(text, 3000, FIRST_CHUNK_CHARS);
   const language: LanguageCode = video.language;
   return {
     video,

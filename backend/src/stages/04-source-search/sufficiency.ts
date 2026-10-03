@@ -68,7 +68,13 @@ const NUMBER_CONTEXT_CHARS = 60;
 
 /** Число есть в тексте, и рядом с ним (± NUMBER_CONTEXT_CHARS) — хотя бы одно слово из about (если about задан) */
 export function mentionsNumber(text: string, n: string, aboutStems: string[]): boolean {
-  const re = new RegExp(`(?<![\\d.])${n.replace(".", "\\.")}(?![\\d]|\\.\\d)`, "g");
+  // «4», «4.0», «4,0» — одно число: хвостовые нули после точки не важны ни в утверждении, ни в источнике
+  const core = n.includes(".") ? n.replace(/\.?0+$/, "") : n;
+  const escaped = core.replace(".", "\\.");
+  const re = new RegExp(
+    `(?<![\\d.])${escaped}${core.includes(".") ? "0*" : "(?:\\.0+)?"}(?![\\d]|\\.\\d)`,
+    "g",
+  );
   for (const m of text.matchAll(re)) {
     if (!aboutStems.length) return true;
     const from = Math.max(0, m.index - NUMBER_CONTEXT_CHARS);

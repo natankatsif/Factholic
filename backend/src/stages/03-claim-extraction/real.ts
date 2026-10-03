@@ -57,6 +57,8 @@ export const extractClaimsReal: Stage<ClaimExtractionInput, ClaimExtractionOutpu
       {
         // этап на критическом пути: пока он идёт, пользователь не видит даже лоадер
         effort: "low",
+        // обычно ~11–19 с; зависший запрос через 45 с повторяется, а не ждёт 90
+        timeoutMs: 45_000,
         system: SYSTEM_PROMPT,
         prompt: buildPrompt(input),
         schema: ExtractionSchema,

@@ -164,13 +164,16 @@ export function normalizeText(text: string): string {
 /**
  * Длинный текст → куски не больше maxChars, режем по абзацам (а абзац-гигант — по предложениям).
  * Так этап 03 получает текст порциями, как куски видео, и тезисы приходят на фронт постепенно.
+ * Первый кусок короче (firstChars): LLM разбирает ~1000 символов за ~11 с, ~2000 — за ~19 с (замер),
+ * поэтому первые карточки появляются на экране заметно раньше.
  */
-export function splitText(text: string, maxChars = 3000): string[] {
+export function splitText(text: string, maxChars = 3000, firstChars = maxChars): string[] {
   const pieces = text.split(/\n\n+/).flatMap((p) => (p.length <= maxChars ? [p] : p.split(/(?<=[.!?…])\s+/)));
   const chunks: string[] = [];
   let current = "";
   for (const piece of pieces) {
-    if (current && current.length + piece.length + 2 > maxChars) {
+    const limit = chunks.length === 0 ? firstChars : maxChars;
+    if (current && current.length + piece.length + 2 > limit) {
       chunks.push(current);
       current = "";
     }

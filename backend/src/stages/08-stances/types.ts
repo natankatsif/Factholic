@@ -10,6 +10,11 @@ export interface Consensus {
   groupsAgainst: number;
   summary: string;
   explanation: string;
+  /**
+   * Вывод сделан по одному официальному первоисточнику (все остальные — его перепечатки):
+   * имя источника — «ООН», «Biroul Național de Statistică». Нет — вывод по нескольким независимым группам.
+   */
+  authority?: string;
 }
 
 // ===================== ВХОД =====================
