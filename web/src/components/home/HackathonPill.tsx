@@ -1,7 +1,7 @@
 import React from "react";
 import { ArrowUpRight, Github } from "lucide-react";
 
-export const GITHUB_URL = "https://github.com/natankatsif/factholic";
+export const GITHUB_URL = "https://github.com/natankatsif/Factholic";
 
 /** Лавровая ветвь (своя, не эмодзи): стебель и заострённые листья по очереди наружу и внутрь */
 const LAUREL_STEM = "M12.0 30.5Q1.0 21.0 5.5 2.5";

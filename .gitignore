@@ -8,3 +8,7 @@ dist/
 tmp/
 .claude/settings.local.json
 *.png
+# картинки, которые нужны проекту: иконка и превью ссылок сайта, скриншоты README
+!web/public/**/*.png
+!web/src/app/*.png
+!docs/screenshots/*.png

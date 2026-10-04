@@ -9,9 +9,33 @@ const nunito = Nunito({
   variable: "--font-nunito",
 });
 
+/**
+ * Адрес сайта: из него Next собирает полные ссылки для превью ссылки (og:image и т. п.) — мессенджеры
+ * относительные не понимают. WEB_SITE_URL — в корневом .env; не задан — Next берёт VERCEL_URL или localhost.
+ */
+const SITE_URL = process.env.WEB_SITE_URL;
+const SHARE_TITLE = "factholic — откуда взялось утверждение";
+const SHARE_DESCRIPTION =
+  "Мы не выносим вердикт: показываем, откуда пришла информация и что с ней случилось по дороге. Каждый факт ведёт к источнику.";
+
 export const metadata: Metadata = {
+  ...(SITE_URL ? { metadataBase: new URL(SITE_URL) } : {}),
   title: "factholic - Проверь любое видео",
   description: "Вставь ссылку — откроем плеер и разберём каждое утверждение",
+  // Превью ссылки в мессенджерах и соцсетях. Картинка — файлы app/opengraph-image.png и twitter-image.png
+  // (с подписями *.alt.txt): Next сам ставит og:image / twitter:image с размерами
+  openGraph: {
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+    siteName: "factholic",
+    locale: "ru_RU",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+  },
   // иконка у ссылки во вкладке и в закладках — жёлтый чудик (public/blob.png)
   icons: {
     icon: [{ url: "/blob.png", type: "image/png", sizes: "28x28" }],
