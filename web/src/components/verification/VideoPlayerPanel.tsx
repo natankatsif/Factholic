@@ -13,7 +13,6 @@ import {
   Captions,
   Check,
   CircleCheck,
-  ExternalLink,
   GitFork,
   GripHorizontal,
   Maximize,
@@ -587,11 +586,25 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                 {/* пока анализ идёт, утверждения приходят по одному — считаем только уже проверенные */}
                 Проверено {checkedCount} {plural(checkedCount, ["утверждение", "утверждения", "утверждений"])}
               </span>
-              {quality && (
-                <span className="rounded-full bg-[#1E1515]/70 px-3 py-2 text-[12px] font-extrabold text-white backdrop-blur-sm">
-                  {quality}
-                </span>
-              )}
+              <div className="flex items-center gap-2 pointer-events-auto">
+                {video.pageUrl && (
+                  <a
+                    href={video.pageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Перейти к видео"
+                    className="flex items-center gap-1.5 rounded-full bg-[#1E1515]/70 px-3 py-2 text-[12px] font-extrabold text-white backdrop-blur-sm transition-all hover:bg-[#1E1515]/90 hover:scale-105 no-underline"
+                  >
+                    <img src="/blob.png" alt="" className="h-4 w-4 shrink-0 rounded-full select-none" />
+                    <span>Ссылка</span>
+                  </a>
+                )}
+                {quality && (
+                  <span className="rounded-full bg-[#1E1515]/70 px-3 py-2 text-[12px] font-extrabold text-white backdrop-blur-sm">
+                    {quality}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
@@ -881,7 +894,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                 rel="noreferrer"
                 className="flex items-center gap-2 rounded-full bg-[#FBF8F7] px-4 py-2.5 text-[13px] font-extrabold text-[#4A3333] no-underline [box-shadow:0px_2px_8px_rgba(74,51,51,0.06)] transition-colors hover:bg-white"
               >
-                <ExternalLink className="h-4 w-4" />
+                <img src="/blob.png" alt="" className="h-4 w-4 shrink-0 rounded-full select-none" />
                 Открыть оригинал
               </a>
             </span>

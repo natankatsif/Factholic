@@ -1,5 +1,5 @@
 import React from "react";
-import { Link2, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { youtubeVideoId } from "../../lib/youtube";
 
 export type PlatformId = "youtube" | "shorts" | "link" | "tiktok" | "facebook" | "x";
@@ -12,6 +12,8 @@ export interface LinkPlatform {
   icon?: string;
   /** Иконка lucide — для плашек, которых нет в макете */
   lucide?: LucideIcon;
+  /** Шарик-маскот blob.png вместо векторной иконки */
+  isBlob?: boolean;
   /** Ошибка, если ссылка не подходит: «Это не похоже на ссылку TikTok» */
   invalidText?: string;
   /** Подсказка в поле ссылки */
@@ -55,8 +57,8 @@ export const PLATFORMS: LinkPlatform[] = [
     placeholder: "Вставь ссылку на новость или статью…",
     matches: (link) => !/\s/.test(link.trim()) && /\.[a-z]{2,}$/i.test(hostOf(link)),
     name: "Ссылка",
-    color: "#1660D6",
-    lucide: Link2,
+    color: "#FFC20E",
+    isBlob: true,
     invalidText: "Это не похоже на ссылку на страницу",
   },
   {
@@ -101,6 +103,16 @@ export function platformOfLink(link: string): LinkPlatform | null {
 }
 
 export function PlatformIcon({ platform, className }: { platform: LinkPlatform; className?: string }) {
+  if (platform.isBlob || platform.id === "link") {
+    return (
+      <img
+        src="/blob.png"
+        alt=""
+        draggable={false}
+        className={`shrink-0 select-none object-contain rounded-full ${className ?? "h-4 w-4 sm:h-[18px] sm:w-[18px]"}`}
+      />
+    );
+  }
   if (platform.lucide) {
     const Icon = platform.lucide;
     return <Icon aria-hidden strokeWidth={2.4} className={className} style={{ color: platform.color }} />;

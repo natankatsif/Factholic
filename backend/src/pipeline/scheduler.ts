@@ -84,6 +84,12 @@ export class CheckScheduler<C extends Schedulable> {
     return true;
   }
 
+  /** Проверка упала (поиск или LLM были недоступны) — вернуть в «найдено» и проверить заново, как открытое */
+  retry(id: string): boolean {
+    if (this.state.get(id) === "done") this.state.set(id, "found");
+    return this.request(id);
+  }
+
   /** В фон: проверить после запросов пользователя и окна плеера, в порядке добавления */
   background(ids: string[]): void {
     const fresh = ids.filter((id) => this.state.get(id) === "found" && !this.queued.includes(id));

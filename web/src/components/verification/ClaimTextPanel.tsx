@@ -11,6 +11,7 @@ export interface ClaimTextPanelProps {
   isDimmed: (fc: FactCheck) => boolean;
   sourceText?: string;
   viewedClaimIds?: Set<string>;
+  pageUrl?: string;
 }
 
 /** Подсветка утверждения по позиции источников: фон + подчёркивание */
@@ -111,6 +112,7 @@ export function ClaimTextPanel({
   isDimmed,
   sourceText,
   viewedClaimIds,
+  pageUrl,
 }: ClaimTextPanelProps) {
   // Находим вхождения утверждений в исходном тексте
   const textHighlights = React.useMemo(() => {
@@ -279,9 +281,23 @@ export function ClaimTextPanel({
         ref={sectionRef}
         className="relative flex min-h-[280px] w-full flex-1 flex-col overflow-hidden rounded-[28px] bg-[#FBF8F7] p-6 sm:p-[30px] lg:min-h-0"
       >
-        <h2 className="shrink-0 text-lg font-black uppercase tracking-[-0.2px] text-[#4A3333] sm:text-[20px]">
-          Текст который спросили
-        </h2>
+        <div className="flex items-center justify-between gap-3 shrink-0">
+          <h2 className="text-lg font-black uppercase tracking-[-0.2px] text-[#4A3333] sm:text-[20px]">
+            Текст который спросили
+          </h2>
+          {pageUrl && (
+            <a
+              href={pageUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Открыть оригинал"
+              className="flex items-center gap-1.5 rounded-full bg-[#F1EBE9] px-3.5 py-1.5 text-xs font-extrabold text-[#4A3333] no-underline transition-all hover:bg-[#E8DFDC]"
+            >
+              <img src="/blob.png" alt="" className="h-4 w-4 shrink-0 rounded-full select-none" />
+              <span>Оригинал</span>
+            </a>
+          )}
+        </div>
 
         {/* запас p-1 под обводку выбранного утверждения;
             снизу — место под смайлик в углу: текст прокручивается выше и под него не заходит */}

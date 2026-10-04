@@ -1,7 +1,5 @@
 import React from "react";
 
-const C = "#00000059";
-
 // Пружинящий переход при реакции на тап (bounce) и мягкий при возврате в норму (smooth-out)
 const TRANS_REACT = "all 440ms cubic-bezier(0.34, 1.45, 0.64, 1)";
 const TRANS_RETURN = "all 480ms cubic-bezier(0.22, 1, 0.36, 1)";
@@ -395,7 +393,7 @@ export function TealFace({ isReacting, variant, hasText = false, talking = false
 /* =========================================================================
    3. Green Blob (190×190) - Прищуренный зелёный
    ========================================================================= */
-export function GreenFace({ isReacting, variant, hasText = false, isDead = false }: FaceProps) {
+export function GreenFace({ isReacting, variant, hasText: _hasText = false, isDead = false }: FaceProps) {
   
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 
@@ -501,7 +499,7 @@ export function GreenFace({ isReacting, variant, hasText = false, isDead = false
 /* =========================================================================
    4. Purple Blob (270×270) - Фиолетовый гигант
    ========================================================================= */
-export function PurpleFace({ isReacting, variant, hasText = false, isDead = false }: FaceProps) {
+export function PurpleFace({ isReacting, variant, hasText: _hasText = false, isDead = false }: FaceProps) {
   
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 

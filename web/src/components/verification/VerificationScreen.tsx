@@ -125,10 +125,15 @@ export function VerificationScreen({
     sendRef.current?.({ type: "playback", currentTime: videoTimeRef.current, playing: true, rate: 1 });
   }, [youtubeId, videoClaimId]);
 
-  // Открыли найденное, но не проверенное утверждение — проверить первым
+  // Открыли найденное, но не проверенное утверждение — проверить первым.
+  // Упавшее (поиск был недоступен) — перепроверить, но один раз за сессию: упадёт снова — не зацикливаемся
   const selectedStatus = factChecks.find((fc) => fc.id === selectedClaimId)?.status;
+  const retriedRef = useRef(new Set<string>());
   useEffect(() => {
-    if (selectedClaimId && selectedStatus === "found")
+    if (!selectedClaimId) return;
+    const retry = selectedStatus === "failed" && !retriedRef.current.has(selectedClaimId);
+    if (retry) retriedRef.current.add(selectedClaimId);
+    if (selectedStatus === "found" || retry)
       sendRef.current?.({ type: "claim.check", claimId: selectedClaimId });
   }, [selectedClaimId, selectedStatus]);
 
@@ -216,6 +221,7 @@ export function VerificationScreen({
               isDimmed={() => false}
               sourceText={sourceText ?? report.sourceText}
               viewedClaimIds={viewedClaimIds}
+              pageUrl={report.video?.pageUrl && !report.video.pageUrl.startsWith("text:") ? report.video.pageUrl : undefined}
             />
             <ConsensusBar
               factChecks={factChecks}

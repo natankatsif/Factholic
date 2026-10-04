@@ -110,7 +110,11 @@ export class ClaimChecker {
 
   /** Пользователь открыл утверждение (ClientMessage "claim.check" / POST …/check) */
   request(claimId: string): boolean {
-    const ok = this.scheduler.request(claimId);
+    // упавшее (например, кончился лимит поиска) — проверяем заново, иначе оно так и останется без источников
+    const ok =
+      this.results.get(claimId)?.status === "failed"
+        ? this.scheduler.retry(claimId)
+        : this.scheduler.request(claimId);
     this.p.ctx.log(`${claimId}: запрошена проверка${ok ? "" : " — не принята"}`);
     return ok;
   }
