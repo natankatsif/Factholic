@@ -32,6 +32,7 @@ import { checkRootDate } from "../stages/07-root-date/index.ts";
 import { assessStances } from "../stages/08-stances/index.ts";
 import { toFactCheck, type ProvenanceResult } from "../stages/09-report/index.ts";
 import type { StageContext } from "./context.ts";
+import { allow } from "./guard.ts";
 import { CheckScheduler } from "./scheduler.ts";
 
 /** Сколько утверждений после текущего в плеере проверять заранее */
@@ -47,6 +48,8 @@ export interface ClaimCheckerParams {
   emit: (event: ServerEvent) => void;
   signal: AbortSignal;
   ctx: StageContext;
+  /** IP того, кто начал задачу: проверки считаются в его лимит (pipeline/guard.ts) */
+  ownerIp?: string;
 }
 
 /** Что нужно сохранить, чтобы проверять по требованию и после перезапуска сервера */
@@ -164,6 +167,13 @@ export class ClaimChecker {
    */
   private async check(claim: Claim): Promise<void> {
     const { ctx, signal, request, video } = this.p;
+    // лимит на человека и дневной бюджет: не потратили — «не удалось» с причиной, по клику перепроверится
+    const denied = allow("check", this.p.ownerIp);
+    if (denied) {
+      ctx.log(`${claim.id}: не проверяем — ${denied}`);
+      this.update(toFactCheck({ kind: "failed", claim, error: denied }), "claim.checked");
+      return;
+    }
     this.update(toFactCheck({ kind: "pending", claim }), "claim.detected");
     let fc: FactCheck;
     try {

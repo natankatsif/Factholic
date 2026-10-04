@@ -1,6 +1,7 @@
 {
   "name": "news-factcheck",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -17,7 +18,7 @@
     "check": "node scripts/check.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

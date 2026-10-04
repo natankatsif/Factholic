@@ -1,0 +1,60 @@
+PROPRIETARY LICENSE — ALL RIGHTS RESERVED
+
+Copyright (c) 2026 the factholic team (the "Authors"). All rights reserved.
+
+This repository, including its source code, documentation, prompts, designs, images and any other
+materials in it (the "Software"), is the exclusive property of the Authors and is protected by
+copyright law and international treaties.
+
+1. No license is granted. Except as expressly stated in section 2, no right or license of any kind is
+   granted to you, whether by implication, estoppel or otherwise.
+
+2. Viewing only. The Software is published so that it can be read. You may view it, and GitHub users
+   may fork it on GitHub solely to the extent required by the GitHub Terms of Service. Such a fork
+   does not give you any right to use the Software.
+
+3. Without the prior written permission of the Authors you may NOT, in whole or in part:
+   a) copy, reproduce, modify, translate, adapt or create derivative works of the Software;
+   b) distribute, publish, sublicense, sell, rent, lend or otherwise make the Software available
+      to any third party;
+   c) run, deploy or host the Software, or any part of it, as a product or service, whether
+      commercial or not;
+   d) use the Software, its code, prompts or data to build a competing product or service;
+   e) use the Software to train, fine-tune or evaluate machine-learning models;
+   f) remove or alter this notice or any copyright notice in the Software.
+
+4. Third-party components. Dependencies and other third-party materials (for example, packages
+   installed into node_modules) remain under their own licenses. Nothing in this license restricts
+   rights you have under those licenses.
+
+5. Permissions. To request permission to use the Software, contact the Authors through the
+   repository owner on GitHub: https://github.com/natankatsif
+
+6. No warranty. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE
+   AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+Any use of the Software in violation of this license is an infringement of the Authors' copyright.
+
+---
+
+ЛИЦЕНЗИЯ — ВСЕ ПРАВА ЗАЩИЩЕНЫ (перевод для удобства; при расхождении действует английский текст выше)
+
+© 2026 команда factholic («Авторы»). Все права защищены.
+
+Код, документация, промпты, дизайн, изображения и другие материалы этого репозитория («Программа»)
+принадлежат Авторам и охраняются авторским правом.
+
+1. Никаких прав на Программу не предоставляется, кроме указанных в пункте 2.
+2. Программу можно только просматривать. Форк на GitHub возможен лишь в пределах, которых требуют
+   Условия использования GitHub, и права использовать Программу не даёт.
+3. Без письменного разрешения Авторов запрещено, полностью или частично: копировать, изменять,
+   переводить и создавать производные работы; распространять, публиковать, продавать или передавать
+   третьим лицам; запускать и размещать Программу как продукт или сервис, в том числе бесплатно;
+   использовать её для создания конкурирующего продукта; использовать для обучения или оценки моделей
+   машинного обучения; удалять или менять это уведомление.
+4. Сторонние библиотеки (например, пакеты в node_modules) остаются под своими лицензиями.
+5. За разрешением обращайтесь к владельцу репозитория на GitHub: https://github.com/natankatsif
+6. Программа предоставляется «как есть», без каких-либо гарантий; Авторы не отвечают за последствия
+   её использования.

@@ -37,6 +37,8 @@ export interface JobRecord {
   checker?: ClaimChecker;
   /** С диска: что нужно, чтобы восстановить checker после перезапуска */
   saved?: CheckerSnapshot;
+  /** IP того, кто начал задачу: её проверки считаются в его лимит (pipeline/guard.ts) */
+  ownerIp?: string;
 }
 
 const REPORTS_DIR = join(tmpdir(), "factcheck-reports");
@@ -56,19 +58,11 @@ export class JobStore {
    * Готовый отчёт без утверждений не переиспользуем: повтор стоит один вызов LLM, а случайный пустой ответ
    * (сбой извлечения, старый промпт) иначе навсегда превращает текст в «нет проверяемых фактов».
    */
-  create(id: JobId, request: StartAnalysisRequest): { job: JobRecord; cached: boolean } {
-    const videoKey = videoKeyOf(request);
-    const existing = this.get(this.byVideo.get(videoKey) ?? "");
-    const empty = existing?.report.status === "completed" && existing.report.factChecks.length === 0;
-    if (
-      existing &&
-      !empty &&
-      existing.report.status !== "failed" &&
-      existing.request.startFrom <= request.startFrom
-    ) {
-      return { job: existing, cached: existing.report.status === "completed" };
-    }
+  create(id: JobId, request: StartAnalysisRequest, ownerIp?: string): { job: JobRecord; cached: boolean } {
+    const existing = this.reusable(request);
+    if (existing) return { job: existing, cached: existing.report.status === "completed" };
 
+    const videoKey = videoKeyOf(request);
     const ref = request.video;
     const job: JobRecord = {
       id,
@@ -94,10 +88,23 @@ export class JobStore {
       subscribers: new Set(),
       abort: new AbortController(),
       started: false,
+      ownerIp,
     };
     this.jobs.set(id, job);
     this.byVideo.set(videoKey, id);
     return { job, cached: false };
+  }
+
+  /** Готовая или идущая задача по тому же материалу, которую можно отдать вместо новой (ничего не стоит) */
+  reusable(request: StartAnalysisRequest): JobRecord | undefined {
+    const existing = this.get(this.byVideo.get(videoKeyOf(request)) ?? "");
+    const empty = existing?.report.status === "completed" && existing.report.factChecks.length === 0;
+    return existing &&
+      !empty &&
+      existing.report.status !== "failed" &&
+      existing.request.startFrom <= request.startFrom
+      ? existing
+      : undefined;
   }
 
   get(id: JobId): JobRecord | undefined {

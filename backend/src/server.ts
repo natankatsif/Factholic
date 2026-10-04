@@ -20,6 +20,7 @@ import { chatConfigErrors, handleChat, type ChatRequestBody } from "./chat/index
 import { config, configErrors, describeConfig } from "./config.ts";
 import { ClaimChecker } from "./pipeline/checks.ts";
 import { PipelineError } from "./pipeline/context.ts";
+import { allow, clientIp } from "./pipeline/guard.ts";
 import { runPipeline } from "./pipeline/orchestrator.ts";
 import { JobStore, type JobRecord } from "./pipeline/store.ts";
 
@@ -51,13 +52,23 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST" && req.url === API_ROUTES.startJob) {
     let request: StartAnalysisRequest;
     try {
-      request = JSON.parse(await readBody(req)) as StartAnalysisRequest;
+      request = JSON.parse(await readBody(req, MAX_JOB_BODY)) as StartAnalysisRequest;
       if (!request?.video?.pageUrl) throw new Error("нет video.pageUrl");
     } catch (err) {
+      if (err instanceof BodyTooLarge) return sendJson(res, 413, { error: "Файл слишком большой" });
       return sendJson(res, 400, { error: `неверный запрос: ${(err as Error).message}` });
     }
+    if (request.text && request.text.length > config.limits.maxTextChars) {
+      return sendJson(res, 413, {
+        error: `Текст слишком длинный: до ${config.limits.maxTextChars.toLocaleString("ru-RU")} символов`,
+      });
+    }
+    // Готовое или идущее из кэша — бесплатно; новый материал — в лимит человека и дневной бюджет
+    const ip = clientIp(req);
+    const denied = REPLAY || store.reusable(request) ? null : allow("job", ip);
+    if (denied) return sendJson(res, 429, { error: denied, code: "RATE_LIMITED" });
     // Видео уже проверено или проверяется → вернётся существующая задача (cached: true — уже готово)
-    const { job, cached } = store.create(randomUUID(), request);
+    const { job, cached } = store.create(randomUUID(), request, ip);
     const body: StartAnalysisResponse = { jobId: job.id, eventsUrl: eventsUrlFor(req, job.id), cached };
     return sendJson(res, 200, body);
   }
@@ -71,11 +82,15 @@ const server = createServer(async (req, res) => {
     if (!report) return sendJson(res, 404, { error: "задача не найдена" });
     let body: ChatRequestBody;
     try {
-      body = JSON.parse(await readBody(req)) as ChatRequestBody;
+      body = JSON.parse(await readBody(req, MAX_CHAT_BODY)) as ChatRequestBody;
       if (!Array.isArray(body?.messages) || !body.messages.length) throw new Error("нет messages");
     } catch (err) {
+      if (err instanceof BodyTooLarge)
+        return sendJson(res, 413, { error: "Слишком длинный разговор — начни новый чат" });
       return sendJson(res, 400, { error: `неверный запрос: ${(err as Error).message}` });
     }
+    const denied = allow("chat", clientIp(req));
+    if (denied) return sendJson(res, 429, { error: denied, code: "RATE_LIMITED" });
     return handleChat(req, res, report, body).catch((err: unknown) => {
       console.error(`[${report.jobId}] chat: упал`, err);
       if (!res.headersSent) sendJson(res, 500, { error: "не удалось ответить" });
@@ -172,6 +187,7 @@ function handleJobSocket(ws: WebSocket, job: JobRecord) {
     emit,
     signal: job.abort.signal,
     onChecker: (checker) => (job.checker = checker),
+    ownerIp: job.ownerIp,
   }).catch((err) => {
     if (job.abort.signal.aborted) return; // отменили сами — это не ошибка
     // В лог — всё, включая техническую причину (cause); фронту — код и понятный текст
@@ -202,6 +218,7 @@ function ensureChecker(job: JobRecord): ClaimChecker | undefined {
     emit: (e) => store.emit(job, e),
     signal: job.abort.signal,
     ctx,
+    ownerIp: job.ownerIp,
   });
   checker.restore(job.saved, job.report.factChecks);
   job.checker = checker;
@@ -230,10 +247,22 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
-function readBody(req: IncomingMessage): Promise<string> {
+/** Заявка с картинкой (data URL) — до 8 МБ; чат — вся переписка, до 300 КБ */
+const MAX_JOB_BODY = 8 * 1024 * 1024;
+const MAX_CHAT_BODY = 300 * 1024;
+
+class BodyTooLarge extends Error {}
+
+function readBody(req: IncomingMessage, maxBytes: number): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = "";
-    req.on("data", (c) => (data += c));
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      // остаток дочитываем вхолостую: ответ 413 должен дойти до клиента
+      if (size > maxBytes) return reject(new BodyTooLarge());
+      data += c;
+    });
     req.on("end", () => resolve(data));
     req.on("error", reject);
   });

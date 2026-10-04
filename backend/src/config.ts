@@ -67,6 +67,24 @@ export const config = {
     /** Сколько запросов к поиску (Tavily) одновременно — на весь сервер */
     // замер (5 тезисов статьи): 6 → 40 с, 15 → 25 с, 30 → 16 с, ожидание слота 0, ошибок нет
     searchParallel: positiveInt("SEARCH_MAX_PARALLEL", 30),
+    /** Сколько первых 30-секундных кусков материала разбирать (LLM на каждый): 60 — первые 30 минут */
+    maxChunksPerJob: positiveInt("MAX_CHUNKS_PER_JOB", 60),
+    /** Максимальная длина вставленного текста, символов */
+    maxTextChars: positiveInt("MAX_TEXT_CHARS", 20_000),
+  },
+  /**
+   * Защита от спама и перерасхода (pipeline/guard.ts). Готовое из кэша не считается.
+   * Запросы прямо с этого компьютера (localhost без прокси) лимиты на человека не трогают.
+   */
+  abuse: {
+    /** На одного человека (IP) в час: новых материалов, проверок утверждений, вопросов в чат */
+    jobsPerIpPerHour: positiveInt("JOBS_PER_IP_PER_HOUR", 10),
+    checksPerIpPerHour: positiveInt("CHECKS_PER_IP_PER_HOUR", 60),
+    chatPerIpPerHour: positiveInt("CHAT_PER_IP_PER_HOUR", 30),
+    /** На весь сервер в сутки (UTC) — потолок расходов, сколько бы людей ни пришло */
+    dailyJobs: positiveInt("DAILY_JOBS_LIMIT", 300),
+    dailyChecks: positiveInt("DAILY_CHECKS_LIMIT", 600),
+    dailyChat: positiveInt("DAILY_CHAT_LIMIT", 500),
   },
   /** Настройки провайдеров для real-реализаций. Пустая строка = не задано. */
   providers: {

@@ -36,9 +36,19 @@ export interface RunPipelineParams {
   liveAudio?: AsyncIterable<LiveAudioChunk>;
   /** Очередь проверок создана — сервер передаёт в неё позицию плеера и запросы пользователя */
   onChecker?: (checker: ClaimChecker) => void;
+  /** IP того, кто начал задачу: проверки считаются в его лимит (pipeline/guard.ts) */
+  ownerIp?: string;
 }
 
-export async function runPipeline({ jobId, request, emit, signal, liveAudio, onChecker }: RunPipelineParams) {
+export async function runPipeline({
+  jobId,
+  request,
+  emit,
+  signal,
+  liveAudio,
+  onChecker,
+  ownerIp,
+}: RunPipelineParams) {
   const ctx: StageContext = {
     jobId,
     signal,
@@ -48,7 +58,7 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio, onC
   const { video, chunks } = await ingest({ jobId, request, liveAudio, chunkSec: 30 }, ctx);
   emit({ type: "job.started", jobId, video });
 
-  const checker = new ClaimChecker({ jobId, request, video, emit, signal, ctx });
+  const checker = new ClaimChecker({ jobId, request, video, emit, signal, ctx, ownerIp });
   onChecker?.(checker);
   // у видео есть плеер: пока клиент не прислал позицию, проверяем начало (откуда смотрят)
   const hasPlayer = !request.text && !request.imageDataUrl && video.durationSec > 0;
@@ -111,6 +121,11 @@ export async function runPipeline({ jobId, request, emit, signal, liveAudio, onC
   for await (const chunk of chunks) {
     if (signal.aborted) return;
     if (failure) throw failure;
+    // каждый кусок — запрос к LLM: многочасовое видео разбираем только на первые MAX_CHUNKS_PER_JOB кусков
+    if (chunkEnds.length >= config.limits.maxChunksPerJob) {
+      ctx.log(`материал длинный: разбираем только первые ${config.limits.maxChunksPerJob} кусков`);
+      break;
+    }
 
     const transcript = await transcribe({ chunk, languageHint: request.languageHint }, ctx);
     transcribedUntil = Math.max(transcribedUntil, chunk.range.end);
