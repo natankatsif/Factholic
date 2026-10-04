@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { History } from "lucide-react";
 import { HistoryDrawer } from "../history/HistoryDrawer";
+import { setHistoryOpen } from "../../lib/history-ui";
 
 export interface VerificationHeaderProps {
   onGoHome?: () => void;
@@ -18,6 +19,11 @@ export interface VerificationHeaderProps {
  */
 export function VerificationHeader({ onGoHome, currentJobId }: VerificationHeaderProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  // чудик в углу текста улетает к панели истории, пока она открыта
+  useEffect(() => {
+    setHistoryOpen(isHistoryOpen);
+    return () => setHistoryOpen(false);
+  }, [isHistoryOpen]);
 
   return (
     <>

@@ -38,9 +38,13 @@ export interface TreeViewProps {
 
 // ---------- раскладка холста ----------
 const CARD_W = 180;
+/** Уже карточку не сжимаем: дальше — горизонтальная прокрутка */
+const MIN_CARD_W = 150;
 /** Минимальное и максимальное расстояние между колонками; фактическое растягивает холст на всю ширину */
 const MIN_COL_GAP = 78;
 const MAX_COL_GAP = 260;
+/** До какого расстояния сжимаем колонки, когда карточки уже узкие (подписи связей ещё читаются) */
+const TIGHT_COL_GAP = 52;
 const ROW_H = 287;
 /** Минимальная высота карточки: до неё доходит вертикальный отрезок связи «вниз» */
 const CARD_MIN_H = 215;
@@ -49,7 +53,27 @@ const TOP_PAD = 18;
 /** На какой высоте карточки цепляются горизонтальные связи (уровень аватарки) */
 const ANCHOR_Y = 32;
 
-const colX = (col: number, gap: number) => col * (CARD_W + gap);
+/** Геометрия колонок: ширина карточки и расстояние между ними подбираются под ширину области */
+interface Geo {
+  gap: number;
+  cardW: number;
+}
+
+const colX = (col: number, { gap, cardW }: Geo) => col * (cardW + gap);
+
+/**
+ * Не влезает — сначала сужаем карточки (до MIN_CARD_W), потом расстояния (до TIGHT_COL_GAP);
+ * влезает с запасом — растягиваем расстояния до MAX_COL_GAP.
+ */
+function fitGeo(cols: number, areaWidth: number): Geo {
+  if (cols <= 1 || areaWidth <= 0) return { gap: MIN_COL_GAP, cardW: CARD_W };
+  const free = (areaWidth - cols * CARD_W) / (cols - 1);
+  if (free >= MIN_COL_GAP) return { gap: Math.round(Math.min(MAX_COL_GAP, free)), cardW: CARD_W };
+  const cardW = Math.floor((areaWidth - (cols - 1) * MIN_COL_GAP) / cols);
+  if (cardW >= MIN_CARD_W) return { gap: MIN_COL_GAP, cardW };
+  const gap = Math.floor((areaWidth - cols * MIN_CARD_W) / (cols - 1));
+  return { gap: Math.max(TIGHT_COL_GAP, gap), cardW: MIN_CARD_W };
+}
 
 /** «Ещё N публикаций»: старые карточки уезжают на новые места, новые быстро втекают слева по одной */
 const MOVE_MS = 320;
@@ -95,6 +119,12 @@ export function TreeView({ factCheck, material, onBack }: TreeViewProps) {
     ro.observe(el);
     return () => ro.disconnect();
   }, [tree]);
+  // холст всё равно шире области — затухание справа подсказывает, что дальше есть карточки
+  const [moreRight, setMoreRight] = useState(false);
+  const updateMoreRight = () => {
+    const el = areaRef.current;
+    if (el) setMoreRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
   // раскрыли скрытые публикации — новые появились слева, возвращаем холст к началу
   useLayoutEffect(() => {
     if (!showAll) return;
@@ -102,9 +132,9 @@ export function TreeView({ factCheck, material, onBack }: TreeViewProps) {
   }, [showAll]);
   const fitted = useMemo(() => {
     if (!layout) return null;
-    const free = layout.cols > 1 ? (areaWidth - layout.cols * CARD_W) / (layout.cols - 1) : MIN_COL_GAP;
-    return { ...layout, gap: Math.round(Math.min(MAX_COL_GAP, Math.max(MIN_COL_GAP, free))) };
+    return { ...layout, ...fitGeo(layout.cols, areaWidth) };
   }, [layout, areaWidth]);
+  useLayoutEffect(updateMoreRight, [fitted, areaWidth]);
 
   return (
     // На десктопе — ровно в высоту экрана: прокручиваются только холст и панель, а не страница
@@ -152,7 +182,19 @@ export function TreeView({ factCheck, material, onBack }: TreeViewProps) {
             </div>
 
             {/* холст и таймлайн в одной прокрутке — даты стоят под своими карточками */}
-            <div ref={areaRef} className="flex flex-col gap-4 overflow-auto pb-2 lg:min-h-0 lg:flex-1">
+            <div
+              ref={areaRef}
+              onScroll={updateMoreRight}
+              className="flex flex-col gap-4 overflow-auto pb-2 lg:min-h-0 lg:flex-1"
+              style={
+                moreRight
+                  ? {
+                      maskImage: "linear-gradient(to right, #000 calc(100% - 56px), transparent)",
+                      WebkitMaskImage: "linear-gradient(to right, #000 calc(100% - 56px), transparent)",
+                    }
+                  : undefined
+              }
+            >
               <Canvas layout={fitted} selectedEdgeId={selectedEdgeId} onSelectEdge={setSelectedEdgeId} />
               <Timeline layout={fitted} tree={tree} />
             </div>
@@ -201,9 +243,8 @@ function KeyFinding({ finding }: { finding: NonNullable<FactCheck["keyFinding"]>
 // ---------------------------------------------------------------------------
 // Раскладка
 
-interface Layout {
-  /** Расстояние между колонками, px — подбирается под ширину области (см. TreeView) */
-  gap: number;
+/** Расстояние между колонками и ширина карточки подбираются под ширину области (см. fitGeo) */
+interface Layout extends Geo {
   nodes: Array<ProvenanceNode & { col: number; rowIdx: number }>;
   edges: ProvenanceEdge[];
   cols: number;
@@ -237,6 +278,7 @@ function buildLayout(tree: ProvenanceTree, showAll: boolean): Layout {
     nodes,
     edges: tree.edges.filter((e) => ids.has(e.fromNodeId) && ids.has(e.toNodeId)),
     gap: MIN_COL_GAP,
+    cardW: CARD_W,
     cols: Math.max(cols.length, loose.length),
     rows: chainRows + (loose.length ? 1 : 0),
     hiddenCount: tree.nodes.length - shown.length - loose.length,
@@ -256,7 +298,7 @@ function Canvas({
   selectedEdgeId: string | null;
   onSelectEdge: (id: string) => void;
 }) {
-  const width = colX(layout.cols - 1, layout.gap) + CARD_W;
+  const width = colX(layout.cols - 1, layout) + layout.cardW;
   // Карточки разной высоты (теги, длинные цитаты) — высоту холста меряем по самой нижней
   const boxRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(rowY(layout.rows - 1) + CARD_MIN_H);
@@ -333,7 +375,7 @@ function Canvas({
                 edge={e}
                 from={from}
                 to={to}
-                gap={layout.gap}
+                geo={layout}
                 selected={e.id === selectedEdgeId}
                 onSelect={() => onSelectEdge(e.id)}
               />
@@ -345,7 +387,7 @@ function Canvas({
           <NodeCard
             key={n.id}
             node={n}
-            gap={layout.gap}
+            geo={layout}
             distorted={distortedTargets.has(n.id) || n.role === "distortion"}
           />
         ))}
@@ -371,12 +413,12 @@ function EdgePath({
   edge,
   from,
   to,
-  gap,
+  geo,
   selected,
   onSelect,
 }: {
   edge: ProvenanceEdge;
-  gap: number;
+  geo: Geo;
   from: Layout["nodes"][number];
   to: Layout["nodes"][number];
   selected: boolean;
@@ -400,18 +442,18 @@ function EdgePath({
   const down = to.rowIdx > from.rowIdx;
   if (down) {
     // вниз и вправо: из середины карточки-источника, вертикаль прячется под карточкой
-    const x1 = colX(from.col, gap) + CARD_W / 2;
+    const x1 = colX(from.col, geo) + geo.cardW / 2;
     const y1 = rowY(from.rowIdx) + CARD_MIN_H;
     const y2 = rowY(to.rowIdx) + ANCHOR_Y;
-    const x2 = colX(to.col, gap) - 4;
+    const x2 = colX(to.col, geo) - 4;
     d = `M${x1} ${y1} L${x1} ${y2 - 10} Q${x1} ${y2} ${x1 + 10} ${y2} L${x2} ${y2}`;
     labelX = x1 + 14;
     labelY = y2 - 26;
     mid = [(x1 + x2) / 2, y2];
   } else {
     const leftToRight = to.col > from.col;
-    const x1 = colX(from.col, gap) + (leftToRight ? CARD_W + 4 : 0);
-    const x2 = colX(to.col, gap) + (leftToRight ? -4 : CARD_W);
+    const x1 = colX(from.col, geo) + (leftToRight ? geo.cardW + 4 : 0);
+    const x2 = colX(to.col, geo) + (leftToRight ? -4 : geo.cardW);
     const y1 = rowY(from.rowIdx) + ANCHOR_Y;
     const y2 = rowY(to.rowIdx) + ANCHOR_Y;
     d = `M${x1} ${y1} L${x2} ${y2}`;
@@ -477,15 +519,7 @@ function cleanTag(tag: string): string {
   return tag.replace(/^[^\p{L}\p{N}«"−-]+\s*/u, "");
 }
 
-function NodeCard({
-  node,
-  distorted,
-  gap,
-}: {
-  node: Layout["nodes"][number];
-  distorted: boolean;
-  gap: number;
-}) {
+function NodeCard({ node, distorted, geo }: { node: Layout["nodes"][number]; distorted: boolean; geo: Geo }) {
   const primary = node.isPrimary || node.role === "primary";
   const isMedia = node.category === "media";
   const href = node.action?.url ?? node.url;
@@ -500,9 +534,9 @@ function NodeCard({
       data-node-card={node.id}
       className={`absolute flex flex-col rounded-[22px] bg-[#FBF8F7] p-4 ${border}`}
       style={{
-        left: colX(node.col, gap),
+        left: colX(node.col, geo),
         top: rowY(node.rowIdx),
-        width: CARD_W,
+        width: geo.cardW,
         minHeight: CARD_MIN_H,
         transition: `left ${MOVE_MS}ms ${EASE}, top ${MOVE_MS}ms ${EASE}`,
       }}
@@ -586,13 +620,24 @@ function Timeline({ layout, tree }: { layout: Layout; tree: ProvenanceTree }) {
     return {
       col,
       node,
-      x: colX(col, layout.gap) + CARD_W / 2,
+      x: colX(col, layout) + layout.cardW / 2,
       distorted: inCol.some((n) => n.role !== "primary" && n.tags?.length),
     };
   });
-  const width = colX(layout.cols - 1, layout.gap) + CARD_W;
+  const width = colX(layout.cols - 1, layout) + layout.cardW;
 
   // разрыв между соседними точками: из бэкенда (если его узлы видны), иначе — по датам (от полугода)
+  // есть ли связь (ребро дерева) между публикациями двух соседних точек таймлайна
+  const linkedBetween = (i: number): boolean => {
+    const a = layout.nodes.filter((n) => n.col === points[i].col).map((n) => n.id);
+    const b = layout.nodes.filter((n) => n.col === points[i + 1].col).map((n) => n.id);
+    return layout.edges.some(
+      (e) =>
+        (a.includes(e.fromNodeId) && b.includes(e.toNodeId)) ||
+        (b.includes(e.fromNodeId) && a.includes(e.toNodeId)),
+    );
+  };
+
   const gapBetween = (i: number): string | null => {
     const a = layout.nodes.filter((n) => n.col === points[i].col).map((n) => n.id);
     const b = layout.nodes.filter((n) => n.col === points[i + 1].col).map((n) => n.id);
@@ -615,18 +660,26 @@ function Timeline({ layout, tree }: { layout: Layout; tree: ProvenanceTree }) {
       <div className="relative h-[58px]" style={{ width }}>
         <div className="absolute left-0 right-0 top-[10px] h-[2px] bg-[#E3D9D6]" />
         {points.slice(0, -1).map((p, i) => {
-          const label = gapBetween(i);
-          if (!label) return null;
+          const gapLabel = gapBetween(i);
+          if (!gapLabel) return null;
           const next = points[i + 1];
+          // «N лет тишины» — только между связанными публикациями; без связи это просто разница дат
+          const linked = linkedBetween(i);
+          const label = linked ? gapLabel : `${gapLabel.replace(/\s*тишины$/, "")} · связи нет`;
+          const color = linked ? "#6E1EF0" : "#A27C7A";
           return (
             <React.Fragment key={`gap-${i}`}>
               <div
-                className="absolute top-[9px] h-[4px] rounded-full bg-[#6E1EF0]"
-                style={{ left: p.x, width: next.x - p.x }}
+                className={`absolute top-[9px] ${linked ? "h-[4px] rounded-full" : "h-0 border-t-2 border-dashed"}`}
+                style={{
+                  left: p.x,
+                  width: next.x - p.x,
+                  ...(linked ? { backgroundColor: color } : { borderColor: color }),
+                }}
               />
               <span
-                className="absolute top-[-2px] flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-[#6E1EF0] px-2.5 py-1 text-[11px] font-extrabold text-white"
-                style={{ left: (p.x + next.x) / 2 }}
+                className="absolute top-[-2px] flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-extrabold text-white"
+                style={{ left: (p.x + next.x) / 2, backgroundColor: color }}
               >
                 <Hourglass className="h-3 w-3" />
                 {label}

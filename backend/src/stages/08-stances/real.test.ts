@@ -180,6 +180,7 @@ describe("assessStancesReal: правила без LLM", () => {
       status: "few_sources",
       groupsFor: 0,
       groupsAgainst: 0,
+      groupsMixed: 0,
       ...fixedTexts("no_sources", "ru"),
     });
     assert.deepEqual(out.sourceAssessments, []);
@@ -255,6 +256,7 @@ describe("assessStancesReal: разбор ответа", () => {
       status: "agree",
       groupsFor: 4,
       groupsAgainst: 0,
+      groupsMixed: 0,
       summary: "Источники сходятся.",
       explanation: "ООН и Reuters.",
     });
@@ -292,6 +294,7 @@ describe("assessStancesReal: разбор ответа", () => {
       status: "few_sources",
       groupsFor: 0,
       groupsAgainst: 0,
+      groupsMixed: 0,
       ...fixedTexts("few_sources", "ru"),
     });
     assert.equal(out.model, "gpt-6.1-sol");
@@ -351,7 +354,7 @@ describe("assessStancesReal: одна группа — один голос", () 
   it("позиция группы — по сумме: supports + refutes внутри группы делят вес пополам", async () => {
     // группа g: 0, вес 0.8 → по 0.4; независимый «за» 0.8 → доля «за» 1.2 / 1.6 = 0.75
     const c = await consensusOf([s({ group: "g" }), r({ group: "g" }), s()]);
-    assert.deepEqual([c.status, c.groupsFor, c.groupsAgainst], ["agree", 1, 0]);
+    assert.deepEqual([c.status, c.groupsFor, c.groupsAgainst, c.groupsMixed], ["agree", 1, 0, 1]);
     // группа g: +1 → «за» целиком; против неё один независимый «против»
     const c2 = await consensusOf([s({ group: "g" }), s({ group: "g" }), r({ group: "g" }), r()]);
     assert.deepEqual([c2.status, c2.groupsFor, c2.groupsAgainst], ["split", 1, 1]);
@@ -379,9 +382,9 @@ describe("assessStancesReal: статус по доле веса «за»", () =
     assert.equal(await statusOf([s({ reliability: 0.31 }), r({ reliability: 0.69 })]), "split");
   });
 
-  it("mixed — половина веса «за», половина «против»; в groupsFor / groupsAgainst не считается", async () => {
+  it("mixed — половина веса «за», половина «против»; считается в groupsMixed", async () => {
     const c = await consensusOf([m(), m()]);
-    assert.deepEqual([c.status, c.groupsFor, c.groupsAgainst], ["split", 0, 0]);
+    assert.deepEqual([c.status, c.groupsFor, c.groupsAgainst, c.groupsMixed], ["split", 0, 0, 2]);
     // 0.8 + 0.4 из 1.6 = 0.75
     assert.equal(await statusOf([s(), m()]), "agree");
     assert.equal(await statusOf([r(), m()]), "mostly_against");

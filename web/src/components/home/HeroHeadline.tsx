@@ -1,12 +1,43 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { listJobs } from "../../lib/jobs";
 
 export interface HeroHeadlineProps {
-  /** TODO(frontend): брать из бэкенда, пока число из макета */
   todayVerifiedCount?: string;
   verifiedUnit?: string;
 }
 
-export function HeroHeadline({ todayVerifiedCount = "9 412", verifiedUnit = "тезисов" }: HeroHeadlineProps) {
+export function HeroHeadline({ todayVerifiedCount, verifiedUnit = "тезисов" }: HeroHeadlineProps) {
+  const [count, setCount] = useState<string>(todayVerifiedCount ?? "50+");
+
+  useEffect(() => {
+    if (todayVerifiedCount) {
+      setCount(todayVerifiedCount);
+      return;
+    }
+    try {
+      const jobs = listJobs();
+      const today = new Date().toDateString();
+      const todayJobs = jobs.filter((j) => {
+        const d = new Date(j.createdAt);
+        return !isNaN(d.getTime()) && d.toDateString() === today;
+      });
+      const claimsToday = todayJobs.reduce((sum, j) => {
+        const checked = j.report?.factChecks?.filter((fc) => fc.status !== "checking").length ?? 0;
+        return sum + (checked > 0 ? checked : (j.report?.factChecks?.length ?? 0));
+      }, 0);
+
+      if (claimsToday > 50) {
+        setCount(`${claimsToday}+`);
+      } else {
+        setCount("50+");
+      }
+    } catch {
+      setCount("50+");
+    }
+  }, [todayVerifiedCount]);
+
   return (
     <div
       data-pencil-name="Headline Row"
@@ -30,7 +61,7 @@ export function HeroHeadline({ todayVerifiedCount = "9 412", verifiedUnit = "т�
           data-pencil-name="Subtitle"
           className="text-sm font-extrabold leading-normal text-[#A27C7A] [text-wrap:balance] sm:text-base md:text-xl xl:text-[23px]"
         >
-          Вставь тезис, новость или видео — разберём аргументы и найдём первоисточники
+          Вставь тезис, новость или видео - разберём аргументы и найдём первоисточники
         </p>
       </div>
 
@@ -42,7 +73,7 @@ export function HeroHeadline({ todayVerifiedCount = "9 412", verifiedUnit = "т�
           Сегодня проверено
         </div>
         <div className="whitespace-nowrap text-2xl font-black leading-tight tracking-[-1px] text-[#4A3333] sm:text-3xl md:text-4xl xl:text-[50px]">
-          {todayVerifiedCount}
+          {count}
         </div>
         <div className="whitespace-nowrap text-xs font-extrabold leading-normal text-[#A27C7A] sm:text-sm md:text-base xl:text-[18px]">
           {verifiedUnit}
@@ -51,3 +82,4 @@ export function HeroHeadline({ todayVerifiedCount = "9 412", verifiedUnit = "т�
     </div>
   );
 }
+

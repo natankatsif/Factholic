@@ -157,6 +157,15 @@ describe("diffNumbers", () => {
     assert.deepEqual(diffNumbers([], [], "ru"), []);
   });
 
+  it("годы в числах — не числа (время сравнивает diffTime)", () => {
+    assert.deepEqual(
+      diffNumbers([num("2014", "год начала конфликта")], [num("2022", "начало войны")], "ru"),
+      [],
+    );
+    assert.deepEqual(diffNumbers([num("2014 год", "")], [num("2022 г.", "")], "ru"), []);
+    assert.equal(diffNumbers([num("2000", "человек")], [num("5000", "человек")], "ru").length, 1);
+  });
+
   it("выросло → inflated, уменьшилось → deflated; before / after — значение и что оно считает", () => {
     assert.deepEqual(diffNumbers([num("до 10 см", "высота снега")], [num("30 см", "высота снега")], "ru"), [
       {
@@ -267,13 +276,27 @@ describe("diffPlaces: множества без регистра", () => {
     assert.equal(diffPlaces(["Кишинёв"], ["столица Молдовы"], "ru").length, 1);
   });
 
-  it("место появилось / пропало → «—»", () => {
-    assert.deepEqual(diffPlaces([], ["Кишинёв"], "ru"), [
-      { field: "place", before: "—", after: "Кишинёв", direction: "changed" },
+  it("потомок оставил часть мест родителя → кандидатов нет", () => {
+    assert.deepEqual(diffPlaces(["Украина", "Молдова"], ["Молдова"], "ru"), []);
+  });
+
+  it("к местам родителя добавилось место → added (подробность, не искажение)", () => {
+    assert.deepEqual(diffPlaces(["Молдова"], ["Украина", "Молдова"], "ru"), [
+      { field: "place", before: "Молдова", after: "Украина, Молдова", direction: "added" },
     ]);
-    assert.deepEqual(diffPlaces(["Кишинёв"], [], "ru"), [
-      { field: "place", before: "Кишинёв", after: "—", direction: "changed" },
+  });
+
+  it("место родителя заменено другим → changed", () => {
+    assert.deepEqual(diffPlaces(["Молдова"], ["Украина"], "ru"), [
+      { field: "place", before: "Молдова", after: "Украина", direction: "changed" },
     ]);
+  });
+
+  it("место появилось → added с «—»; пропало → не кандидат (просто не упомянуто)", () => {
+    assert.deepEqual(diffPlaces([], ["Москва", "Советский Союз"], "ru"), [
+      { field: "place", before: "—", after: "Москва, Советский Союз", direction: "added" },
+    ]);
+    assert.deepEqual(diffPlaces(["Кишинёв"], [], "ru"), []);
   });
 });
 
@@ -319,6 +342,15 @@ describe("diffTime: относительное время с датой от э�
 
   it("явная дата и «вчера» в те же сутки → кандидатов нет", () => {
     assert.deepEqual(time(side(date("2026-10-01", "1 октября")), side(rel("вчера", "2026-10-01"))), []);
+  });
+
+  it("время словами, которых код не знает: допуск 7 дней («в четверг» → «третий день подряд» в субботу)", () => {
+    assert.deepEqual(
+      time(side(rel("в четверг", "2026-10-01")), side(rel("уже третий день подряд", "2026-10-03"))),
+      [],
+    );
+    assert.deepEqual(time(side(date("2026-10-01")), side(rel("уже третий день подряд", "2026-10-03"))), []);
+    assert.equal(time(side(date("2026-09-20")), side(rel("уже третий день подряд", "2026-10-03"))).length, 1);
   });
 
   it("относительное время с датой до месяца — без дня в подписи", () => {
@@ -436,6 +468,20 @@ describe("diffTime: дат публикации не хватает", () => {
     );
   });
 
+  it("у родителя дата за несколько дней до публикации потомка, у потомка время без даты → кандидатов нет", () => {
+    assert.deepEqual(
+      time(
+        side(date("2026-10-01", "в четверг")),
+        side(rel("третий день подряд"), at("2026-10-03T10:00:00Z")),
+      ),
+      [],
+    );
+    assert.equal(
+      time(side(date("2021-01-14")), side(rel("третий день подряд"), at("2026-10-03T10:00:00Z"))).length,
+      1,
+    );
+  });
+
   it("относительное без дат, пропавшее или появившееся без дат время → кандидатов нет", () => {
     assert.deepEqual(time(side(rel("сегодня")), side(rel("вчера"))), []);
     assert.deepEqual(time(side(rel("сегодня")), side()), []);
@@ -447,7 +493,7 @@ describe("diffTime: дат публикации не хватает", () => {
 
 // ---------- уверенность и атрибуция ----------
 
-describe("diffCertainty: hedged < reported < asserted", () => {
+describe("diffCertainty: hedged < reported = asserted", () => {
   it("рост — inflated, падение — deflated, без изменений — пусто", () => {
     assert.deepEqual(diffCertainty("hedged", "asserted", "ru"), [
       { field: "certainty", before: "предположительно", after: "как факт", direction: "inflated" },
@@ -458,12 +504,10 @@ describe("diffCertainty: hedged < reported < asserted", () => {
     assert.deepEqual(diffCertainty("hedged", "hedged", "ru"), []);
   });
 
-  it("«по данным мэрии» → как факт — inflated; «возможно» → «по данным» — inflated; обратно — deflated", () => {
-    assert.deepEqual(diffCertainty("reported", "asserted", "ru"), [
-      { field: "certainty", before: "со ссылкой на источник", after: "как факт", direction: "inflated" },
-    ]);
+  it("«по данным мэрии» ↔ как факт — не кандидат; «возможно» → «по данным» — inflated; обратно — deflated", () => {
+    assert.deepEqual(diffCertainty("reported", "asserted", "ru"), []);
+    assert.deepEqual(diffCertainty("asserted", "reported", "ru"), []);
     assert.equal(diffCertainty("hedged", "reported", "ru")[0].direction, "inflated");
-    assert.equal(diffCertainty("asserted", "reported", "ru")[0].direction, "deflated");
     assert.deepEqual(diffCertainty("reported", "hedged", "en"), [
       { field: "certainty", before: "citing a source", after: "possibly", direction: "deflated" },
     ]);
@@ -475,55 +519,53 @@ describe("diffAttribution", () => {
     side({ attributedTo }, meta);
 
   it("то же самое без регистра и знаков → пусто", () => {
-    assert.deepEqual(diffAttribution(attr(null), attr(null), "ru"), []);
-    assert.deepEqual(diffAttribution(attr("ВОЗ"), attr(" воз "), "ru"), []);
-    assert.deepEqual(diffAttribution(attr("Reuters"), attr("REUTERS."), "ru"), []);
-    assert.deepEqual(diffAttribution(attr(" "), attr(null), "ru"), []);
+    assert.deepEqual(diffAttribution(attr(null), attr(null)), []);
+    assert.deepEqual(diffAttribution(attr("ВОЗ"), attr(" воз ")), []);
+    assert.deepEqual(diffAttribution(attr("Reuters"), attr("REUTERS.")), []);
+    assert.deepEqual(diffAttribution(attr(" "), attr(null)), []);
   });
 
-  it("ссылку добавили → added, убрали → removed, заменили → changed", () => {
-    assert.deepEqual(diffAttribution(attr(null), attr("ВОЗ"), "ru"), [
-      { field: "attribution", before: "без ссылки на источник", after: "ВОЗ", direction: "added" },
-    ]);
-    assert.deepEqual(diffAttribution(attr("ВОЗ"), attr(null), "en"), [
-      { field: "attribution", before: "ВОЗ", after: "no attribution", direction: "removed" },
-    ]);
-    assert.deepEqual(diffAttribution(attr("ВОЗ"), attr("Минздрав"), "ru"), [
+  it("ссылку добавили или убрали → пусто (по фрагменту не понять), заменили → changed", () => {
+    assert.deepEqual(diffAttribution(attr(null), attr("ВОЗ")), []);
+    assert.deepEqual(diffAttribution(attr("мэр Виталий Кличко"), attr(null)), []);
+    assert.deepEqual(diffAttribution(attr("ВОЗ"), attr("Минздрав")), [
       { field: "attribution", before: "ВОЗ", after: "Минздрав", direction: "changed" },
     ]);
   });
 
+  it("то же имя короче или длиннее → пусто, другой человек или ведомство → changed", () => {
+    assert.deepEqual(diffAttribution(attr("мэр Киева Виталий Кличко"), attr("Кличко")), []);
+    assert.deepEqual(diffAttribution(attr("Кличко"), attr("мэр Виталий Кличко")), []);
+    assert.equal(diffAttribution(attr("мэрия Кишинёва"), attr("мэрия Бельц")).length, 1);
+    assert.equal(diffAttribution(attr("мэр Виталий Кличко"), attr("Петр Пантелеев")).length, 1);
+  });
+
   it("потомок ссылается на самого родителя (издатель, аббревиатура, домен) → пусто", () => {
     const dw = { publisher: "Deutsche Welle", domain: "dw.com" };
-    assert.deepEqual(diffAttribution(attr("Reuters", dw), attr("DW"), "ru"), []);
-    assert.deepEqual(diffAttribution(attr(null, dw), attr("Deutsche Welle"), "ru"), []);
+    assert.deepEqual(diffAttribution(attr("Reuters", dw), attr("DW")), []);
+    assert.deepEqual(diffAttribution(attr("ВОЗ", dw), attr("Deutsche Welle")), []);
     assert.deepEqual(
-      diffAttribution(
-        attr(null, { publisher: "Reuters", domain: "www.reuters.com" }),
-        attr("Reuters UK"),
-        "ru",
-      ),
+      diffAttribution(attr("ВОЗ", { publisher: "Reuters", domain: "www.reuters.com" }), attr("Reuters UK")),
       [],
     );
     assert.deepEqual(
       diffAttribution(
-        attr(null, { publisher: "Управление ООН по правам человека", domain: "ohchr.org" }),
+        attr("ВОЗ", { publisher: "Управление ООН по правам человека", domain: "ohchr.org" }),
         attr("ООН"),
-        "ru",
       ),
       [],
     );
     assert.deepEqual(
-      diffAttribution(attr(null, { publisher: "Point.md", domain: "point.md" }), attr("Point"), "ru"),
+      diffAttribution(attr("ВОЗ", { publisher: "Point.md", domain: "point.md" }), attr("Point")),
       [],
     );
   });
 
   it("ссылка на кого-то кроме родителя → changed", () => {
     const dw = { publisher: "Deutsche Welle", domain: "dw.com" };
-    assert.equal(diffAttribution(attr(null, dw), attr("Reuters"), "ru").length, 1);
+    assert.equal(diffAttribution(attr("ВОЗ", dw), attr("Reuters")).length, 1);
     // короткое имя совпадает только целиком, а не как часть другого
-    assert.equal(diffAttribution(attr(null, dw), attr("D"), "ru").length, 1);
+    assert.equal(diffAttribution(attr("ВОЗ", dw), attr("D")).length, 1);
   });
 });
 
@@ -550,6 +592,7 @@ describe("diffStructures", () => {
         ...date("2021-01-14"),
         certainty: "hedged",
         certaintyMarkers: ["возможно"],
+        attributedTo: "мэрия Кишинёва",
       },
       at("2021-01-14T07:30:00Z"),
     );
@@ -564,7 +607,7 @@ describe("diffStructures", () => {
         ["place", "changed"],
         ["time", "shifted"],
         ["certainty", "inflated"],
-        ["attribution", "added"],
+        ["attribution", "changed"],
       ],
     );
   });

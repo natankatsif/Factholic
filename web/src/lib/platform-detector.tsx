@@ -131,7 +131,7 @@ export function detectPlatform(
   }
 
   // Any other URL / Website
-  let host = "";
+  let host: string;
   try {
     const parsed = new URL(urlOrText.startsWith("http") ? urlOrText : `https://${urlOrText}`);
     host = parsed.hostname.replace(/^www\./, "");

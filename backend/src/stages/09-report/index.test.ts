@@ -40,6 +40,8 @@ describe("09-report toFactCheck", () => {
     assert.equal(res.consensus, "converge");
     assert.equal(res.provenance, undefined);
     assert.ok(res.sources.length > 0);
+    // счёт сторон — независимые группы из 08, а не число источников
+    assert.deepEqual(res.sides, { for: 2, against: 0, mixed: 1 });
   });
 
   it("собирает дерево, флаги и ключевой вывод при наличии provenance", () => {
@@ -303,5 +305,55 @@ describe("09-report: недостаточно информации после п
       "недостаточно информации: ни один источник не называет число 200 (пострадавших)",
     );
     assert.equal(res.keyFinding?.title, "Недостаточно информации");
+  });
+
+  it("первоисточник не связан с материалом — в пути первым, но с разрывом (linked: false)", () => {
+    const node = (
+      id: string,
+      publisher: string,
+      publishedAt: string | undefined,
+      parentId: string | null,
+    ) => ({
+      id,
+      url: `https://${publisher}/x`,
+      title: publisher,
+      publisher,
+      domain: publisher,
+      ...(publishedAt ? { publishedAt } : {}),
+      parentId,
+      via: parentId ? ("duplicate" as const) : null,
+      confidence: parentId ? ("probable" as const) : null,
+      structure: null,
+    });
+    const res = toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: mockSourceSearchOutput.sources,
+      stances: mockStancesOutput,
+      provenance: {
+        tree: {
+          claimId: mockClaim.id,
+          rootId: "a",
+          // a — самая ранняя, но ни с чем не связана; b → материал
+          nodes: [
+            node("a", "euronews.ro", "2023-02-20T00:00:00Z", null),
+            node("b", "libertatea.ro", "2026-02-23T00:00:00Z", null),
+            node("video", "Это видео", undefined, "b"),
+          ],
+          voteGroups: {},
+        },
+        mutations: { claimId: mockClaim.id, mutations: [] },
+        rootDate: mockRootDateOutput,
+      },
+    });
+    const path = res.provenance?.pathSummary ?? [];
+    assert.deepEqual(
+      path.map((p) => [p.name, p.tag, p.linked ?? true]),
+      [
+        ["euronews.ro", "оригинал", true],
+        ["libertatea.ro", "начало цепочки", false],
+        ["Это видео", "пересказ", true],
+      ],
+    );
   });
 });

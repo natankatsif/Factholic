@@ -6,7 +6,8 @@
  *  - помнит историю событий: клиент, подключившийся позже (второй зритель, перезагрузка страницы),
  *    сначала получает всё, что уже было, потом — новые события вживую;
  *  - кэш по видео: одно видео не обрабатываем дважды (каждый прогон стоит денег на OpenAI/Tavily);
- *  - сохраняет готовые отчёты на диск — переживают перезапуск сервера.
+ *  - сохраняет готовые отчёты на диск — переживают перезапуск сервера; вместе с ними — найденные утверждения
+ *    и текст (checker), чтобы проверять их по требованию и после перезапуска.
  *
  * Хранится в памяти процесса: для хакатона хватает. Для продакшена — Redis/Postgres.
  */
@@ -15,6 +16,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { JobId, ServerEvent, StartAnalysisRequest, VideoReport } from "@news/contracts";
+import type { CheckerSnapshot, ClaimChecker } from "./checks.ts";
 
 export interface JobRecord {
   id: JobId;
@@ -31,6 +33,10 @@ export interface JobRecord {
   started: boolean;
   /** Таймер задержки отмены перед store.cancel() */
   cancelTimer?: NodeJS.Timeout;
+  /** Очередь проверок по требованию (создаёт пайплайн или server.ts при восстановлении с диска) */
+  checker?: ClaimChecker;
+  /** С диска: что нужно, чтобы восстановить checker после перезапуска */
+  saved?: CheckerSnapshot;
 }
 
 const REPORTS_DIR = join(tmpdir(), "factcheck-reports");
@@ -47,11 +53,19 @@ export class JobStore {
   /**
    * Новая заявка. Если это видео уже проверено (или проверяется прямо сейчас) с той же или более ранней
    * секунды — возвращаем существующую задачу, ничего не запускаем повторно.
+   * Готовый отчёт без утверждений не переиспользуем: повтор стоит один вызов LLM, а случайный пустой ответ
+   * (сбой извлечения, старый промпт) иначе навсегда превращает текст в «нет проверяемых фактов».
    */
   create(id: JobId, request: StartAnalysisRequest): { job: JobRecord; cached: boolean } {
     const videoKey = videoKeyOf(request);
     const existing = this.get(this.byVideo.get(videoKey) ?? "");
-    if (existing && existing.report.status !== "failed" && existing.request.startFrom <= request.startFrom) {
+    const empty = existing?.report.status === "completed" && existing.report.factChecks.length === 0;
+    if (
+      existing &&
+      !empty &&
+      existing.report.status !== "failed" &&
+      existing.request.startFrom <= request.startFrom
+    ) {
       return { job: existing, cached: existing.report.status === "completed" };
     }
 
@@ -62,6 +76,7 @@ export class JobStore {
       videoKey,
       report: {
         jobId: id,
+        sourceText: request.text,
         // заглушка до job.started — настоящие данные пришлёт этап 01
         video: {
           pageUrl: ref.pageUrl,
@@ -94,7 +109,12 @@ export class JobStore {
     applyEvent(job.report, event);
     job.history.push(event);
     for (const send of job.subscribers) send(event);
-    if (event.type === "job.completed") this.saveToDisk(job);
+    // готовый отчёт на диске обновляется и после проверок по требованию
+    if (
+      event.type === "job.completed" ||
+      (event.type === "claim.checked" && job.report.status === "completed")
+    )
+      this.saveToDisk(job);
     if (event.type === "job.failed") this.forget(job);
   }
 
@@ -130,7 +150,8 @@ export class JobStore {
   private saveToDisk(job: JobRecord): void {
     try {
       mkdirSync(REPORTS_DIR, { recursive: true });
-      const data = { request: job.request, report: job.report };
+      const report = { ...job.report, sourceText: job.report.sourceText ?? job.request.text };
+      const data = { request: job.request, report, checker: job.checker?.snapshot() ?? job.saved };
       writeFileSync(join(REPORTS_DIR, `${job.id}.json`), JSON.stringify(data));
     } catch (err) {
       console.error("store: не удалось сохранить отчёт", err);
@@ -141,10 +162,17 @@ export class JobStore {
     if (!existsSync(REPORTS_DIR)) return;
     for (const file of readdirSync(REPORTS_DIR).filter((f) => f.endsWith(".json"))) {
       try {
-        const { request, report } = JSON.parse(readFileSync(join(REPORTS_DIR, file), "utf8")) as {
+        const { request, report, checker } = JSON.parse(readFileSync(join(REPORTS_DIR, file), "utf8")) as {
           request: StartAnalysisRequest;
           report: VideoReport;
+          checker?: CheckerSnapshot;
         };
+        // отчёты, сохранённые до появления sourceText, — добираем текст из заявки
+        report.sourceText ??= request.text;
+        // проверка шла, когда сервер остановился, — снова «найдено», проверится по требованию
+        report.factChecks = report.factChecks.map((f) =>
+          f.status === "checking" ? { ...f, status: "found", stage: undefined } : f,
+        );
         const job: JobRecord = {
           id: report.jobId,
           request,
@@ -154,6 +182,7 @@ export class JobStore {
           subscribers: new Set(),
           abort: new AbortController(),
           started: true,
+          saved: checker,
         };
         this.jobs.set(job.id, job);
         this.byVideo.set(job.videoKey, job.id);
@@ -202,7 +231,11 @@ function applyEvent(report: VideoReport, event: ServerEvent): void {
       break;
     }
     case "job.completed":
-      Object.assign(report, event.report, { status: "completed" });
+      // sourceText из заявки не затираем, если финальный отчёт пришёл без него
+      Object.assign(report, event.report, {
+        status: "completed",
+        sourceText: event.report.sourceText ?? report.sourceText,
+      });
       break;
     case "job.failed":
       report.status = "failed";

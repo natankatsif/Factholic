@@ -18,6 +18,7 @@ import {
 import { MOCK_EVENTS, MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
 import { chatConfigErrors, handleChat, type ChatRequestBody } from "./chat/index.ts";
 import { config, configErrors, describeConfig } from "./config.ts";
+import { ClaimChecker } from "./pipeline/checks.ts";
 import { PipelineError } from "./pipeline/context.ts";
 import { runPipeline } from "./pipeline/orchestrator.ts";
 import { JobStore, type JobRecord } from "./pipeline/store.ts";
@@ -82,6 +83,19 @@ const server = createServer(async (req, res) => {
     });
   }
 
+  // Проверить найденное утверждение сейчас — без WS (отчёт открыт из истории)
+  const checkMatch =
+    req.method === "POST" && req.url?.match(/^\/api\/jobs\/([^/]+)\/claims\/([^/]+)\/check$/);
+  if (checkMatch) {
+    if (REPLAY) return sendJson(res, 202, { queued: false });
+    const job = store.get(checkMatch[1]!);
+    const claimId = decodeURIComponent(checkMatch[2]!);
+    const checker = job && ensureChecker(job);
+    if (!checker) return sendJson(res, 404, { error: "задача не найдена или её утверждения не сохранены" });
+    if (!checker.has(claimId)) return sendJson(res, 404, { error: "утверждение не найдено" });
+    return sendJson(res, 202, { queued: checker.request(claimId) });
+  }
+
   const getMatch = req.method === "GET" && req.url?.match(/^\/api\/jobs\/([^/]+)$/);
   if (getMatch) {
     if (REPLAY) return sendJson(res, 200, { ...MOCK_VIDEO_REPORT, jobId: getMatch[1] });
@@ -117,6 +131,8 @@ function handleJobSocket(ws: WebSocket, job: JobRecord) {
 
   const leave = () => {
     unsubscribe();
+    // никто не смотрит — новых проверок не начинаем (идущие доводятся до конца)
+    if (job.subscribers.size === 0) job.checker?.pause();
     // Даём 30 секунд запаса на случай перезагрузки страницы или переподключения WS
     if (job.subscribers.size === 0 && store.isRunning(job)) {
       if (!job.cancelTimer) {
@@ -138,14 +154,25 @@ function handleJobSocket(ws: WebSocket, job: JobRecord) {
       return;
     }
     if (msg.type === "cancel") ws.close();
-    // TODO(backend-1): "playback" → приоритизация/перезапуск ingest; "audio.chunk" → liveAudio
+    // позиция плеера: проверяем текущее утверждение и два следующих
+    if (msg.type === "playback" && Number.isFinite(msg.currentTime))
+      ensureChecker(job)?.playhead(msg.currentTime);
+    // пользователь открыл утверждение — проверить первым
+    if (msg.type === "claim.check") ensureChecker(job)?.request(msg.claimId);
+    // TODO(backend-1): "playback" → приоритизация ingest (куски у позиции плеера); "audio.chunk" → liveAudio
   });
 
   // Пайплайн запускается один раз — при первом подключении
   if (job.started) return;
   job.started = true;
   const emit = (e: ServerEvent) => store.emit(job, e);
-  runPipeline({ jobId: job.id, request: job.request, emit, signal: job.abort.signal }).catch((err) => {
+  runPipeline({
+    jobId: job.id,
+    request: job.request,
+    emit,
+    signal: job.abort.signal,
+    onChecker: (checker) => (job.checker = checker),
+  }).catch((err) => {
     if (job.abort.signal.aborted) return; // отменили сами — это не ошибка
     // В лог — всё, включая техническую причину (cause); фронту — код и понятный текст
     console.error(`[${job.id}] job.failed:`, err);
@@ -155,6 +182,30 @@ function handleJobSocket(ws: WebSocket, job: JobRecord) {
         : { code: "INTERNAL" as const, message: "Что-то пошло не так на сервере, попробуй ещё раз" };
     emit({ type: "job.failed", jobId: job.id, error });
   });
+}
+
+/**
+ * Очередь проверок задачи. Пайплайн создаёт её сам; отчёт с диска (после перезапуска сервера) — восстанавливаем
+ * из сохранённых утверждений. Нет данных (старый отчёт, задача ещё не началась) — undefined.
+ */
+function ensureChecker(job: JobRecord): ClaimChecker | undefined {
+  if (job.checker || !job.saved || job.report.status !== "completed") return job.checker;
+  const ctx = {
+    jobId: job.id,
+    signal: job.abort.signal,
+    log: (msg: string, data?: unknown) => console.log(`[${job.id}] ${msg}`, data ?? ""),
+  };
+  const checker = new ClaimChecker({
+    jobId: job.id,
+    request: job.request,
+    video: job.report.video,
+    emit: (e) => store.emit(job, e),
+    signal: job.abort.signal,
+    ctx,
+  });
+  checker.restore(job.saved, job.report.factChecks);
+  job.checker = checker;
+  return checker;
 }
 
 /** SERVER_MODE=replay: каждому подключению — свой проигрыш MOCK_EVENTS */

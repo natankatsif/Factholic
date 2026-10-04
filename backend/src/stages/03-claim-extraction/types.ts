@@ -80,6 +80,15 @@ export interface ClaimStructure {
 
 export interface ClaimExtractionOutput {
   claims: Claim[];
+  /**
+   * Если claims пустой (в тексте нет проверяемых фактов — только мнения, приветствия или ерунда),
+   * модель генерирует короткую персонализированную реплику чудика.
+   */
+  replyWhenNoClaims?: string | null;
 }
 
-export const CHECKWORTHINESS_THRESHOLD = 0.6;
+/**
+ * Ниже — подробности репортажа, общеизвестное, анонсы: на них не тратим поиск.
+ * Шкала — в prompt.ts; при 0.6 проходили «в обратную сторону сильно ограничено» и «город встал в пробках».
+ */
+export const CHECKWORTHINESS_THRESHOLD = 0.75;

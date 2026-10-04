@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
+import { useCrowdSay, clearCrowdSay, markCrowdSay } from "../../lib/history-ui";
 import { Navbar } from "./Navbar";
 import { HeroHeadline } from "./HeroHeadline";
 import { LinkInputCard } from "./LinkInputCard";
-import { SupportedPlatforms } from "./SupportedPlatforms";
+import { SupportedPlatforms, platformOfLink, type PlatformId } from "./SupportedPlatforms";
 import { HowItWorks } from "./HowItWorks";
 import { EmojiCrowd } from "./EmojiCrowd";
 import { HistoryDrawer } from "../history/HistoryDrawer";
-import { X, Building2, UserCheck } from "lucide-react";
+import { UserCheck } from "lucide-react";
+import { AudienceModal, type Audience } from "./AudienceModal";
 
 export interface HomeHeroProps {
   onCheck: (urlOrText: string, isUrl: boolean) => void;
@@ -23,28 +25,38 @@ export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
   const [isTyping, setIsTyping] = useState(false);
   const [hasText, setHasText] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isEditorialOpen, setIsEditorialOpen] = useState(false);
+  // открытое окно «Для редакций» / «Для бизнеса»
+  const [audience, setAudience] = useState<Audience | null>(null);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  // выбранная плашка «Попробуй с»: поле ввода — ссылка с этой платформы; null — текст
+  const [linkPlatform, setLinkPlatform] = useState<PlatformId | null>(null);
+  // проверка вернулась без утверждений — бирюзовый говорит почему, поле снова с введённым
+  const crowdSay = useCrowdSay();
 
   const handleTypingChange = (typing: boolean, text: string) => {
     setIsTyping(typing);
     setHasText(text.trim().length > 0);
+    // начали править введённое — реплика про прошлую попытку больше не к месту
+    if (crowdSay && text.trim() !== crowdSay.input.trim()) clearCrowdSay();
+  };
+
+  const handleCheck = (urlOrText: string, isUrl: boolean) => {
+    // ссылка с платформы, которую бэкенд ещё не умеет, — не запускаем проверку, бирюзовый говорит, что скоро
+    const platform = isUrl ? platformOfLink(urlOrText) : null;
+    if (platform?.soon) {
+      markCrowdSay({
+        message: `${platform.name} пока в разработке 🛠 Скоро научусь и его — а пока вставь текст поста или ссылку на YouTube`,
+        input: urlOrText,
+        isUrl: true,
+      });
+      return;
+    }
+    clearCrowdSay();
+    onCheck(urlOrText, isUrl);
   };
 
   const handleNavClick = (item: string) => {
-    if (item === "how-it-works") {
-      const el = document.getElementById("how-it-works-section");
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    } else if (item === "sources") {
-      const el = document.getElementById("supported-platforms-section");
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    } else if (item === "editorial") {
-      setIsEditorialOpen(true);
-    }
+    if (item === "editorial" || item === "business") setAudience(item);
   };
 
   return (
@@ -73,9 +85,16 @@ export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
             data-pencil-name="Link Form"
             className="box-border flex w-full max-w-[760px] flex-col items-start gap-2.5 sm:gap-3 xl:gap-[14px] pointer-events-auto"
           >
-            <LinkInputCard onCheck={onCheck} isLoading={isLoading} onTypingChange={handleTypingChange} />
+            <LinkInputCard
+              onCheck={handleCheck}
+              prefill={crowdSay}
+              isLoading={isLoading}
+              onTypingChange={handleTypingChange}
+              platform={linkPlatform}
+              onPlatformChange={setLinkPlatform}
+            />
             <div id="supported-platforms-section" className="w-full">
-              <SupportedPlatforms />
+              <SupportedPlatforms active={linkPlatform} onSelect={setLinkPlatform} />
             </div>
           </div>
         </div>
@@ -93,58 +112,19 @@ export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
         </div>
       </div>
 
-      <EmojiCrowd isTyping={isTyping} hasText={hasText} />
-
-      {/* History Drawer */}
-      <HistoryDrawer
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
+      <EmojiCrowd
+        isTyping={isTyping}
+        hasText={hasText}
+        platform={linkPlatform}
+        speech={crowdSay?.message ?? null}
+        onSpeechEnd={clearCrowdSay}
       />
 
-      {/* Editorial Info Modal */}
-      {isEditorialOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-[#4A3333]/30 backdrop-blur-xs transition-opacity"
-            onClick={() => setIsEditorialOpen(false)}
-          />
-          <div className="relative z-10 w-full max-w-lg rounded-[28px] border border-[#E2D7D4] bg-[#FBF8F7] p-6 sm:p-8 text-[#4A3333] shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-[#EADFDc] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EDE4FD] text-[#6E1EF0]">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black">Для редакций</h3>
-                  <p className="text-xs font-semibold text-[#A27C7A]">Интеграция factholic в медиа</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditorialOpen(false)}
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-none bg-[#F1EBE9] text-[#4A3333] hover:bg-[#E3D9D6]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="mt-4 flex flex-col gap-3 text-sm font-semibold leading-relaxed text-[#4A3333]">
-              <p>
-                factholic предоставляет редакциям и фактчекерам инструменты автоматической проверки
-                заявлений, поиск первоисточников в реальном времени и построение деревьев цитирования.
-              </p>
-              <div className="rounded-2xl bg-[#F1EBE9] p-4 text-xs font-bold text-[#A27C7A] flex flex-col gap-1.5">
-                <span className="text-[#4A3333] font-black text-sm">Возможности API:</span>
-                <span>• Автоматическая верификация входящих новостных лент</span>
-                <span>• Поиск исходных цитат и контекста спикера</span>
-                <span>• Детекция искажений при перепечатке (provenance graph)</span>
-              </div>
-              <p className="text-xs text-[#A27C7A] mt-1">
-                Для подключения редакции напишите нам на <b className="text-[#4A3333]">press@factholic.ai</b>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* History Drawer */}
+      <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
+
+      {/* «Для редакций» / «Для бизнеса» */}
+      {audience && <AudienceModal audience={audience} onClose={() => setAudience(null)} />}
 
       {/* Login Modal */}
       {isLoginOpen && (
@@ -159,7 +139,8 @@ export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
             </div>
             <h3 className="mt-4 text-xl font-black">Личный кабинет</h3>
             <p className="mt-2 text-xs font-semibold text-[#A27C7A]">
-              Все ваши проверки сохраняются автоматически в истории браузера. Авторизация через email и Telegram станет доступна в ближайшем обновлении!
+              Все ваши проверки сохраняются автоматически в истории браузера. Авторизация через email и
+              Telegram станет доступна в ближайшем обновлении!
             </p>
             <button
               type="button"

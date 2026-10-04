@@ -18,9 +18,18 @@ export const INFLATION_RATIO = 1.5;
 
 /** Сутки события у родителя и потомка расходятся больше чем на столько — время изменилось */
 export const TIME_TOLERANCE_DAYS = 1;
+/**
+ * Допуск, если время подано словами, которые код не понимает («в четверг», «уже третий день подряд»):
+ * дату к ним этап 03/05 оценивает, и сутки могут не совпасть, хотя событие то же
+ */
+export const FUZZY_TIME_TOLERANCE_DAYS = 7;
 
-/** hedged < reported < asserted: рост уверенности — раздули, падение — преуменьшили */
-const CERTAINTY_RANK: Record<ClaimStructure["certainty"], number> = { hedged: 0, reported: 1, asserted: 2 };
+/**
+ * hedged < reported = asserted: раздули — предположение подано как факт, преуменьшили — наоборот.
+ * reported и asserted различаются только тем, назван ли источник во фрагменте, по которому строится структура
+ * (заголовок, сниппет, одна фраза из видео), — по фрагменту не понять, убрали ссылку или она в соседней фразе.
+ */
+const CERTAINTY_RANK: Record<ClaimStructure["certainty"], number> = { hedged: 0, reported: 1, asserted: 1 };
 
 // ===================== ТИПЫ =====================
 
@@ -55,7 +64,7 @@ export function diffStructures(
     ...diffPlaces(parent.structure.places, child.structure.places, uiLanguage),
     ...diffTime(parent, child, uiLanguage),
     ...diffCertainty(parent.structure.certainty, child.structure.certainty, uiLanguage),
-    ...diffAttribution(parent, child, uiLanguage),
+    ...diffAttribution(parent, child),
   ];
 }
 
@@ -72,8 +81,9 @@ export function diffNumbers(
   uiLanguage: LanguageCode,
 ): MutationCandidate[] {
   const absent = textsFor(uiLanguage).absent;
-  const parents = before.filter((n) => n.value.trim()).map(numberItem);
-  const children = after.filter((n) => n.value.trim()).map(numberItem);
+  const counted = (n: StructureNumber) => n.value.trim() && !isYear(n);
+  const parents = before.filter(counted).map(numberItem);
+  const children = after.filter(counted).map(numberItem);
 
   const rest: NumberItem[] = [];
   for (const p of parents) {
@@ -100,6 +110,16 @@ export function diffNumbers(
   return out;
 }
 
+/**
+ * Год, попавший в числа («2014», about: «год начала конфликта»): это время, а не величина — его сравнивает
+ * diffTime. Иначе «2014 → 2022» читается как «изменилась цифра». «2000 человек» годом не считается.
+ */
+function isYear(n: StructureNumber): boolean {
+  const m = /^(\d{4})(?:\s*(?:г\.?|год[а-я]*|year|an(?:ul)?))?$/iu.exec(n.value.trim());
+  if (!m || Number(m[1]) < 1800 || Number(m[1]) > 2100) return false;
+  return m[0] !== m[1] || /год|year|\ban(ul)?\b|начал|start|început|дат[аы]|date/iu.test(n.about);
+}
+
 /** Как изменилось число родителя: по модулю, порог — доля от числа родителя (ровно 10% — ещё то же самое) */
 export function compareNumbers(before: number, after: number): Direction | "same" {
   if (before === after) return "same";
@@ -116,19 +136,28 @@ export function compareNumbers(before: number, after: number): Direction | "same
   return "changed";
 }
 
-/** Места — множества без регистра (и без различия е/ё); разные множества — один кандидат со списками целиком */
+/**
+ * Места — множества без регистра (и без различия е/ё); кандидат — один, со списками целиком.
+ *  - потомок оставил часть мест родителя («Украина и Молдова получили статус» → «Молдова получила статус»)
+ *    или все места пропали — не кандидат: про оставшиеся утверждение то же, остальные просто не упомянуты;
+ *  - потомок назвал места, о которых родитель молчал, и ни одно место родителя не потерял — added
+ *    (подробность: «умер Кашпировский» → «умер в Москве»);
+ *  - место родителя заменено другим — changed.
+ */
 export function diffPlaces(before: string[], after: string[], uiLanguage: LanguageCode): MutationCandidate[] {
   const a = uniquePlaces(before);
   const b = uniquePlaces(after);
+  if (b.length === 0) return [];
+  const aKeys = new Set(a.map(textKey));
   const bKeys = new Set(b.map(textKey));
-  if (a.length === b.length && a.every((p) => bKeys.has(textKey(p)))) return [];
-  const absent = textsFor(uiLanguage).absent;
+  if (b.every((p) => aKeys.has(textKey(p)))) return [];
+  const kept = a.every((p) => bKeys.has(textKey(p)));
   return [
     {
       field: "place",
-      before: a.join(", ") || absent,
-      after: b.join(", ") || absent,
-      direction: "changed",
+      before: a.join(", ") || textsFor(uiLanguage).absent,
+      after: b.join(", "),
+      direction: kept ? "added" : "changed",
     },
   ];
 }
@@ -142,6 +171,8 @@ export function diffPlaces(before: string[], after: string[], uiLanguage: Langua
  *  3. У родителя явная дата, у потомка — относительное время («вчера», «недавно»), которое не посчитать:
  *     давнее событие подано как недавнее.
  * Пропавшее у потомка время — не кандидат: перепечатка на следующий день законно теряет «сегодня».
+ * Время словами, которые код не понимает («в четверг», «третий день подряд»), сверяется с допуском
+ * FUZZY_TIME_TOLERANCE_DAYS: удар «в четверг» и «третий день подряд» в субботу — одно и то же.
  */
 export function diffTime(parent: DiffSide, child: DiffSide, uiLanguage: LanguageCode): MutationCandidate[] {
   const p = timeView(parent, uiLanguage);
@@ -149,21 +180,28 @@ export function diffTime(parent: DiffSide, child: DiffSide, uiLanguage: Language
   const shifted = (before: string, after: string): MutationCandidate[] => [
     { field: "time", before, after, direction: "shifted" },
   ];
+  const tolerance = (...views: Array<TimeView | null>) =>
+    views.some((v) => v?.fuzzy) ? FUZZY_TIME_TOLERANCE_DAYS : TIME_TOLERANCE_DAYS;
 
-  if (p?.days && c?.days) return gapDays(p.days, c.days) > TIME_TOLERANCE_DAYS ? shifted(p.text, c.text) : [];
+  if (p?.days && c?.days) return gapDays(p.days, c.days) > tolerance(p, c) ? shifted(p.text, c.text) : [];
 
   const parentDay = dayOf(parent.publishedAt);
   if (!p && c?.days && parentDay !== null) {
-    if (c.days.from - parentDay <= TIME_TOLERANCE_DAYS) return [];
+    if (c.days.from - parentDay <= tolerance(c)) return [];
     return shifted(textsFor(uiLanguage).notLaterThan(formatDay(parentDay, uiLanguage)), c.text);
   }
 
-  if (p?.kind === "date" && c?.kind === "relative" && !c.days) return shifted(p.text, c.text);
+  if (p?.kind === "date" && p.days && c?.kind === "relative" && !c.days) {
+    // «третий день подряд» без даты: событие родителя за несколько дней до публикации потомка — то же самое
+    const childDay = dayOf(child.publishedAt);
+    if (childDay !== null && childDay - p.days.to <= FUZZY_TIME_TOLERANCE_DAYS) return [];
+    return shifted(p.text, c.text);
+  }
   return [];
 }
 
 /**
- * Уверенность: hedged («возможно») < reported («по данным мэрии») < asserted (как факт).
+ * Уверенность: hedged («возможно») < reported («по данным мэрии») = asserted (как факт).
  * Выросла — раздули («возможно» стало «точно»), упала — преуменьшили.
  */
 export function diffCertainty(
@@ -171,7 +209,7 @@ export function diffCertainty(
   after: ClaimStructure["certainty"],
   uiLanguage: LanguageCode,
 ): MutationCandidate[] {
-  if (before === after) return [];
+  if (CERTAINTY_RANK[before] === CERTAINTY_RANK[after]) return [];
   const labels = textsFor(uiLanguage).certainty;
   return [
     {
@@ -184,23 +222,28 @@ export function diffCertainty(
 }
 
 /**
- * Атрибуция: на кого ссылается утверждение, без регистра и знаков.
- * added — ссылки не было, появилась; removed — была, исчезла; changed — источник подменён.
- * Потомок, который ссылается на самого родителя («по данным DW» в перепечатке Deutsche Welle), — не кандидат.
+ * Атрибуция: источник подменён (changed) — родитель ссылается на одного, потомок на другого.
+ * Ссылка появилась или пропала — не кандидат: структура строится по фрагменту (заголовок, сниппет, одна фраза
+ * из видео), и «сообщил мэр» может стоять в соседней фразе или в титре.
+ * Не кандидаты и: то же имя короче или длиннее («мэр Виталий Кличко» = «Кличко»); потомок ссылается
+ * на самого родителя («по данным DW» в перепечатке Deutsche Welle).
  */
-export function diffAttribution(
-  parent: DiffSide,
-  child: DiffSide,
-  uiLanguage: LanguageCode,
-): MutationCandidate[] {
+export function diffAttribution(parent: DiffSide, child: DiffSide): MutationCandidate[] {
   const before = parent.structure.attributedTo?.trim() || null;
   const after = child.structure.attributedTo?.trim() || null;
-  if (nameKey(before ?? "") === nameKey(after ?? "")) return [];
-  if (after && refersTo(after, parent)) return [];
-  const none = textsFor(uiLanguage).noAttribution;
-  // added — перепечатка сослалась на источник (честнее), removed — ссылку убрала, changed — подменила источник
-  const direction = !before ? "added" : !after ? "removed" : "changed";
-  return [{ field: "attribution", before: before ?? none, after: after ?? none, direction }];
+  if (!before || !after || sameName(before, after) || refersTo(after, parent)) return [];
+  return [{ field: "attribution", before, after, direction: "changed" }];
+}
+
+/**
+ * Путь корень → видео целиком (а не одно ребро): между ними — перепечатки, и развивающаяся новость по дороге
+ * законно пополняется («удар по мосту» → «третий день подряд», ссылка на мэра → ссылка на DW).
+ * Где появилась деталь, показывает ребро, на котором это случилось; от пути остаются только расхождения
+ * с первой публикацией: другое число, место, время, предположение подано как факт.
+ */
+export function contradictsRoot(c: MutationCandidate): boolean {
+  if (c.field === "attribution") return false;
+  return !(c.field === "numbers" && (c.direction === "added" || c.direction === "removed"));
 }
 
 // ===================== ЧИСЛА =====================
@@ -545,6 +588,8 @@ interface TimeView {
   text: string;
   /** null — сутки не вычислить (относительное время без даты, а даты публикации нет) */
   days: DayRange | null;
+  /** Относительное время словами, которых нет в RELATIVE_WORDS: сутки — оценка этапа 03/05, а не точный день */
+  fuzzy: boolean;
 }
 
 function timeView(side: DiffSide, uiLanguage: LanguageCode): TimeView | null {
@@ -553,12 +598,14 @@ function timeView(side: DiffSide, uiLanguage: LanguageCode): TimeView | null {
   const text = time.text.trim();
   const date = time.date?.trim() || null;
   const explicit = date ? eventDays(date) : null;
-  if (explicit && !time.relative) return { kind: "date", text: text || (date ?? ""), days: explicit };
+  if (explicit && !time.relative)
+    return { kind: "date", text: text || (date ?? ""), days: explicit, fuzzy: false };
   if (!time.relative) return null;
 
+  const word = relativeWord(text);
+  const fuzzy = word === null;
   let days = explicit;
   if (!days) {
-    const word = relativeWord(text);
     const published = dayOf(side.publishedAt);
     if (word && published !== null) {
       const [fromBack, toBack] = RELATIVE_DAYS_BACK[word];
@@ -568,8 +615,8 @@ function timeView(side: DiffSide, uiLanguage: LanguageCode): TimeView | null {
   const label = text || date || textsFor(uiLanguage).absent;
   // «вчера (1 октября 2026)»; у «на этой неделе» точного дня нет
   if (days && days.from === days.to)
-    return { kind: "relative", text: `${label} (${formatDay(days.from, uiLanguage)})`, days };
-  return { kind: "relative", text: label, days };
+    return { kind: "relative", text: `${label} (${formatDay(days.from, uiLanguage)})`, days, fuzzy };
+  return { kind: "relative", text: label, days, fuzzy };
 }
 
 /** "2022" → весь год, "2022-02" → весь месяц, "2022-02-24" (можно со временем) → этот день; не дата — null */
@@ -619,6 +666,13 @@ function uniquePlaces(places: string[]): string[] {
     out.push(place.trim());
   }
   return out;
+}
+
+/** Одно имя, написанное полнее или короче: все значимые слова короткого есть в длинном («Кличко» ⊂ «мэр Виталий Кличко») */
+function sameName(a: string, b: string): boolean {
+  if (nameKey(a) === nameKey(b)) return true;
+  const [short, long] = [aboutWords(a), aboutWords(b)].sort((x, y) => x.length - y.length);
+  return short.length > 0 && short.every((w) => long.some((x) => sameStem(w, x)));
 }
 
 /** Имя совпадает с издателем, его аббревиатурой («Deutsche Welle» → DW) или доменом (dw.com → dw) */

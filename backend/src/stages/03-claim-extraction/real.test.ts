@@ -66,8 +66,8 @@ function llmResponse(content: unknown[], over: Record<string, unknown> = {}): Re
 }
 
 const llmText = (text: string) => llmResponse([{ type: "output_text", text, annotations: [] }]);
-const llmClaims = (claims: Array<Partial<RawClaim>>) =>
-  llmText(JSON.stringify({ claims: claims.map((c) => ({ ...claimDefaults, ...c })) }));
+const llmClaims = (claims: Array<Partial<RawClaim>>, replyWhenNoClaims: string | null = null) =>
+  llmText(JSON.stringify({ claims: claims.map((c) => ({ ...claimDefaults, ...c })), replyWhenNoClaims }));
 
 function llmError(status: number, code: string | null = null): Response {
   // retry-after-ms — чтобы ретраи SDK на 429/5xx не ждали секундами
@@ -101,7 +101,12 @@ let respond: (req: LlmRequest) => Response = () => {
 let requests: LlmRequest[] = [];
 
 const realFetch = globalThis.fetch;
-const llmConfig = config.providers.llm as { provider: string; apiKey: string; model: string };
+const llmConfig = config.providers.llm as {
+  provider: string;
+  apiKey: string;
+  model: string;
+  fastModel: string;
+};
 const savedLlm = { ...llmConfig };
 
 before(() => {
@@ -122,7 +127,12 @@ after(() => {
 });
 
 beforeEach(() => {
-  Object.assign(llmConfig, { provider: "openai", apiKey: "sk-test", model: "gpt-6.1-sol" });
+  Object.assign(llmConfig, {
+    provider: "openai",
+    apiKey: "sk-test",
+    model: "gpt-6.1-sol",
+    fastModel: "gpt-6.1-sol",
+  });
   requests = [];
 });
 
@@ -152,6 +162,7 @@ describe("extractClaimsReal: запрос к LLM", () => {
 
   it("модель из config, effort low, системный промпт в instructions, сегменты и уже найденное в input", async () => {
     llmConfig.model = "gpt-test-model";
+    llmConfig.fastModel = "gpt-test-model";
     respond = () => llmClaims([]);
     await extractClaimsReal(input, makeCtx());
     assert.equal(requests.length, 1);
@@ -163,9 +174,27 @@ describe("extractClaimsReal: запрос к LLM", () => {
     assert.ok(req.input.includes("В следующем году инфляция снизится вдвое."));
     assert.equal(req.store, false);
   });
+
+  it("использует fastModel (LLM_MODEL_FAST) для быстрого выделения тезисов", async () => {
+    llmConfig.model = "gpt-heavy-model";
+    llmConfig.fastModel = "gpt-4.1-mini";
+    respond = () => llmClaims([]);
+    await extractClaimsReal(input, makeCtx());
+    assert.equal(requests.length, 1);
+    const [req] = requests;
+    assert.equal(req.model, "gpt-4.1-mini");
+    assert.equal(req.reasoning, undefined);
+  });
 });
 
 describe("extractClaimsReal: разбор ответа", () => {
+  it("возвращает replyWhenNoClaims при отсутствии тезисов и очищает случайные эмодзи", async () => {
+    respond = () => llmClaims([], "Привет! 🙂 Всё отлично. Есть что проверить? 😊");
+    const { claims, replyWhenNoClaims } = await extractClaimsReal(input, makeCtx());
+    assert.equal(claims.length, 0);
+    assert.equal(replyWhenNoClaims, "Привет! Всё отлично. Есть что проверить?");
+  });
+
   it("тезис получает точный range по словам, jobId и язык из входа, спикера из сегмента", async () => {
     respond = () => llmClaims([{ entities: [" Украина ", "Украина", "", "ООН"] }]);
     const { claims } = await extractClaimsReal(input, makeCtx());

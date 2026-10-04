@@ -5,6 +5,13 @@
  *  2. WS   /api/jobs/:id/events сервер шлёт ServerEvent, клиент шлёт ClientMessage
  *  3. GET  /api/jobs/:id        -> VideoReport (снапшот, например после перезагрузки страницы)
  *  4. POST /api/jobs/:id/chat   чат по разбору: протокол AI SDK (useChat), тело { messages, claimId? }
+ *  5. POST /api/jobs/:id/claims/:claimId/check  проверить найденное утверждение (status "found") сейчас —
+ *     то же, что ClientMessage "claim.check", но без WS (отчёт открыт из истории). Ответ 202, результат —
+ *     событиями claim.progress / claim.checked и в GET /api/jobs/:id
+ *
+ * Проверка по требованию: бэкенд находит все утверждения (claim.detected, status "found"), а проверяет
+ * только нужные — текущее в плеере и два следующих (по ClientMessage "playback") и открытые пользователем.
+ * job.completed — материал разобран на утверждения; проверки по требованию идут и после него.
  */
 import type { ClaimId, JobId, LanguageCode, Seconds, TimeRange, VideoInfo, VideoRef } from "./common.ts";
 import type { FactCheck, VideoReport } from "./fact-check.ts";
@@ -14,6 +21,7 @@ export const API_ROUTES = {
   getJob: (jobId: JobId) => `/api/jobs/${jobId}`,
   events: (jobId: JobId) => `/api/jobs/${jobId}/events`,
   chat: (jobId: JobId) => `/api/jobs/${jobId}/chat`,
+  checkClaim: (jobId: JobId, claimId: ClaimId) => `/api/jobs/${jobId}/claims/${claimId}/check`,
 } as const;
 
 /**
@@ -69,7 +77,10 @@ export type ServerEvent =
   | { type: "job.started"; jobId: JobId; video: VideoInfo }
   /** Прогресс обработки по таймлайну видео */
   | { type: "job.progress"; jobId: JobId; processedUntil: Seconds; stage: PipelineStage }
-  /** Найден тезис, проверка началась. factCheck.status = "checking" */
+  /**
+   * Найден тезис. factCheck.status = "found" — ждёт проверки (по позиции плеера или по запросу),
+   * "checking" — проверка началась. Тот же id приходит повторно при смене статуса
+   */
   | { type: "claim.detected"; jobId: JobId; factCheck: FactCheck }
   /**
    * Проверка тезиса перешла на следующий этап (для шагов прогресса).
@@ -86,8 +97,13 @@ export type ServerEvent =
 // ---------- клиент -> сервер ----------
 
 export type ClientMessage =
-  /** Позиция плеера — бэкенд приоритизирует куски рядом с ней (перемотка!) */
+  /**
+   * Позиция плеера: бэкенд проверяет текущее утверждение и два следующих; перемотали — очередь
+   * перестраивается под новую позицию. Слать при смене текущего утверждения и после перемотки
+   */
   | { type: "playback"; currentTime: Seconds; playing: boolean; rate: number }
+  /** Пользователь открыл утверждение — проверить его в первую очередь (если ещё не проверено) */
+  | { type: "claim.check"; claimId: ClaimId }
   /** Только в mode = "live" */
   | {
       type: "audio.chunk";

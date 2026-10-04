@@ -160,6 +160,73 @@ body {
   }
 }
 
+/* Парящий череп 💀 над погибшим персонажем */
+@keyframes ghost-float {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-16px) scale(1.08);
+  }
+  75% {
+    opacity: 0.9;
+    transform: translateY(-70px) scale(1.15) rotate(8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-110px) scale(1.22) rotate(-8deg);
+  }
+}
+
+/* Чудик «говорит»: рот открывается и закрывается */
+@keyframes blob-talk {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  30% {
+    transform: scale(0.82, 1.9);
+  }
+  60% {
+    transform: scale(0.95, 0.7);
+  }
+  80% {
+    transform: scale(0.88, 1.45);
+  }
+}
+
+/* Облачко реплики уходит обратно к чудику (закрытие короче открытия) */
+@keyframes bubble-out {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(12px, 8px) scale(0.85);
+    filter: blur(2px);
+  }
+}
+
+/* Облачко реплики выскакивает из чудика */
+@keyframes bubble-pop {
+  0% {
+    opacity: 0;
+    transform: translate(16px, 10px) scale(0.6);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
 @keyframes pill-bob {
   0%,
   100% {
@@ -224,4 +291,82 @@ body {
 
 .animate-bounce-gentle {
   animation: bounce-gentle 2.4s ease-in-out infinite;
+}
+
+/* Плашка текущего утверждения в плеере и карточка подробностей: мягко выезжает снизу */
+@keyframes claim-chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Утверждение в тексте проверяется прямо сейчас: фон подсветки мягко «дышит», текст не мигает */
+@keyframes claim-checking {
+  0%,
+  100% {
+    background-color: #f1ebe9;
+  }
+  50% {
+    background-color: #e3d9d6;
+  }
+}
+
+.animate-claim-checking {
+  animation: claim-checking 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-claim-checking {
+    animation: none;
+  }
+}
+
+/* Подсказка (components/ui/tooltip.tsx на Radix) — transitions.dev «Tooltip open/close»:
+   fade + scale из 0.98 с короткой задержкой (её даёт TooltipProvider), уход быстрее появления */
+:root {
+  --tt-in-dur: 150ms;
+  --tt-out-dur: 50ms;
+  --tt-scale: 0.98;
+  --tt-in-ease: ease-out;
+  --tt-out-ease: ease-out;
+}
+.t-tt-radix {
+  transform-origin: var(--radix-tooltip-content-transform-origin);
+}
+.t-tt-radix[data-state="delayed-open"],
+.t-tt-radix[data-state="instant-open"] {
+  animation: t-tt-in var(--tt-in-dur) var(--tt-in-ease) both;
+}
+.t-tt-radix[data-state="closed"] {
+  animation: t-tt-out var(--tt-out-dur) var(--tt-out-ease) both;
+}
+@keyframes t-tt-in {
+  from {
+    opacity: 0;
+    transform: scale(var(--tt-scale));
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes t-tt-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(var(--tt-scale));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-tt-radix {
+    animation: none !important;
+  }
 }

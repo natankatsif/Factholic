@@ -52,6 +52,8 @@ export const MOCK_VIDEO_REPORT: VideoReport = {
       speaker: "Город MD",
       consensus: "flagged",
       consensusSummary: "раздуто • старое",
+      // 3 опровержения, но два из них — перепечатки одной новости: независимых групп «против» две
+      sides: { for: 1, against: 2, mixed: 1 },
 
       flags: [
         {
@@ -363,6 +365,7 @@ export const MOCK_VIDEO_REPORT: VideoReport = {
       speaker: "Гость",
       consensus: "against",
       consensusSummary: "источники возражают",
+      sides: { for: 0, against: 3, mixed: 0 },
       flags: [],
       sources: [
         {
@@ -415,6 +418,7 @@ export const MOCK_VIDEO_REPORT: VideoReport = {
       speaker: "Ведущий",
       consensus: "split",
       consensusSummary: "мнения расходятся",
+      sides: { for: 1, against: 0, mixed: 1 },
       flags: [],
       sources: [
         {
@@ -457,6 +461,7 @@ export const MOCK_VIDEO_REPORT: VideoReport = {
       speaker: "Корреспондент",
       consensus: "converge",
       consensusSummary: "позиции совпадают",
+      sides: { for: 1, against: 0, mixed: 0 },
       flags: [],
       sources: [
         {

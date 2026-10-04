@@ -52,7 +52,7 @@ const TEXTS: Record<string, Texts> = {
         removed: "Пропало число",
         changed: "Число изменилось",
       },
-      place: { changed: "Изменилось место" },
+      place: { added: "Добавлено место", changed: "Изменилось место" },
       time: { shifted: "Событие сдвинуто во времени", changed: "Изменилось время события" },
       certainty: {
         inflated: "Подано увереннее",
@@ -93,7 +93,7 @@ const TEXTS: Record<string, Texts> = {
         removed: "Зникло число",
         changed: "Число змінилося",
       },
-      place: { changed: "Змінилося місце" },
+      place: { added: "Додано місце", changed: "Змінилося місце" },
       time: { shifted: "Подію зсунуто в часі", changed: "Змінився час події" },
       certainty: {
         inflated: "Подано впевненіше",
@@ -134,7 +134,7 @@ const TEXTS: Record<string, Texts> = {
         removed: "A number disappeared",
         changed: "The number changed",
       },
-      place: { changed: "The place changed" },
+      place: { added: "A place was added", changed: "The place changed" },
       time: { shifted: "The event was shifted in time", changed: "The time of the event changed" },
       certainty: {
         inflated: "Presented with more certainty",

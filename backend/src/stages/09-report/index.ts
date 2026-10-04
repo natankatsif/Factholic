@@ -78,6 +78,8 @@ export function toFactCheck(input: ReportInput): ReportOutput {
   };
 
   switch (input.kind) {
+    case "found":
+      return { ...base, status: "found" };
     case "pending":
       return base;
     case "failed":
@@ -109,6 +111,11 @@ export function toFactCheck(input: ReportInput): ReportOutput {
         status: "done",
         consensus,
         consensusSummary,
+        sides: {
+          for: stances.consensus.groupsFor,
+          against: stances.consensus.groupsAgainst,
+          mixed: stances.consensus.groupsMixed,
+        },
         flags,
         keyFinding,
         provenance: provenance ? toProvenance(provenance, claim) : undefined,
@@ -440,26 +447,36 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
     pathChain.unshift(curr);
     curr = curr.parentId !== null ? byId.get(curr.parentId) : undefined;
   }
+  // Путь — связи от материала вверх. Первоисточник (самая ранняя публикация с утверждением) не связан с
+  // этой цепочкой — всё равно ставим первым: он отвечает «когда появилось впервые», но следующий шаг
+  // помечаем linked: false, и UI рисует разрыв, а не стрелку «взял у».
   if (tree.rootId && !pathChain.some((n) => n.id === tree.rootId)) {
     const rootNode = byId.get(tree.rootId);
     if (rootNode) pathChain.unshift(rootNode);
   }
   if (!pathChain.length) pathChain.push(...tree.nodes.slice(0, 4));
 
-  const pathSummary: ProvenancePathStep[] = pathChain.map((n) => {
+  const pathSummary: ProvenancePathStep[] = pathChain.map((n, i) => {
     const isRoot = n.id === tree.rootId;
+    const prev = pathChain[i - 1];
+    const linked = !prev || n.parentId === prev.id;
+    // начало цепочки после разрыва (или без первоисточника): раньше нашлись публикации, связь с ними не установлена
+    const isChainHead = !isRoot && n.id !== VIDEO_NODE_ID && pathChain.length > 1 && (i === 0 || !linked);
     const nodeMutations = mutationList.filter((m) => m.toId === n.id);
     const isDistortion = nodeMutations.length > 0;
     const tag = isRoot
       ? "оригинал"
-      : isDistortion
-        ? nodeMutations[0].note || `${nodeMutations[0].before} → ${nodeMutations[0].after}`
-        : "пересказ";
+      : isChainHead && !isDistortion
+        ? "начало цепочки"
+        : isDistortion
+          ? nodeMutations[0].note || `${nodeMutations[0].before} → ${nodeMutations[0].after}`
+          : "пересказ";
     return {
       name: n.publisher || n.title,
       date: formatShortDate(n.publishedAt),
       tag,
       isDistortion,
+      ...(linked ? {} : { linked: false }),
     };
   });
 

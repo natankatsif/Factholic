@@ -68,8 +68,14 @@ async function ingestRemote(input: IngestInput, ctx: StageContext): Promise<Inge
     }
   }
 
-  // 2. Не видеоплатформа (yt-dlp сайт не знает или лишь нашёл на странице медиафайл) → читаем как статью
-  const isVideoPlatform = meta ? meta.extractor_key !== "Generic" : knownVideoSite(ytError);
+  // yt-dlp не установлен — это поломка сервера, а не «страница без видео»: сразу говорим как есть
+  if (!meta && /не установлен/.test((ytError as Error | undefined)?.message ?? "")) throw ytDlpError(ytError);
+
+  // 2. Не видеоплатформа (yt-dlp сайт не знает или лишь нашёл на странице медиафайл) → читаем как статью.
+  // Клиент сам сказал, что это видеоплатформа (YouTube…), — статьёй не читаем, даже если yt-dlp не назвал сайт
+  const isVideoPlatform = meta
+    ? meta.extractor_key !== "Generic"
+    : ref.platform !== "generic" || knownVideoSite(ytError);
   // yt-dlp узнал сайт ([youtube], [vimeo]…), но видео открыть не смог — это ошибка видео, а не «статья»
   if (!meta && isVideoPlatform) throw ytDlpError(ytError);
   if (!isVideoPlatform && !ref.mediaUrl) {

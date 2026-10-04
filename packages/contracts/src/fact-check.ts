@@ -31,6 +31,17 @@ export type ClaimConsensus =
   | "flagged" //          С флагами: раздуто • старое
   | "unverifiable"; //    Мало источников / нельзя проверить
 
+/**
+ * Стороны: сколько НЕЗАВИСИМЫХ групп источников за / против / частично. Перепечатки одной новости — одна
+ * группа, один голос. Это счёт, а не вывод: UI показывает его вместо «правда/ложь».
+ */
+export interface ClaimSides {
+  for: number;
+  against: number;
+  /** Группы с позицией «частично» или где «за» и «против» уравновесились */
+  mixed: number;
+}
+
 /** Категория утверждения по теме */
 export type ClaimCategory =
   | "event" //        событие
@@ -72,6 +83,12 @@ export interface ProvenancePathStep {
   date: string; // "14.03.2023", "2023", "сен 2026", "окт 2026"
   tag: string; // "оригинал", "пересказ", "склад → ТЦ", "2 → 200"
   isDistortion?: boolean; // признак искажения (красная/акцентная подсветка)
+  /**
+   * Связь с предыдущим шагом установлена (ссылка, «по данным…», дубль текста). false — разрыв: первоисточник
+   * (самая ранняя публикация с утверждением) найден, но как утверждение дошло от него до следующего шага —
+   * неизвестно; UI рисует пунктир «связь не установлена». Нет поля — связь есть.
+   */
+  linked?: boolean;
 }
 
 /** Роль узла в цепочке пересказов */
@@ -243,7 +260,18 @@ export interface Verdict {
 // ГЛАВНЫЕ СУЩНОСТИ ФРОНТЕНДА: FACTCHECK & VIDEOREPORT
 // =============================================================================
 
-export type FactCheckStatus = "checking" | "done" | "failed";
+/**
+ * found    — утверждение найдено, но ещё не проверялось: проверка запускается, когда видео к нему подходит
+ *            (текущее и два следующих), или когда пользователь его открыл (ClientMessage "claim.check")
+ * checking — идёт проверка (поиск, дерево, стороны)
+ * done / failed — проверено / не удалось
+ */
+export type FactCheckStatus = "found" | "checking" | "done" | "failed";
+
+/** Ещё нет результата: найдено или проверяется */
+export function isPendingCheck(fc: { status: FactCheckStatus }): boolean {
+  return fc.status === "found" || fc.status === "checking";
+}
 
 /** ОДИН проверенный тезис */
 export interface FactCheck {
@@ -268,6 +296,9 @@ export interface FactCheck {
   consensus: ClaimConsensus;
   /** Описание статуса («позиции совпадают», «мнения расходятся», «раздуто • старое») */
   consensusSummary?: string;
+
+  /** Счёт сторон по независимым группам источников. Нет — старый отчёт или тезис ещё проверяется */
+  sides?: ClaimSides;
 
   /** Флаги манипуляций («Старый контент», «Раздуто») */
   flags: ClaimFlag[];
@@ -316,10 +347,13 @@ export interface ReportSummary {
 export interface VideoReport {
   jobId: JobId;
   video: VideoInfo;
+  sourceText?: string;
   status: JobStatus;
   processedUntil: Seconds;
   /** Последний этап по материалу из job.progress; "verification" — материал разобран целиком */
   stage?: PipelineStage;
   summary?: ReportSummary;
+  /** Персонализированный мини-ответ маскота, если в тексте нет проверяемых тезисов */
+  emptyNotice?: string;
   factChecks: FactCheck[];
 }

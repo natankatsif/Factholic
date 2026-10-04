@@ -52,7 +52,10 @@ function claimContext(fc: FactCheck | undefined) {
       stance: s.stance,
       snippet: s.snippet.slice(0, 300),
     })),
-    path: tree?.pathSummary?.map((p) => `${p.name} (${p.date}) — ${p.tag}`),
+    path: tree?.pathSummary?.map(
+      (p) =>
+        `${p.linked === false ? "[связь с предыдущим не установлена] " : ""}${p.name} (${p.date}) — ${p.tag}`,
+    ),
     publications: tree?.nodes
       .filter((n) => n.role !== "target")
       .map((n) => ({ name: n.name, date: n.date, role: n.role, url: n.url })),

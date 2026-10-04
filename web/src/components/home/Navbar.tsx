@@ -32,26 +32,18 @@ export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarP
       >
         <button
           type="button"
-          onClick={() => onNavClick?.("how-it-works")}
-          className="text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer hidden sm:block"
-        >
-          Как это работает
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavClick?.("sources")}
-          className="text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer hidden md:block"
-        >
-          Источники
-        </button>
-
-        <button
-          type="button"
           onClick={() => onNavClick?.("editorial")}
           className="text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer hidden lg:block"
         >
           Для редакций
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavClick?.("business")}
+          className="text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer hidden lg:block"
+        >
+          Для бизнеса
         </button>
 
         {onOpenHistory && (

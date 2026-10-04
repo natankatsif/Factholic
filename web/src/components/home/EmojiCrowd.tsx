@@ -1,11 +1,106 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FloatingPills } from "./FloatingPills";
+import {
+  BlueFace,
+  TealFace,
+  GreenFace,
+  PurpleFace,
+  RedFace,
+  PinkFace,
+  YellowFace,
+  OrangeFace,
+} from "./blob-faces";
+import { type PlatformId } from "./SupportedPlatforms";
 
 export interface EmojiCrowdProps {
   isTyping?: boolean;
   hasText?: boolean;
+  platform?: PlatformId | null;
+  /** Реплика бирюзового: облачко слева от него, рот «говорит», пока печатается текст */
+  speech?: string | null;
+  /** Реплику напечатали и дали прочитать — пора убрать (облачко уйдёт плавно, когда speech станет null) */
+  onSpeechEnd?: () => void;
+}
+
+/** Скорость «речи»: мс на символ — с ней печатается облачко и шевелится рот */
+const SPEECH_MS_PER_CHAR = 32;
+/** Сколько облачко висит после того, как допечаталось: время прочитать (мс на символ) + запас */
+const SPEECH_READ_MS_PER_CHAR = 30;
+const SPEECH_HOLD_MS = 4000;
+
+/** Облачко реплики: выскакивает из бирюзового и печатает текст по буквам */
+function SpeechBubble({ text, leaving, onGone }: { text: string; leaving: boolean; onGone: () => void }) {
+  // по символам, а не по UTF-16: эмодзи не рвётся пополам
+  const chars = useMemo(() => Array.from(text), [text]);
+  const [shown, setShown] = useState(0);
+
+  useEffect(() => {
+    setShown(0);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setShown(chars.length);
+      return;
+    }
+    const timer = setInterval(() => {
+      setShown((n) => {
+        if (n >= chars.length) clearInterval(timer);
+        return Math.min(chars.length, n + 1);
+      });
+    }, SPEECH_MS_PER_CHAR);
+    return () => clearInterval(timer);
+  }, [chars]);
+
+  // Слева от бирюзового (left 320). На десктопе растёт вверх над толпой; на мобильном толпа обрезана
+  // сверху — облачко ниже, поверх синего
+  return (
+    <div
+      data-pencil-name="Speech Bubble"
+      style={{
+        animation: leaving
+          ? "bubble-out 0.3s cubic-bezier(0.22, 1, 0.36, 1) both"
+          : "bubble-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1) both",
+      }}
+      onAnimationEnd={(e) => {
+        if (leaving && e.animationName === "bubble-out") onGone();
+      }}
+      className="absolute right-[420px] top-[14px] [z-index:20] w-[330px] origin-bottom-right rounded-[26px] rounded-br-[8px] bg-[#FBF8F7] px-6 py-4 text-left text-[23px] font-extrabold leading-snug text-[#4A3333] [box-shadow:0px_14px_32px_rgba(74,51,51,0.16),0px_2px_6px_rgba(74,51,51,0.08)] [outline:2px_solid_#E2D7D4] [outline-offset:-1px] lg:top-auto lg:bottom-[404px] lg:w-[320px] lg:text-[21px]"
+    >
+      {/* Невидимый полный текст держит размер облачка, видимый печатается поверх */}
+      <span className="invisible">{text}</span>
+      <span className="absolute inset-0 px-6 py-4">{chars.slice(0, shown).join("")}</span>
+      {/* Хвостик к бирюзовому */}
+      <svg
+        aria-hidden
+        viewBox="0 0 28 22"
+        className="absolute -right-[22px] bottom-[6px] h-[22px] w-[28px] overflow-visible"
+      >
+        <path d="M0 2 C10 8 18 10 27 20 C17 19 8 18 0 16 Z" fill="#FBF8F7" />
+        <path d="M0 2 C10 8 18 10 27 20 C17 19 8 18 0 16" fill="none" stroke="#E2D7D4" strokeWidth="2" />
+      </svg>
+    </div>
+  );
+}
+
+interface BlobReactionState {
+  variant: number;
+  isReacting: boolean;
+  isDead?: boolean;
+  isReviving?: boolean;
+}
+
+/** Парящий смайлик скелета / черепа при гибели персонажа (💀) */
+function DeadSkull() {
+  return (
+    <div
+      className="pointer-events-none absolute left-1/2 -top-8 -translate-x-1/2 z-30 select-none flex items-center justify-center"
+      style={{
+        animation: "ghost-float 2.4s ease-out forwards",
+      }}
+    >
+      <span className="text-3xl filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)] select-none">💀</span>
+    </div>
+  );
 }
 
 /**
@@ -18,56 +113,56 @@ const BLOBS = [
     name: "Blue Blob",
     cx: 250,
     cy: 190,
-    maxGaze: 6,
+    maxGaze: 9,
   },
   {
     id: 1,
     name: "Teal Blob",
     cx: 445,
     cy: 165,
-    maxGaze: 6,
+    maxGaze: 9,
   },
   {
     id: 2,
     name: "Green Blob",
     cx: 595,
     cy: 205,
-    maxGaze: 8,
+    maxGaze: 11,
   },
   {
     id: 3,
     name: "Purple Blob",
     cx: 725,
     cy: 305,
-    maxGaze: 8,
+    maxGaze: 11,
   },
   {
     id: 4,
     name: "Red Blob",
     cx: 140,
     cy: 360,
-    maxGaze: 9,
+    maxGaze: 13,
   },
   {
     id: 5,
     name: "Pink Blob",
     cx: 325,
     cy: 425,
-    maxGaze: 10,
+    maxGaze: 14,
   },
   {
     id: 6,
     name: "Yellow Blob",
     cx: 485,
     cy: 365,
-    maxGaze: 10,
+    maxGaze: 15,
   },
   {
     id: 7,
     name: "Orange Blob",
     cx: 650,
     cy: 430,
-    maxGaze: 10,
+    maxGaze: 14,
   },
 ];
 
@@ -80,24 +175,175 @@ const BLOBS = [
  * - Интерактивная реакция на нажатие (poke squish wobble) и наведение курсора
  * - Точное сохранение всех размеров, цветов и контуров макета Figma (740×524)
  */
-export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProps) {
+export function EmojiCrowd({
+  isTyping = false,
+  hasText = false,
+  platform = null,
+  speech = null,
+  onSpeechEnd,
+}: EmojiCrowdProps) {
   const crowdRef = useRef<HTMLDivElement>(null);
   const [pokedBlob, setPokedBlob] = useState<number | null>(null);
+  // рот бирюзового шевелится, пока облачко печатает реплику
+  const [talking, setTalking] = useState(false);
+
+  const hasInput = hasText || isTyping || Boolean(platform);
+
+  useEffect(() => {
+    if (!speech) {
+      setTalking(false);
+      return;
+    }
+    setTalking(true);
+    const timer = setTimeout(() => setTalking(false), Array.from(speech).length * SPEECH_MS_PER_CHAR);
+    return () => clearTimeout(timer);
+  }, [speech]);
+
+  // Облачко живёт дольше реплики: когда speech убрали, оно ещё доигрывает уход и только потом пропадает
+  const [bubble, setBubble] = useState<{ text: string; leaving: boolean } | null>(null);
+  const onSpeechEndRef = useRef(onSpeechEnd);
+  onSpeechEndRef.current = onSpeechEnd;
+  useEffect(() => {
+    if (!speech) {
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      setBubble((b) => (b && !reduced ? { ...b, leaving: true } : null));
+      return;
+    }
+    setBubble({ text: speech, leaving: false });
+    // напечаталось и прочитано — просим убрать реплику
+    const chars = Array.from(speech).length;
+    const timer = setTimeout(
+      () => onSpeechEndRef.current?.(),
+      chars * (SPEECH_MS_PER_CHAR + SPEECH_READ_MS_PER_CHAR) + SPEECH_HOLD_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [speech]);
 
   const isTypingRef = useRef(isTyping);
   const hasTextRef = useRef(hasText);
+  const platformRef = useRef(platform);
 
   useEffect(() => {
     isTypingRef.current = isTyping;
     hasTextRef.current = hasText;
-  }, [isTyping, hasText]);
+    platformRef.current = platform;
+  }, [isTyping, hasText, platform]);
 
-  // Обработчик интерактивного клика / тыканья по персонажу
+  const REACTION_DURATION_MS = 2000;
+  const [reactions, setReactions] = useState<Record<number, BlobReactionState>>({
+    0: { variant: 1, isReacting: false, isDead: false },
+    1: { variant: 1, isReacting: false, isDead: false },
+    2: { variant: 1, isReacting: false, isDead: false },
+    3: { variant: 1, isReacting: false, isDead: false },
+    4: { variant: 1, isReacting: false, isDead: false },
+    5: { variant: 1, isReacting: false, isDead: false },
+    6: { variant: 1, isReacting: false, isDead: false },
+    7: { variant: 1, isReacting: false, isDead: false },
+  });
+  const returnTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const deathTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const deadBlobs = useRef<Record<number, number>>({});
+  const tapHistory = useRef<Record<number, { count: number; lastTime: number }>>({});
+  const lastPoke = useRef<{ id: number; time: number }>({ id: -1, time: 0 });
+
+  const reviveBlob = (id: number) => {
+    deadBlobs.current[id] = 0;
+    if (deathTimers.current[id]) {
+      clearTimeout(deathTimers.current[id]);
+      delete deathTimers.current[id];
+    }
+    // Спокойно возвращаем живое лицо без прыжка
+    setReactions((prev) => ({
+      ...prev,
+      [id]: { variant: 1, isReacting: false, isDead: false },
+    }));
+  };
+
+  const killBlob = (id: number) => {
+    deadBlobs.current[id] = Date.now();
+    if (returnTimers.current[id]) {
+      clearTimeout(returnTimers.current[id]);
+      delete returnTimers.current[id];
+    }
+    // Мордочка меняется на мёртвую (X_X)
+    setReactions((prev) => ({
+      ...prev,
+      [id]: { variant: 1, isReacting: false, isDead: true },
+    }));
+    // Держится мёртвым 6 секунд перед тем, как ожить
+    if (deathTimers.current[id]) clearTimeout(deathTimers.current[id]);
+    deathTimers.current[id] = setTimeout(() => {
+      reviveBlob(id);
+    }, 6000);
+  };
+
+  useEffect(() => {
+    return () => {
+      Object.values(returnTimers.current).forEach((t) => clearTimeout(t));
+      Object.values(deathTimers.current).forEach((t) => clearTimeout(t));
+    };
+  }, []);
+
+  // Обработчик интерактивного клика / тыканья по персонажу:
+  // если затапать быстро (>=5 раз) — персонаж погибает (X_X)
   const handlePoke = (id: number) => {
+    const now = Date.now();
+    // Защита от случайного дабл-триггера на тач-устройствах (pointerdown + click в пределах 70ms)
+    if (lastPoke.current.id === id && now - lastPoke.current.time < 70) return;
+    lastPoke.current = { id, time: now };
+
+    const deadSince = deadBlobs.current[id] || 0;
+    if (deadSince > 0) {
+      // Защита: пока персонаж мёртв первые 2.5 сек, остаточные спам-клики не могут случайно его воскресить!
+      if (now - deadSince < 2500) {
+        return;
+      }
+      // Спустя 2.5 сек осознанный клик может оживить его раньше 6 секунд
+      reviveBlob(id);
+      tapHistory.current[id] = { count: 0, lastTime: 0 };
+      return;
+    }
+
+    // Подсчитываем серию быстрых тапов (spam-tap):
+    const prevHistory = tapHistory.current[id] ?? { count: 0, lastTime: 0 };
+    const streak = now - prevHistory.lastTime < 1300 ? prevHistory.count + 1 : 1;
+    tapHistory.current[id] = { count: streak, lastTime: now };
+
+    if (streak >= 5) {
+      // Затапали до потери пульса! X_X
+      killBlob(id);
+      tapHistory.current[id] = { count: 0, lastTime: 0 };
+      return;
+    }
+
     setPokedBlob(id);
     setTimeout(() => {
       setPokedBlob((cur) => (cur === id ? null : cur));
     }, 480);
+
+    if (returnTimers.current[id]) {
+      clearTimeout(returnTimers.current[id]);
+    }
+
+    setReactions((prev) => {
+      const cur = prev[id] ?? { variant: 1, isReacting: false, isDead: false, isReviving: false };
+      const nextVariant = cur.isReacting ? (cur.variant % 4) + 1 : cur.variant;
+      return {
+        ...prev,
+        [id]: { ...cur, variant: nextVariant, isReacting: true },
+      };
+    });
+
+    returnTimers.current[id] = setTimeout(() => {
+      setReactions((prev) => {
+        const cur = prev[id];
+        if (!cur || cur.isDead) return prev;
+        return {
+          ...prev,
+          [id]: { ...cur, variant: (cur.variant % 4) + 1, isReacting: false },
+        };
+      });
+    }, REACTION_DURATION_MS);
   };
 
   useEffect(() => {
@@ -133,7 +379,8 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         const rect = crowdRef.current.getBoundingClientRect();
         const scale = rect.width / 740;
         const now = Date.now();
-        const isIdle = !isMoving || now - lastMoveTime > 4500;
+        const isIdle = !isMoving || now - lastMoveTime > 3000;
+        const platformActive = Boolean(platformRef.current);
         const typingActive = isTypingRef.current;
         const textPresent = hasTextRef.current;
 
@@ -141,14 +388,8 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
           let targetX = 0;
           let targetY = 0;
 
-          if (typingActive || textPresent) {
-            // Когда пользователь печатает или есть текст в поле:
-            // все персонажи поворачивают взгляд влево к полю ввода с живым лёгким микродвижением
-            const typingPulse = typingActive ? Math.sin(now * 0.015 + i * 0.5) * 0.8 : 0;
-            targetX = -blob.maxGaze * 0.92 + typingPulse;
-            targetY = 1.6 + typingPulse * 0.4;
-          } else if (!isIdle) {
-            // Центр персонажа в координатах экрана
+          if (!isIdle) {
+            // Пользователь водит мышкой или пальцем — чудики сильнее и выразительнее следят за курсором
             const blobScreenX = rect.left + blob.cx * scale;
             const blobScreenY = rect.top + blob.cy * scale;
             const dx = mouseX - blobScreenX;
@@ -156,20 +397,29 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
             const dist = Math.hypot(dx, dy);
 
             if (dist > 1) {
-              const intensity = Math.min(blob.maxGaze, (dist / 400) * blob.maxGaze);
+              const intensity = Math.min(blob.maxGaze, (dist / 240) * blob.maxGaze);
               targetX = (dx / dist) * intensity;
               targetY = (dy / dist) * intensity;
             }
+            if (typingActive) {
+              targetX += Math.sin(now * 0.02 + i * 0.5) * 0.8;
+            }
+          } else if (typingActive || textPresent || platformActive) {
+            // Курсор остановился, но пользователь печатает / вставил текст / выбрал платформу:
+            // все персонажи внимательно смотрят влево на поле ввода
+            const typingPulse = typingActive ? Math.sin(now * 0.015 + i * 0.5) * 1.2 : 0;
+            targetX = -blob.maxGaze * 0.94 + typingPulse;
+            targetY = 1.8 + typingPulse * 0.4;
           } else {
             // Нежные естественные движения глаз в режиме ожидания (idle glance)
             const time = now * 0.001;
-            targetX = Math.sin(time + i * 0.9) * 2;
-            targetY = Math.cos(time * 0.8 + i * 1.1) * 1.5;
+            targetX = Math.sin(time + i * 0.9) * 2.5;
+            targetY = Math.cos(time * 0.8 + i * 1.1) * 2;
           }
 
-          // Плавная интерполяция (lerp)
-          currentGaze[i].x += (targetX - currentGaze[i].x) * 0.12;
-          currentGaze[i].y += (targetY - currentGaze[i].y) * 0.12;
+          // Плавная быстрая интерполяция без задержек (lerp)
+          currentGaze[i].x += (targetX - currentGaze[i].x) * 0.15;
+          currentGaze[i].y += (targetY - currentGaze[i].y) * 0.15;
 
           crowdRef.current?.style.setProperty(`--gaze-x-${i}`, `${currentGaze[i].x.toFixed(2)}px`);
           crowdRef.current?.style.setProperty(`--gaze-y-${i}`, `${currentGaze[i].y.toFixed(2)}px`);
@@ -198,7 +448,7 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
         ref={crowdRef}
         data-pencil-name="Emoji Crowd"
         className={`box-border w-[740px] h-[524px] absolute left-1/2 bottom-[-70px] -translate-x-1/2 scale-[0.5] sm:scale-[0.62] md:scale-[0.8] origin-bottom lg:left-auto lg:translate-x-0 lg:origin-bottom-right lg:[transform:scale(var(--crowd-scale))] lg:bottom-[calc(-60px*var(--crowd-scale))] transition-all duration-500 ease-out ${
-          hasText || isTyping
+          hasInput
             ? "lg:right-[calc(-80px*var(--crowd-scale))]"
             : "lg:right-[calc(-100px*var(--crowd-scale))]"
         }`}
@@ -214,40 +464,23 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
             animation: pokedBlob === 0 ? "blob-poke 0.48s ease-out" : undefined,
           }}
           className={`box-border w-[240px] h-[240px] absolute left-[130px] top-[70px] bg-[#1660D6] rounded-[120px] [z-index:0] [box-shadow:0px_14px_32px_rgba(22,96,214,0.32),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
-            hasText ? "translate-x-[-4px]" : ""
+            hasInput ? "translate-x-[-4px]" : ""
           }`}
         >
+          {reactions[0]?.isDead && <DeadSkull />}
           <div
-            className="absolute inset-0 pointer-events-none transition-transform duration-75 ease-out"
+            className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
             style={{
-              transform: "translate3d(var(--gaze-x-0, 0px), var(--gaze-y-0, 0px), 0)",
+              transform: reactions[0]?.isDead
+                ? "none"
+                : "translate3d(var(--gaze-x-0, 0px), var(--gaze-y-0, 0px), 0)",
             }}
           >
-            <div
-              data-pencil-name="Brow L"
-              className={`box-border w-[48px] h-[12px] [transform:rotate(-15deg)] [transform-origin:top_left] absolute left-[48px] top-[72px] bg-[#00000059] rounded-[6px] [z-index:0] transition-transform duration-300 ${
-                hasText ? "-translate-y-1" : ""
-              }`}
-            />
-            <div
-              data-pencil-name="Brow R"
-              className={`box-border w-[48px] h-[12px] [transform:rotate(15deg)] [transform-origin:top_left] absolute left-[144px] top-[72px] bg-[#00000059] rounded-[6px] [z-index:1] transition-transform duration-300 ${
-                hasText ? "-translate-y-1" : ""
-              }`}
-            />
-            <div
-              data-pencil-name="Eye L"
-              style={{ animation: "eye-blink-1 4.4s infinite ease-in-out" }}
-              className="box-border w-[24px] h-[36px] absolute left-[60px] top-[96px] bg-[#00000059] rounded-full [z-index:2] origin-center"
-            />
-            <div
-              data-pencil-name="Eye R"
-              style={{ animation: "eye-blink-1 4.4s infinite ease-in-out" }}
-              className="box-border w-[24px] h-[36px] absolute left-[156px] top-[96px] bg-[#00000059] rounded-full [z-index:3] origin-center"
-            />
-            <div
-              data-pencil-name="Mouth"
-              className="box-border w-[60px] h-[24px] absolute left-[90px] top-[156px] bg-[#00000059] rounded-[12px] [z-index:4]"
+            <BlueFace
+              isReacting={reactions[0]?.isReacting ?? false}
+              variant={reactions[0]?.variant ?? 1}
+              hasText={hasInput}
+              isDead={reactions[0]?.isDead ?? false}
             />
           </div>
         </div>
@@ -263,49 +496,25 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
             animation: pokedBlob === 1 ? "blob-poke 0.48s ease-out" : undefined,
           }}
           className={`box-border w-[250px] h-[250px] absolute left-[320px] top-[40px] bg-[#0AA6C2] rounded-[125px] [z-index:1] [box-shadow:0px_14px_32px_rgba(10,166,194,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
-            hasText ? "translate-x-[-3px]" : ""
+            hasInput ? "translate-x-[-3px]" : ""
           }`}
         >
+          {reactions[1]?.isDead && <DeadSkull />}
           <div
-            className="absolute inset-0 pointer-events-none transition-transform duration-75 ease-out"
+            className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
             style={{
-              transform: "translate3d(var(--gaze-x-1, 0px), var(--gaze-y-1, 0px), 0)",
+              transform: reactions[1]?.isDead
+                ? "none"
+                : "translate3d(var(--gaze-x-1, 0px), var(--gaze-y-1, 0px), 0)",
             }}
           >
-            <div
-              data-pencil-name="Brow L"
-              className="box-border w-[39.6px] h-[11px] [transform:rotate(-10deg)] [transform-origin:top_left] absolute left-[63.8px] top-[48.4px] bg-[#00000059] rounded-[5.5px] [z-index:0]"
+            <TealFace
+              isReacting={reactions[1]?.isReacting ?? false}
+              variant={reactions[1]?.variant ?? 1}
+              hasText={hasInput}
+              talking={talking && !reactions[1]?.isDead}
+              isDead={reactions[1]?.isDead ?? false}
             />
-            <div
-              data-pencil-name="Brow R"
-              className="box-border w-[39.6px] h-[11px] [transform:rotate(10deg)] [transform-origin:top_left] absolute left-[143px] top-[48.4px] bg-[#00000059] rounded-[5.5px] [z-index:1]"
-            />
-            <div
-              data-pencil-name="Eye L"
-              style={{ animation: "eye-blink-2 3.9s infinite ease-in-out 0.8s" }}
-              className="box-border w-[17.6px] h-[26.4px] absolute left-[74.8px] top-[70.4px] bg-[#00000059] rounded-full [z-index:2] origin-center"
-            />
-            <div
-              data-pencil-name="Eye R"
-              style={{ animation: "eye-blink-2 3.9s infinite ease-in-out 0.8s" }}
-              className="box-border w-[17.6px] h-[26.4px] absolute left-[151.8px] top-[70.4px] bg-[#00000059] rounded-full [z-index:3] origin-center"
-            />
-            {/* Единственная ровная центрированная улыбка */}
-            <svg
-              data-pencil-name="Mouth"
-              viewBox="0 0 48 24"
-              fill="none"
-              className={`box-border w-[48px] h-[24px] absolute left-[101px] top-[98px] text-[#00000059] [z-index:2] transition-transform duration-300 ${
-                hasText ? "scale-[1.08]" : ""
-              }`}
-            >
-              <path
-                d="M4 6C4 16 12.954 20 24 20C35.046 20 44 16 44 6"
-                stroke="currentColor"
-                strokeWidth="4"
-                strokeLinecap="round"
-              />
-            </svg>
           </div>
         </div>
 
@@ -320,29 +529,23 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
             animation: pokedBlob === 2 ? "blob-poke 0.48s ease-out" : undefined,
           }}
           className={`box-border w-[190px] h-[190px] absolute left-[500px] top-[110px] bg-[#1DA57A] rounded-[95px] [z-index:2] [box-shadow:0px_14px_32px_rgba(29,165,122,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
-            hasText ? "rotate-[-3deg] scale-[1.03]" : ""
+            hasInput ? "rotate-[-3deg] scale-[1.03]" : ""
           }`}
         >
+          {reactions[2]?.isDead && <DeadSkull />}
           <div
-            className="absolute inset-0 pointer-events-none transition-transform duration-75 ease-out"
+            className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
             style={{
-              transform: "translate3d(var(--gaze-x-2, 0px), var(--gaze-y-2, 0px), 0)",
+              transform: reactions[2]?.isDead
+                ? "none"
+                : "translate3d(var(--gaze-x-2, 0px), var(--gaze-y-2, 0px), 0)",
             }}
           >
-            {/* Симметричные левый и правый глаз (без дублирующего глаза) */}
-            <div
-              data-pencil-name="Eye L"
-              style={{ animation: "eye-squint 5.2s infinite ease-in-out 1.2s" }}
-              className="box-border w-[30.4px] h-[8.55px] [transform:rotate(25deg)] [transform-origin:top_left] absolute left-[38px] top-[68.4px] bg-[#00000059] rounded-[4.275px] [z-index:0] origin-center"
-            />
-            <div
-              data-pencil-name="Eye R"
-              style={{ animation: "eye-squint 5.2s infinite ease-in-out 1.2s" }}
-              className="box-border w-[30.4px] h-[8.55px] [transform:rotate(-25deg)] [transform-origin:top_left] absolute left-[110px] top-[56px] bg-[#00000059] rounded-[4.275px] [z-index:1] origin-center"
-            />
-            <div
-              data-pencil-name="Mouth"
-              className="box-border w-[68.4px] h-[9.5px] [transform:rotate(-15deg)] [transform-origin:top_left] absolute left-[60.8px] top-[114px] bg-[#00000059] rounded-[4.75px] [z-index:3]"
+            <GreenFace
+              isReacting={reactions[2]?.isReacting ?? false}
+              variant={reactions[2]?.variant ?? 1}
+              hasText={hasInput}
+              isDead={reactions[2]?.isDead ?? false}
             />
           </div>
         </div>
@@ -358,36 +561,23 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
             animation: pokedBlob === 3 ? "blob-poke 0.48s ease-out" : undefined,
           }}
           className={`box-border w-[270px] h-[270px] absolute left-[590px] top-[170px] bg-[#6E1EF0] rounded-[135px] [z-index:3] [box-shadow:0px_14px_32px_rgba(110,30,240,0.32),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
-            hasText ? "scale-[1.02]" : ""
+            hasInput ? "scale-[1.02]" : ""
           }`}
         >
+          {reactions[3]?.isDead && <DeadSkull />}
           <div
-            className="absolute inset-0 pointer-events-none transition-transform duration-75 ease-out"
+            className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
             style={{
-              transform: "translate3d(var(--gaze-x-3, 0px), var(--gaze-y-3, 0px), 0)",
+              transform: reactions[3]?.isDead
+                ? "none"
+                : "translate3d(var(--gaze-x-3, 0px), var(--gaze-y-3, 0px), 0)",
             }}
           >
-            <div
-              data-pencil-name="Brow L"
-              className="box-border w-[43.2px] h-[12.15px] [transform:rotate(-25deg)] [transform-origin:top_left] absolute left-[75.6px] top-[54px] bg-[#00000059] rounded-[6.075px] [z-index:0]"
-            />
-            <div
-              data-pencil-name="Brow R"
-              className="box-border w-[43.2px] h-[12.15px] [transform:rotate(25deg)] [transform-origin:top_left] absolute left-[151.2px] top-[54px] bg-[#00000059] rounded-[6.075px] [z-index:1]"
-            />
-            <div
-              data-pencil-name="Eye L"
-              style={{ animation: "eye-blink-3 5.5s infinite ease-in-out 2.0s" }}
-              className="box-border w-[27px] h-[40.5px] absolute left-[81px] top-[81px] bg-[#00000059] rounded-full [z-index:2] origin-center"
-            />
-            <div
-              data-pencil-name="Eye R"
-              style={{ animation: "eye-blink-3 5.5s infinite ease-in-out 2.0s" }}
-              className="box-border w-[27px] h-[40.5px] absolute left-[156.6px] top-[81px] bg-[#00000059] rounded-full [z-index:3] origin-center"
-            />
-            <div
-              data-pencil-name="Mouth"
-              className="box-border w-[64.8px] h-[43.2px] absolute left-[102.6px] top-[140.4px] bg-[#00000059] [clip-path:path('M64.8_21.6_C64.8_9.671_50.294_0_32.4_0_C14.506_0_0_9.671_0_21.6_L7.128_21.6_C7.128_12.295_18.443_4.752_32.4_4.752_C46.357_4.752_57.672_12.295_57.672_21.6_L64.8_21.6_Z')] [z-index:4]"
+            <PurpleFace
+              isReacting={reactions[3]?.isReacting ?? false}
+              variant={reactions[3]?.variant ?? 1}
+              hasText={hasInput}
+              isDead={reactions[3]?.isDead ?? false}
             />
           </div>
         </div>
@@ -403,40 +593,23 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
             animation: pokedBlob === 4 ? "blob-poke 0.48s ease-out" : undefined,
           }}
           className={`box-border w-[240px] h-[240px] absolute left-[20px] top-[240px] bg-[#E2353F] rounded-[120px] [z-index:4] [box-shadow:0px_14px_32px_rgba(226,53,63,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
-            hasText ? "rotate-[2deg]" : ""
+            hasInput ? "rotate-[2deg]" : ""
           }`}
         >
+          {reactions[4]?.isDead && <DeadSkull />}
           <div
-            className="absolute inset-0 pointer-events-none transition-transform duration-75 ease-out"
+            className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
             style={{
-              transform: "translate3d(var(--gaze-x-4, 0px), var(--gaze-y-4, 0px), 0)",
+              transform: reactions[4]?.isDead
+                ? "none"
+                : "translate3d(var(--gaze-x-4, 0px), var(--gaze-y-4, 0px), 0)",
             }}
           >
-            <div
-              data-pencil-name="Brow L"
-              className={`box-border w-[48px] h-[12px] [transform:rotate(18deg)] [transform-origin:top_left] absolute left-[52.8px] top-[72px] bg-[#00000059] rounded-[6px] [z-index:0] transition-transform duration-300 ${
-                hasText ? "-translate-y-1" : ""
-              }`}
-            />
-            <div
-              data-pencil-name="Brow R"
-              className={`box-border w-[48px] h-[12px] [transform:rotate(-18deg)] [transform-origin:top_left] absolute left-[139.2px] top-[86.4px] bg-[#00000059] rounded-[6px] [z-index:1] transition-transform duration-300 ${
-                hasText ? "-translate-y-1" : ""
-              }`}
-            />
-            <div
-              data-pencil-name="Eye L"
-              style={{ animation: "eye-blink-4 3.7s infinite ease-in-out 0.5s" }}
-              className="box-border w-[21.6px] h-[21.6px] absolute left-[72px] top-[96px] bg-[#00000059] rounded-full [z-index:2] origin-center"
-            />
-            <div
-              data-pencil-name="Eye R"
-              style={{ animation: "eye-blink-4 3.7s infinite ease-in-out 0.5s" }}
-              className="box-border w-[21.6px] h-[21.6px] absolute left-[144px] top-[96px] bg-[#00000059] rounded-full [z-index:3] origin-center"
-            />
-            <div
-              data-pencil-name="Mouth"
-              className="box-border w-[67.2px] h-[12px] absolute left-[86.4px] top-[144px] bg-[#00000059] rounded-[6px] [z-index:4]"
+            <RedFace
+              isReacting={reactions[4]?.isReacting ?? false}
+              variant={reactions[4]?.variant ?? 1}
+              hasText={hasInput}
+              isDead={reactions[4]?.isDead ?? false}
             />
           </div>
         </div>
@@ -452,28 +625,23 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
             animation: pokedBlob === 5 ? "blob-poke 0.48s ease-out" : undefined,
           }}
           className={`box-border w-[250px] h-[250px] absolute left-[200px] top-[300px] bg-[#E0368A] rounded-[125px] [z-index:5] [box-shadow:0px_14px_32px_rgba(224,54,138,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
-            hasText ? "scale-[1.02]" : ""
+            hasInput ? "scale-[1.02]" : ""
           }`}
         >
+          {reactions[5]?.isDead && <DeadSkull />}
           <div
-            className="absolute inset-0 pointer-events-none transition-transform duration-75 ease-out"
+            className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
             style={{
-              transform: "translate3d(var(--gaze-x-5, 0px), var(--gaze-y-5, 0px), 0)",
+              transform: reactions[5]?.isDead
+                ? "none"
+                : "translate3d(var(--gaze-x-5, 0px), var(--gaze-y-5, 0px), 0)",
             }}
           >
-            <div
-              data-pencil-name="Eye L"
-              style={{ animation: "eye-blink-1 4.3s infinite ease-in-out 1.5s" }}
-              className="box-border w-[25px] h-[42.5px] absolute left-[75px] top-[75px] bg-[#00000059] rounded-full [z-index:0] origin-center"
-            />
-            <div
-              data-pencil-name="Eye R"
-              style={{ animation: "eye-blink-1 4.3s infinite ease-in-out 1.5s" }}
-              className="box-border w-[25px] h-[42.5px] absolute left-[150px] top-[75px] bg-[#00000059] rounded-full [z-index:1] origin-center"
-            />
-            <div
-              data-pencil-name="Mouth"
-              className="box-border w-[85px] h-[12.5px] absolute left-[82.5px] top-[155px] bg-[#00000059] rounded-[6.25px] [z-index:2]"
+            <PinkFace
+              isReacting={reactions[5]?.isReacting ?? false}
+              variant={reactions[5]?.variant ?? 1}
+              hasText={hasInput}
+              isDead={reactions[5]?.isDead ?? false}
             />
           </div>
         </div>
@@ -489,30 +657,23 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
             animation: pokedBlob === 6 ? "blob-poke 0.48s ease-out" : undefined,
           }}
           className={`box-border w-[230px] h-[230px] absolute left-[370px] top-[250px] bg-[#FFC20E] rounded-[115px] [z-index:6] [box-shadow:0px_14px_32px_rgba(255,194,14,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
-            hasText ? "scale-[1.04] translate-y-[-4px]" : ""
+            hasInput ? "scale-[1.04] translate-y-[-4px]" : ""
           }`}
         >
+          {reactions[6]?.isDead && <DeadSkull />}
           <div
-            className="absolute inset-0 pointer-events-none transition-transform duration-75 ease-out"
+            className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
             style={{
-              transform: "translate3d(var(--gaze-x-6, 0px), var(--gaze-y-6, 0px), 0)",
+              transform: reactions[6]?.isDead
+                ? "none"
+                : "translate3d(var(--gaze-x-6, 0px), var(--gaze-y-6, 0px), 0)",
             }}
           >
-            <div
-              data-pencil-name="Eye L"
-              style={{ animation: "eye-blink-2 3.6s infinite ease-in-out 2.2s" }}
-              className="box-border w-[23px] h-[36.8px] absolute left-[69px] top-[69px] bg-[#00000059] rounded-full [z-index:0] origin-center"
-            />
-            <div
-              data-pencil-name="Eye R"
-              style={{ animation: "eye-blink-2 3.6s infinite ease-in-out 2.2s" }}
-              className="box-border w-[23px] h-[36.8px] absolute left-[138px] top-[69px] bg-[#00000059] rounded-full [z-index:1] origin-center"
-            />
-            <div
-              data-pencil-name="Smile"
-              className={`box-border w-[101.2px] h-[69px] absolute left-[64.4px] top-[101.2px] bg-[#00000059] [clip-path:path('M0_34.5_C0_53.554_22.654_69_50.6_69_C78.546_69_101.2_53.554_101.2_34.5_L92.092_34.5_C92.092_50.124_73.515_62.79_50.6_62.79_C27.685_62.79_9.108_50.124_9.108_34.5_L0_34.5_Z')] [z-index:2] transition-transform duration-300 ${
-                hasText ? "scale-[1.06]" : ""
-              }`}
+            <YellowFace
+              isReacting={reactions[6]?.isReacting ?? false}
+              variant={reactions[6]?.variant ?? 1}
+              hasText={hasInput}
+              isDead={reactions[6]?.isDead ?? false}
             />
           </div>
         </div>
@@ -528,48 +689,33 @@ export function EmojiCrowd({ isTyping = false, hasText = false }: EmojiCrowdProp
             animation: pokedBlob === 7 ? "blob-poke 0.48s ease-out" : undefined,
           }}
           className={`box-border w-[220px] h-[220px] absolute left-[540px] top-[320px] bg-[#FF7A12] rounded-[110px] [z-index:7] [box-shadow:0px_14px_32px_rgba(255,122,18,0.35),0px_4px_12px_rgba(74,51,51,0.12)] pointer-events-auto cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] active:scale-[0.96] ${
-            hasText ? "scale-[1.05]" : ""
+            hasInput ? "scale-[1.05]" : ""
           }`}
         >
+          {reactions[7]?.isDead && <DeadSkull />}
           <div
-            className="absolute inset-0 pointer-events-none transition-transform duration-75 ease-out"
+            className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
             style={{
-              transform: "translate3d(var(--gaze-x-7, 0px), var(--gaze-y-7, 0px), 0)",
+              transform: reactions[7]?.isDead
+                ? "none"
+                : "translate3d(var(--gaze-x-7, 0px), var(--gaze-y-7, 0px), 0)",
             }}
           >
-            <div
-              data-pencil-name="Brow L"
-              className={`box-border w-[35.2px] h-[22px] absolute left-[57.2px] top-[39.6px] bg-[#00000059] [clip-path:path('M35.2_11_C35.2_4.925_27.32_0_17.6_0_C7.88_0_0_4.925_0_11_L5.28_11_C5.28_6.747_10.796_3.3_17.6_3.3_C24.404_3.3_29.92_6.747_29.92_11_L35.2_11_Z')] [z-index:0] transition-transform duration-300 ${
-                hasText ? "-translate-y-1.5" : ""
-              }`}
-            />
-            <div
-              data-pencil-name="Brow R"
-              className={`box-border w-[35.2px] h-[22px] absolute left-[127.6px] top-[39.6px] bg-[#00000059] [clip-path:path('M35.2_11_C35.2_4.925_27.32_0_17.6_0_C7.88_0_0_4.925_0_11_L5.28_11_C5.28_6.747_10.796_3.3_17.6_3.3_C24.404_3.3_29.92_6.747_29.92_11_L35.2_11_Z')] [z-index:1] transition-transform duration-300 ${
-                hasText ? "-translate-y-1.5" : ""
-              }`}
-            />
-            <div
-              data-pencil-name="Eye L"
-              style={{ animation: "eye-blink-3 4.1s infinite ease-in-out 0.7s" }}
-              className="box-border w-[17.6px] h-[26.4px] absolute left-[66px] top-[70.4px] bg-[#00000059] rounded-full [z-index:2] origin-center"
-            />
-            <div
-              data-pencil-name="Eye R"
-              style={{ animation: "eye-blink-3 4.1s infinite ease-in-out 0.7s" }}
-              className="box-border w-[17.6px] h-[26.4px] absolute left-[136.4px] top-[70.4px] bg-[#00000059] rounded-full [z-index:3] origin-center"
-            />
-            <div
-              data-pencil-name="Mouth"
-              className={`box-border w-[26.4px] h-[30.8px] absolute left-[96.8px] top-[114.4px] bg-[#00000059] rounded-full [z-index:4] transition-transform duration-300 origin-center ${
-                hasText ? "scale-[1.25]" : ""
-              }`}
+            <OrangeFace
+              isReacting={reactions[7]?.isReacting ?? false}
+              variant={reactions[7]?.variant ?? 1}
+              hasText={hasInput}
+              isDead={reactions[7]?.isDead ?? false}
             />
           </div>
         </div>
 
         {/* Плашки с процентами «Ложь / Правда / Спорно» */}
         <FloatingPills />
+
+        {bubble && !reactions[1]?.isDead && (
+          <SpeechBubble text={bubble.text} leaving={bubble.leaving} onGone={() => setBubble(null)} />
+        )}
       </div>
     </div>
   );

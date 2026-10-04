@@ -9,6 +9,7 @@ export interface ConsensusBarProps {
   totalSources: number;
   material: MaterialKind;
   onSelectClaimId: (id: string) => void;
+  viewedClaimIds?: Set<string>;
 }
 
 const MATERIAL_ACC: Record<MaterialKind, string> = { video: "видео", text: "текст", article: "статью" };
@@ -17,7 +18,13 @@ const MATERIAL_ACC: Record<MaterialKind, string> = { video: "видео", text: 
  * Нижняя плашка «Что нашли»: старое событие и цифры, выросшие по пути. Каждый пункт кликабелен — выбирает
  * своё утверждение (справа откроются источники и цепочка). Позиции по утверждениям — в фильтрах «Разбора».
  */
-export function ConsensusBar({ factChecks, totalSources, material, onSelectClaimId }: ConsensusBarProps) {
+export function ConsensusBar({
+  factChecks,
+  totalSources,
+  material,
+  onSelectClaimId,
+  viewedClaimIds,
+}: ConsensusBarProps) {
   // у видео — таймкод, у текста и статьи таймкодов нет: начало утверждения
   const where = (fc: FactCheck) =>
     material === "video" ? formatTimecode(fc.range.start) : `«${shorten(fc.claim || fc.quote, 28)}»`;
@@ -46,6 +53,12 @@ export function ConsensusBar({ factChecks, totalSources, material, onSelectClaim
         <Finding icon={History} iconBg="#E8DCFD" iconColor="#6E1EF0" title="Старое событие">
           {outdated ? (
             <ItemButton onClick={() => onSelectClaimId(outdated.fc.id)}>
+              {viewedClaimIds && !viewedClaimIds.has(outdated.fc.id) && (
+                <span
+                  className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#0AA6C2]"
+                  title="Не просмотрено"
+                />
+              )}
               {where(outdated.fc)} · {outdated.flag.detail}
               {outdated.fc.keyFinding?.title && `, ${lowerFirst(outdated.fc.keyFinding.title)}`}
             </ItemButton>
@@ -57,13 +70,18 @@ export function ConsensusBar({ factChecks, totalSources, material, onSelectClaim
         <Finding icon={TrendingUp} iconBg="#FFE1C7" iconColor="#FF7A12" title="Цифры выросли по пути">
           {exaggerated ? (
             <ItemButton onClick={() => onSelectClaimId(exaggerated.fc.id)}>
+              {viewedClaimIds && !viewedClaimIds.has(exaggerated.fc.id) && (
+                <span
+                  className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#0AA6C2]"
+                  title="Не просмотрено"
+                />
+              )}
               {where(exaggerated.fc)} · {beforeAfter(exaggerated.flag.detail)}
             </ItemButton>
           ) : (
             <Empty>раздутых цифр не нашли</Empty>
           )}
         </Finding>
-
       </div>
 
       <div className="mt-auto flex items-center gap-2 pt-6 text-xs font-semibold text-[#A27C7A]">

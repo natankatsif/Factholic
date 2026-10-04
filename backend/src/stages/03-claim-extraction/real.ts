@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import OpenAI from "openai";
 import { z } from "zod";
 import type { ClaimCategory } from "@news/contracts";
-import type { Stage } from "../../pipeline/context.ts";
+import { PipelineError, type Stage } from "../../pipeline/context.ts";
 import type { TranscriptSegment } from "../02-transcription/types.ts";
 import { askJson, LlmConfigError } from "./llm.ts";
 import { buildPrompt, SYSTEM_PROMPT } from "./prompt.ts";
@@ -40,8 +40,16 @@ const ExtractionSchema = z.object({
       }),
     }),
   ),
+  replyWhenNoClaims: z.string().nullable(),
 });
 type RawClaim = z.infer<typeof ExtractionSchema>["claims"][number];
+
+function cleanNoEmoji(text: string): string {
+  return text
+    .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 /**
  * REAL-РЕАЛИЗАЦИЯ (STAGE_CLAIM_EXTRACTION=real).
@@ -52,11 +60,13 @@ export const extractClaimsReal: Stage<ClaimExtractionInput, ClaimExtractionOutpu
   if (!input.segments.length) return { claims: [] };
 
   let raw: RawClaim[];
+  let replyWhenNoClaims: string | null;
   try {
     const { data } = await askJson(
       {
         // этап на критическом пути: пока он идёт, пользователь не видит даже лоадер
         effort: "low",
+        fast: true,
         // обычно ~11–19 с; зависший запрос через 45 с повторяется, а не ждёт 90
         timeoutMs: 45_000,
         system: SYSTEM_PROMPT,
@@ -66,21 +76,36 @@ export const extractClaimsReal: Stage<ClaimExtractionInput, ClaimExtractionOutpu
       ctx,
     );
     raw = data.claims;
+    replyWhenNoClaims = data.replyWhenNoClaims ? cleanNoEmoji(data.replyWhenNoClaims) : null;
   } catch (err) {
     // ошибка конфигурации (провайдер, ключ, модель) — валим job, чтобы её заметили;
     // временный сбой LLM — теряем тезисы одного куска, но видео проверяется дальше
     if (ctx.signal.aborted || isConfigError(err)) throw err;
+    // кончились деньги — это не сбой куска: иначе job «успешно» находит ноль утверждений,
+    // и сайт говорит «в тексте только мнения» (как в этапе 02)
+    if (isNoCredits(err))
+      throw new PipelineError("INTERNAL", "На счёте OpenAI закончились деньги", { cause: err });
     ctx.log("03: LLM не ответила, кусок пропущен", err);
     return { claims: [] };
   }
 
   const claims = toClaims(raw, input);
   ctx.log(`03: тезисов ${claims.length} (LLM предложила ${raw.length})`);
-  return { claims };
+  return {
+    claims,
+    replyWhenNoClaims: claims.length === 0 ? replyWhenNoClaims : null,
+  };
 };
 
 /** 400 из-за содержимого куска (фильтр безопасности на видео о войне, слишком длинный текст) — не ошибка настройки */
 const CONTENT_ERRORS = new Set(["invalid_prompt", "context_length_exceeded"]);
+
+/** 429 бывает и от частоты запросов (переживём), и от пустого счёта — тут повтор не поможет */
+const NO_CREDITS = new Set(["insufficient_quota", "credit_balance_exhausted"]);
+
+function isNoCredits(err: unknown): boolean {
+  return err instanceof OpenAI.RateLimitError && NO_CREDITS.has(String(err.code));
+}
 
 function isConfigError(err: unknown): boolean {
   if (err instanceof OpenAI.BadRequestError) return !CONTENT_ERRORS.has(String(err.code));

@@ -17,11 +17,13 @@ export interface ProvenanceResult {
 }
 
 /**
- * pending — сразу после этапа 03 (фронт показывает лоадер на таймкоде)
+ * found   — найдено этапом 03, проверка ещё не запускалась (серое на таймкоде, проверится по запросу)
+ * pending — проверка началась (фронт показывает лоадер на таймкоде)
  * checked — после этапов 05–08
  * failed  — 04 или 08 упали
  */
 export type ReportInput =
+  | { kind: "found"; claim: Claim }
   | { kind: "pending"; claim: Claim }
   | {
       kind: "checked";

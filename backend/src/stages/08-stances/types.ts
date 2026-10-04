@@ -8,6 +8,8 @@ export interface Consensus {
   status: ConsensusStatus;
   groupsFor: number;
   groupsAgainst: number;
+  /** Группы, где «за» и «против» уравновесились (или все источники — «частично»): голос делится пополам */
+  groupsMixed: number;
   summary: string;
   explanation: string;
   /**

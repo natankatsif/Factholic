@@ -29,6 +29,8 @@ export interface AskJsonParams<S extends z.ZodType> {
   prompt: string;
   schema: S;
   maxTokens?: number;
+  /** Быстрая модель (LLM_MODEL_FAST) — для быстрого пречека и извлечения тезисов без задержки */
+  fast?: boolean;
   /**
    * Таймаут одной попытки (мс). Запросы к OpenAI иногда «зависают» на минуту и больше, хотя обычно идут 4 с
    * (замер: 81 с и 118 с вместо 4 с). Короткий таймаут + повтор SDK ограничивает такое зависание.
@@ -36,16 +38,25 @@ export interface AskJsonParams<S extends z.ZodType> {
   timeoutMs?: number;
 }
 
+function modelOf(params: { fast?: boolean }): string {
+  if (params.fast !== false && config.providers.llm.fastModel) {
+    return config.providers.llm.fastModel;
+  }
+  return config.providers.llm.model;
+}
+
 export async function askJson<S extends z.ZodType>(
   params: AskJsonParams<S>,
   ctx: StageContext,
 ): Promise<{ data: z.infer<S>; model: string }> {
+  const chosenModel = modelOf(params);
   const res = await getClient().responses.parse(
     {
-      model: config.providers.llm.model,
+      model: chosenModel,
       instructions: params.system,
       input: params.prompt,
-      reasoning: { effort: params.effort },
+      // у моделей без «размышления» (gpt-4.x, gpt-3.5) параметра reasoning нет — API его отклонит
+      ...(/^gpt-(3|4)/.test(chosenModel) ? {} : { reasoning: { effort: params.effort } }),
       max_output_tokens: params.maxTokens ?? 16000,
       text: { format: zodTextFormat(params.schema, "result") },
       // расшифровки и тексты страниц не нужно хранить на стороне OpenAI

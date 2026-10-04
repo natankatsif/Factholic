@@ -10,7 +10,7 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "factholic — Проверь любое видео",
+  title: "factholic - Проверь любое видео",
   description: "Вставь ссылку — откроем плеер и разберём каждое утверждение",
 };
 

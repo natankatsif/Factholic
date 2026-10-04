@@ -111,18 +111,18 @@ const ctx: StageContext = { jobId: "job_test", signal: new AbortController().sig
 
 // ---------- дерево ----------
 
-/** Первоисточник: «по данным мэрии, 2 пострадавших», 14 января 2021 */
+/** Первоисточник: «по предварительным данным мэрии, 2 пострадавших», 14 января 2021 */
 const original: ClaimStructure = {
   event: "пожар на складе",
   numbers: [{ value: "2", about: "пострадавших" }],
   places: ["Кишинёв"],
   time: { text: "14 января 2021 года", date: "2021-01-14", relative: false },
-  certainty: "reported",
-  certaintyMarkers: ["по данным мэрии"],
+  certainty: "hedged",
+  certaintyMarkers: ["по предварительным данным"],
   attributedTo: "мэрия Кишинёва",
 };
 
-/** Перепечатка через 5 лет: «вчера, 200 пострадавших», как факт и без ссылки */
+/** Перепечатка через 5 лет: «вчера, 200 пострадавших», как факт и со ссылкой на МЧС */
 const inflated: ClaimStructure = {
   event: "пожар на складе",
   numbers: [{ value: "200", about: "пострадавших" }],
@@ -130,7 +130,7 @@ const inflated: ClaimStructure = {
   time: { text: "вчера", date: "2026-10-01", relative: true },
   certainty: "asserted",
   certaintyMarkers: [],
-  attributedTo: null,
+  attributedTo: "МЧС",
 };
 
 function node(
@@ -174,9 +174,11 @@ function makeInput(
 const EXPECTED_CANDIDATES = [
   { field: "numbers", before: "2 пострадавших", after: "200 пострадавших", direction: "inflated" },
   { field: "time", before: "14 января 2021 года", after: "вчера (1 октября 2026)", direction: "shifted" },
-  { field: "certainty", before: "со ссылкой на источник", after: "как факт", direction: "inflated" },
-  { field: "attribution", before: "мэрия Кишинёва", after: "без ссылки на источник", direction: "removed" },
+  { field: "certainty", before: "предположительно", after: "как факт", direction: "inflated" },
+  { field: "attribution", before: "мэрия Кишинёва", after: "МЧС", direction: "changed" },
 ];
+/** Путь корень → видео: только расхождения с первой публикацией, без атрибуции */
+const EXPECTED_PATH_CANDIDATES = EXPECTED_CANDIDATES.filter((c) => c.field !== "attribution");
 
 // ---------- тесты ----------
 
@@ -191,7 +193,7 @@ describe("findMutationsReal: пары и кандидаты", () => {
         ...c,
         note: `note c${i + 1}`,
       })),
-      ...EXPECTED_CANDIDATES.map((c, i) => ({
+      ...EXPECTED_PATH_CANDIDATES.map((c, i) => ({
         fromId: "src_1",
         toId: VIDEO_NODE_ID,
         ...c,
@@ -207,20 +209,20 @@ describe("findMutationsReal: пары и кандидаты", () => {
     assert.equal(req.reasoning?.effort, "low");
     assert.match(req.instructions, /added \/ removed/);
     assert.match(req.input, /ПАРЫ \(ровно 2: p1, p2\)/);
-    assert.match(req.input, /КАНДИДАТЫ \(ровно 8: c1, c2, c3, c4, c5, c6, c7, c8\)/);
+    assert.match(req.input, /КАНДИДАТЫ \(ровно 7: c1, c2, c3, c4, c5, c6, c7\)/);
     assert.match(req.input, /событие: пожар на складе/);
     assert.match(req.input, /числа: «2» пострадавших/);
     assert.match(req.input, /числа: «200» пострадавших/);
     assert.match(req.input, /время: «14 января 2021 года» \(2021-01-14\)/);
     assert.match(req.input, /время: «вчера» \(2026-10-01, относительно даты публикации\)/);
-    assert.match(req.input, /уверенность: reported \(«по данным мэрии»\)/);
+    assert.match(req.input, /уверенность: hedged \(«по предварительным данным»\)/);
     assert.match(req.input, /ссылается на: мэрия Кишинёва/);
     assert.match(req.input, /- c1 \[numbers, inflated\]: «2 пострадавших» → «200 пострадавших»/);
   });
 
   it("у узла video нет structure → берётся structure тезиса из этапа 03", async () => {
     const out = await findMutationsReal(makeInput(null), ctx);
-    assert.equal(out.mutations.filter((m) => m.toId === VIDEO_NODE_ID).length, 4);
+    assert.equal(out.mutations.filter((m) => m.toId === VIDEO_NODE_ID).length, 3);
   });
 
   it("перепечатывали точно → LLM не вызывается, мутаций нет", async () => {
@@ -237,7 +239,7 @@ describe("findMutationsReal: решения LLM", () => {
         { candidateId: "c1", confirmed: true, note: "Число пострадавших выросло в 100 раз." },
         { candidateId: "c2", confirmed: true, note: "Пожар 2021 года подан как вчерашний." },
         { candidateId: "c3", confirmed: false, note: "" },
-        // c4 пропущен; c5–c8 — тоже
+        // c4 пропущен; c5–c7 — тоже
       ]);
     const out = await findMutationsReal(makeInput(), ctx);
     const fromChild = out.mutations.filter((m) => m.toId === "src_2");
@@ -246,10 +248,10 @@ describe("findMutationsReal: решения LLM", () => {
       [
         ["numbers", "Число пострадавших выросло в 100 раз."],
         ["time", "Пожар 2021 года подан как вчерашний."],
-        ["attribution", "Убрана ссылка на источник: «мэрия Кишинёва» → «без ссылки на источник»."],
+        ["attribution", "Изменилось, на кого ссылаются: «мэрия Кишинёва» → «МЧС»."],
       ],
     );
-    assert.equal(out.mutations.length, 7);
+    assert.equal(out.mutations.length, 6);
   });
 
   it("LLM не ответила (500) → кандидаты кода с шаблонными note", async () => {
@@ -260,8 +262,8 @@ describe("findMutationsReal: решения LLM", () => {
       [
         "Число выросло: «2 пострадавших» → «200 пострадавших».",
         "Событие сдвинуто во времени: «14 января 2021 года» → «вчера (1 октября 2026)».",
-        "Подано увереннее: «со ссылкой на источник» → «как факт».",
-        "Убрана ссылка на источник: «мэрия Кишинёва» → «без ссылки на источник».",
+        "Подано увереннее: «предположительно» → «как факт».",
+        "Изменилось, на кого ссылаются: «мэрия Кишинёва» → «МЧС».",
       ],
     );
   });

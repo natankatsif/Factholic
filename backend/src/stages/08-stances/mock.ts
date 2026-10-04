@@ -20,6 +20,7 @@ export const mockStancesOutput: StancesOutput = {
     status: "agree",
     groupsFor: 2,
     groupsAgainst: 0,
+    groupsMixed: 1,
     summary: "ООН, Reuters и Deutsche Welle сообщают о продолжающихся боевых действиях.",
     explanation:
       "Сообщение DW основано на данных Reuters, поэтому они считаются одной группой. Вместе с ООН — две независимые группы «за»; Википедия подтверждает только начало войны в 2022 году.",

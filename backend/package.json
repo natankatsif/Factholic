@@ -9,7 +9,7 @@
     "stage:03": "tsx src/stages/03-claim-extraction/dev.ts",
     "stage:04": "tsx src/stages/04-source-search/dev.ts",
     "stage:08": "tsx src/stages/08-stances/dev.ts",
-    "test": "tsx --test \"src/stages/**/*.test.ts\"",
+    "test": "tsx --test \"src/stages/**/*.test.ts\" \"src/pipeline/**/*.test.ts\"",
     "eval:03": "tsx src/stages/03-claim-extraction/eval/run.ts",
     "eval:04": "tsx src/stages/04-source-search/eval/run.ts",
     "eval:08": "tsx src/stages/08-stances/eval/run.ts"

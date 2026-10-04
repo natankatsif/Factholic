@@ -88,6 +88,7 @@ export const assessStancesReal: Stage<StancesInput, StancesOutput> = async (inpu
       status,
       groupsFor: votes.groupsFor,
       groupsAgainst: votes.groupsAgainst,
+      groupsMixed: votes.groupsMixed,
       summary: data.summary.trim(),
       explanation: data.explanation.trim(),
       ...(votes.groups < MIN_GROUPS && votes.authority ? { authority: votes.authority.publisher } : {}),
@@ -114,6 +115,8 @@ interface Votes {
   groups: number;
   groupsFor: number;
   groupsAgainst: number;
+  /** Позиция группы — ноль: «частично» или поровну «за» и «против» */
+  groupsMixed: number;
   /** Доля веса «за» среди групп с позицией, 0..1 */
   forShare: number;
   /** Группа одна, и в ней официальный источник с позицией — вывод по нему */
@@ -158,6 +161,7 @@ function countVotes(
     groups: groups.size,
     groupsFor: 0,
     groupsAgainst: 0,
+    groupsMixed: 0,
     forShare: 0,
     authority: only?.authority,
   };
@@ -172,6 +176,7 @@ function countVotes(
     } else if (sum < 0) {
       votes.groupsAgainst++;
     } else {
+      votes.groupsMixed++;
       forWeight += w / 2;
     }
   }
@@ -204,6 +209,7 @@ function fixedOutput(
       status: "few_sources",
       groupsFor: votes?.groupsFor ?? 0,
       groupsAgainst: votes?.groupsAgainst ?? 0,
+      groupsMixed: votes?.groupsMixed ?? 0,
       ...fixedTexts(kind, input.uiLanguage),
     },
     sourceAssessments:

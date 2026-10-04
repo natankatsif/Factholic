@@ -54,12 +54,16 @@ export const config = {
     ]),
   ) as Record<SwitchableStage, ImplMode>,
   /**
-   * Сколько утверждений проверять (поиск + LLM — самая дорогая часть: ~9 запросов Tavily на утверждение).
-   * Берутся самые важные по checkworthiness. Остальные не показываются.
+   * Проверка утверждения (поиск + LLM) — самая дорогая часть: ~9 запросов Tavily. Проверяются по требованию
+   * (pipeline/scheduler.ts): текущее в плеере и два следующих, открытые пользователем.
    */
   limits: {
+    /** Текст статьи (плеера нет): сколько самых важных утверждений куска проверять сразу */
     maxClaimsPerChunk: positiveInt("MAX_CLAIMS_PER_CHUNK", 5),
-    maxClaimsPerJob: positiveInt("MAX_CLAIMS_PER_JOB", 20),
+    /** Потолок проверок на один материал — сколько бы ни смотрели и ни открывали */
+    maxClaimsPerJob: positiveInt("MAX_CLAIMS_PER_JOB", 40),
+    /** Сколько утверждений одной задачи проверять одновременно */
+    checkParallel: positiveInt("CHECK_MAX_PARALLEL", 3),
     /** Сколько запросов к поиску (Tavily) одновременно — на весь сервер */
     // замер (5 тезисов статьи): 6 → 40 с, 15 → 25 с, 30 → 16 с, ожидание слота 0, ошибок нет
     searchParallel: positiveInt("SEARCH_MAX_PARALLEL", 30),
