@@ -1,5 +1,6 @@
 import React from "react";
-import { History } from "lucide-react";
+import { Github, History } from "lucide-react";
+import { GITHUB_URL } from "./HackathonPill";
 
 export interface NavbarProps {
   onGoHome?: () => void;
@@ -56,6 +57,17 @@ export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarP
             <span>История</span>
           </button>
         )}
+
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noreferrer"
+          title="factholic на GitHub"
+          aria-label="factholic на GitHub"
+          className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A27C7A] transition-colors hover:bg-[#E8DFDC] hover:text-[#4A3333] sm:flex lg:h-10 lg:w-10"
+        >
+          <Github className="h-[18px] w-[18px] lg:h-5 lg:w-5" strokeWidth={2.2} />
+        </a>
 
         <button
           type="button"

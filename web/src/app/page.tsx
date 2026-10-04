@@ -8,6 +8,7 @@ import {
   createJob,
   deleteJob,
   findCompletedJob,
+  JobRejectedError,
   subscribeJob,
   type JobSubscription,
 } from "../lib/jobs";
@@ -136,7 +137,7 @@ export default function HomePage() {
       });
     } catch (err) {
       console.error(err);
-      showError(input, isUrl);
+      showError(input, isUrl, err instanceof JobRejectedError ? err.message : undefined);
     }
   };
 

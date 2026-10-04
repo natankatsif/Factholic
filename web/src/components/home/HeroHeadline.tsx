@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { listJobs } from "../../lib/jobs";
+import { HackathonPill } from "./HackathonPill";
 
 export interface HeroHeadlineProps {
   todayVerifiedCount?: string;
@@ -48,6 +49,8 @@ export function HeroHeadline({ todayVerifiedCount, verifiedUnit = "тезисо�
         data-pencil-name="Title Block"
         className="box-border flex min-w-0 flex-col items-start gap-2.5 sm:gap-3.5 xl:gap-[16px]"
       >
+        <HackathonPill />
+
         <h1
           data-pencil-name="Title"
           className="text-[42px]/[40px] sm:text-[60px]/[56px] md:text-[76px]/[72px] lg:text-[88px]/[84px] xl:text-[102px]/[96px] 2xl:text-[112px]/[104px] font-black tracking-[-2px] text-[#4A3333] xl:tracking-[-3px]"
@@ -82,4 +85,3 @@ export function HeroHeadline({ todayVerifiedCount, verifiedUnit = "тезисо�
     </div>
   );
 }
-

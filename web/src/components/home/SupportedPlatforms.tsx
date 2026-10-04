@@ -1,5 +1,5 @@
 import React from "react";
-import type { LucideIcon } from "lucide-react";
+import { Link2, type LucideIcon } from "lucide-react";
 import { youtubeVideoId } from "../../lib/youtube";
 
 export type PlatformId = "youtube" | "shorts" | "link" | "tiktok" | "facebook" | "x";
@@ -57,8 +57,8 @@ export const PLATFORMS: LinkPlatform[] = [
     placeholder: "Вставь ссылку на новость или статью…",
     matches: (link) => !/\s/.test(link.trim()) && /\.[a-z]{2,}$/i.test(hostOf(link)),
     name: "Ссылка",
-    color: "#FFC20E",
-    isBlob: true,
+    color: "#1660D6",
+    lucide: Link2,
     invalidText: "Это не похоже на ссылку на страницу",
   },
   {
@@ -103,7 +103,7 @@ export function platformOfLink(link: string): LinkPlatform | null {
 }
 
 export function PlatformIcon({ platform, className }: { platform: LinkPlatform; className?: string }) {
-  if (platform.isBlob || platform.id === "link") {
+  if (platform.isBlob) {
     return (
       <img
         src="/blob.png"

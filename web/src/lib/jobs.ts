@@ -32,6 +32,8 @@ export const BACKEND_URL = resolveBackendUrl(process.env.NEXT_PUBLIC_BACKEND_URL
  */
 function resolveBackendUrl(configured: string): string {
   if (typeof window === "undefined") return configured;
+  // пусто (деплой на Vercel): бэкенд на том же домене, что и сайт
+  if (!configured) return window.location.origin;
   try {
     const url = new URL(configured);
     const page = window.location.hostname;
@@ -54,6 +56,9 @@ export interface JobRecord {
   report?: VideoReport;
 }
 
+/** Сервер отказал с понятной причиной (лимит, размер) — message можно показать пользователю как есть */
+export class JobRejectedError extends Error {}
+
 export async function createJob(input: string, isUrl: boolean): Promise<JobId> {
   const record: JobRecord = { jobId: "", input, isUrl, createdAt: new Date().toISOString() };
 
@@ -63,7 +68,12 @@ export async function createJob(input: string, isUrl: boolean): Promise<JobId> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(toRequest(input, isUrl)),
     });
-    if (!res.ok) throw new Error(`Не удалось начать проверку: HTTP ${res.status}`);
+    if (!res.ok) {
+      // лимит, слишком длинный текст — сервер объясняет сам, показываем его текст
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if ((res.status === 429 || res.status === 413) && body?.error) throw new JobRejectedError(body.error);
+      throw new Error(`Не удалось начать проверку: HTTP ${res.status}`);
+    }
     const data = (await res.json()) as StartAnalysisResponse;
     record.jobId = data.jobId;
   } else {

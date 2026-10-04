@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Nunito } from "next/font/google";
 import "streamdown/styles.css";
 import "./globals.css";
@@ -12,6 +12,17 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: "factholic - Проверь любое видео",
   description: "Вставь ссылку — откроем плеер и разберём каждое утверждение",
+  // иконка у ссылки во вкладке и в закладках — жёлтый чудик (public/blob.png)
+  icons: {
+    icon: [{ url: "/blob.png", type: "image/png", sizes: "28x28" }],
+  },
+};
+
+// Цвет панели браузера на телефоне и в PWA — как фон страницы, чтобы шапка сливалась с сайтом.
+// В Next 14 themeColor задаётся через viewport, в metadata он устарел
+export const viewport: Viewport = {
+  themeColor: "#F1EBE9",
+  colorScheme: "light",
 };
 
 export default function RootLayout({
