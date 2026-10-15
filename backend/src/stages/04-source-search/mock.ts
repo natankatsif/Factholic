@@ -1,5 +1,6 @@
+import type { ClaimId } from "@news/contracts";
 import type { Stage } from "../../pipeline/context.ts";
-import { mockClaim } from "../03-claim-extraction/mock.ts";
+import { mockClaim, mockDemoClaims } from "../03-claim-extraction/mock.ts";
 import type { SourceSearchInput, SourceSearchOutput } from "./types.ts";
 
 export const mockSourceSearchInput: SourceSearchInput = {
@@ -113,8 +114,446 @@ export const mockSourceSearchOutput: SourceSearchOutput = {
   ],
 };
 
+// ===================== ДЕМО-СЦЕНАРИИ =====================
+
+const RETRIEVED_AT = "2026-10-02T10:00:00Z";
+const { war2023, population, snow, water, flood, gas, schools } = mockDemoClaims;
+
+/**
+ * Источники демо-тезисов (mockDemoClaims из мока 03). Тексты и ссылки выдуманы: у общеизвестных фактов домены
+ * настоящие ради фавиконок, у местных новостей — издатели «(пример)» и домены *.example. На id источников
+ * построены моки 05, 06, 08 — меняй вместе.
+ */
+export const mockDemoSearch: Record<ClaimId, SourceSearchOutput> = {
+  [mockClaim.id]: mockSourceSearchOutput,
+
+  [war2023.id]: {
+    claimId: war2023.id,
+    queries: [
+      { text: "начало войны в Украине дата", language: "ru", engine: "tavily" },
+      { text: "Russia full-scale invasion of Ukraine began", language: "en", engine: "tavily" },
+    ],
+    sources: [
+      {
+        id: "src_w23_1",
+        url: "https://ru.wikipedia.org/wiki/Вторжение_России_в_Украину",
+        title: "Вторжение России в Украину (с 2022) — Википедия",
+        publisher: "Википедия",
+        domain: "ru.wikipedia.org",
+        sourceType: "encyclopedia",
+        language: "ru",
+        excerpt:
+          "Вторжение началось утром 24 февраля 2022 года. Вооружённый конфликт на востоке Украины продолжается с 2014 года…",
+        snippet: "Вторжение началось утром 24 февраля 2022 года.",
+        domainReliability: 0.8,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_w23_2",
+        url: "https://www.reuters.com/world/europe/",
+        title: "Russia launches full-scale invasion of Ukraine",
+        publisher: "Reuters",
+        domain: "reuters.com",
+        sourceType: "news",
+        publishedAt: "2022-02-24T04:00:00Z",
+        language: "en",
+        country: "GB",
+        excerpt: "Russian forces launched a full-scale invasion of Ukraine early on Thursday, February 24…",
+        snippet: "Russian forces launched a full-scale invasion of Ukraine on February 24.",
+        domainReliability: 0.92,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_w23_3",
+        url: "https://www.ohchr.org/en/countries/ukraine",
+        title: "Ukraine — UN Human Rights Office",
+        publisher: "Управление ООН по правам человека",
+        domain: "ohchr.org",
+        sourceType: "international_org",
+        language: "en",
+        excerpt:
+          "The Office documents civilian casualties since the full-scale armed attack by the Russian Federation in February 2022…",
+        snippet: "The full-scale armed attack began in February 2022.",
+        domainReliability: 0.95,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_w23_4",
+        url: "https://www.dw.com/ru/",
+        title: "24 февраля 2022 года: как началась война",
+        publisher: "Deutsche Welle",
+        domain: "dw.com",
+        sourceType: "news",
+        publishedAt: "2022-02-24T18:00:00Z",
+        language: "ru",
+        country: "DE",
+        excerpt:
+          "По данным Reuters, ранним утром 24 февраля Россия начала полномасштабное вторжение в Украину…",
+        snippet: "Ранним утром 24 февраля Россия начала полномасштабное вторжение в Украину.",
+        domainReliability: 0.88,
+        retrievedAt: RETRIEVED_AT,
+      },
+    ],
+  },
+
+  [population.id]: {
+    claimId: population.id,
+    queries: [
+      { text: "население Земли 8 миллиардов ноябрь 2022", language: "ru", engine: "tavily" },
+      { text: "world population 8 billion UN", language: "en", engine: "tavily" },
+    ],
+    sources: [
+      {
+        id: "src_pop_1",
+        url: "https://www.un.org/en/dayof8billion",
+        title: "Day of Eight Billion",
+        publisher: "ООН",
+        domain: "un.org",
+        sourceType: "international_org",
+        publishedAt: "2022-11-15T00:00:00Z",
+        language: "en",
+        excerpt: "On 15 November 2022, the world's population reached eight billion people…",
+        snippet: "On 15 November 2022, the world's population reached eight billion people.",
+        domainReliability: 0.95,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_pop_2",
+        url: "https://www.reuters.com/world/",
+        title: "World population hits 8 billion, UN says",
+        publisher: "Reuters",
+        domain: "reuters.com",
+        sourceType: "news",
+        publishedAt: "2022-11-15T10:00:00Z",
+        language: "en",
+        country: "GB",
+        excerpt: "The world's population reached 8 billion on Tuesday, the United Nations said…",
+        snippet: "The world's population reached 8 billion, the United Nations said.",
+        domainReliability: 0.92,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_pop_3",
+        url: "https://www.dw.com/ru/",
+        title: "Население Земли достигло 8 миллиардов человек",
+        publisher: "Deutsche Welle",
+        domain: "dw.com",
+        sourceType: "news",
+        publishedAt: "2022-11-15T12:00:00Z",
+        language: "ru",
+        country: "DE",
+        excerpt: "По данным ООН, 15 ноября численность населения Земли достигла 8 миллиардов человек…",
+        snippet: "По данным ООН, население Земли достигло 8 миллиардов человек.",
+        domainReliability: 0.88,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_pop_4",
+        url: "https://ru.wikipedia.org/wiki/Население_Земли",
+        title: "Население Земли — Википедия",
+        publisher: "Википедия",
+        domain: "ru.wikipedia.org",
+        sourceType: "encyclopedia",
+        language: "ru",
+        excerpt: "По оценке ООН, 15 ноября 2022 года численность населения Земли достигла 8 млрд человек…",
+        snippet: "По оценке ООН, 15 ноября 2022 года население Земли достигло 8 млрд человек.",
+        domainReliability: 0.8,
+        retrievedAt: RETRIEVED_AT,
+      },
+    ],
+  },
+
+  [snow.id]: {
+    claimId: snow.id,
+    queries: [
+      { text: "Кишинёв снег полметра за ночь", language: "ru", engine: "tavily" },
+      { text: "ninsoare Chișinău strat de zăpadă", language: "ro", engine: "tavily" },
+      { text: "Кишинёв снегопад первое упоминание", language: "ru", engine: "tavily_earliest" },
+    ],
+    sources: [
+      {
+        id: "src_snow_1",
+        url: "https://meteo-md.example/2021/01/14/ninsoare-chisinau",
+        title: "Ninsoare la Chișinău: stratul de zăpadă a atins 10 cm",
+        publisher: "Метеослужба MD (пример)",
+        domain: "meteo-md.example",
+        sourceType: "government",
+        publishedAt: "2021-01-14T07:30:00Z",
+        language: "ro",
+        excerpt:
+          "În noaptea de 13 spre 14 ianuarie, la Chișinău s-a depus un strat de zăpadă de până la 10 cm…",
+        snippet: "În noaptea de 13 spre 14 ianuarie la Chișinău s-a depus până la 10 cm de zăpadă.",
+        domainReliability: 0.85,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_snow_2",
+        url: "https://novosti-md.example/2021/01/14/sneg-kishinev",
+        title: "Кишинёв засыпало снегом: до 30 см за ночь",
+        publisher: "Новости MD (пример)",
+        domain: "novosti-md.example",
+        sourceType: "news",
+        publishedAt: "2021-01-14T11:00:00Z",
+        language: "ru",
+        excerpt: "Этой ночью в Кишинёве выпало до 30 сантиметров снега, сообщают синоптики…",
+        snippet: "Этой ночью в Кишинёве выпало до 30 сантиметров снега, сообщают синоптики.",
+        domainReliability: 0.6,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_snow_3",
+        url: "https://t.me/s/srochno_md_example/4821",
+        title: "Кишинёв завалило снегом — полметра за ночь!",
+        publisher: "Telegram-канал «Срочно MD» (пример)",
+        domain: "t.me",
+        sourceType: "other",
+        publishedAt: "2026-10-01T19:40:00Z",
+        language: "ru",
+        excerpt: "Кишинёв завалило снегом — полметра за ночь! Город стоит. Фото подписчиков.",
+        snippet: "Кишинёв завалило снегом — полметра за ночь!",
+        domainReliability: 0.2,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_snow_4",
+        url: "https://meteo-md.example/2026/10/01/prognoza",
+        title: "Prognoza meteo: 1–2 octombrie fără precipitații, până la +17°C",
+        publisher: "Метеослужба MD (пример)",
+        domain: "meteo-md.example",
+        sourceType: "government",
+        publishedAt: "2026-10-01T06:00:00Z",
+        language: "ro",
+        excerpt:
+          "Pe 1 și 2 octombrie la Chișinău vreme fără precipitații, temperaturi diurne de până la +17°C…",
+        snippet: "1–2 octombrie la Chișinău: fără precipitații, până la +17°C.",
+        domainReliability: 0.85,
+        retrievedAt: RETRIEVED_AT,
+      },
+    ],
+  },
+
+  [water.id]: {
+    claimId: water.id,
+    queries: [
+      { text: "температура кипения воды высота", language: "ru", engine: "tavily" },
+      { text: "boiling point of water altitude", language: "en", engine: "tavily" },
+    ],
+    sources: [
+      {
+        id: "src_water_1",
+        url: "https://ru.wikipedia.org/wiki/Температура_кипения",
+        title: "Температура кипения — Википедия",
+        publisher: "Википедия",
+        domain: "ru.wikipedia.org",
+        sourceType: "encyclopedia",
+        language: "ru",
+        excerpt:
+          "Температура кипения воды зависит от давления: на уровне моря — около 100 °C, на вершине Эвереста — около 70 °C…",
+        snippet: "На уровне моря вода кипит при ~100 °C, на вершине Эвереста — при ~70 °C.",
+        domainReliability: 0.8,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_water_2",
+        url: "https://www.britannica.com/science/boiling-point",
+        title: "Boiling point | Britannica",
+        publisher: "Encyclopaedia Britannica",
+        domain: "britannica.com",
+        sourceType: "encyclopedia",
+        language: "en",
+        country: "US",
+        excerpt:
+          "The boiling point of water is 100 °C at sea level; at higher altitudes, where pressure is lower, water boils at lower temperatures…",
+        snippet: "At higher altitudes water boils at lower temperatures.",
+        domainReliability: 0.9,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_water_3",
+        url: "https://www.usgs.gov/special-topics/water-science-school",
+        title: "Boiling Point of Water and Altitude",
+        publisher: "Геологическая служба США (USGS)",
+        domain: "usgs.gov",
+        sourceType: "government",
+        language: "en",
+        country: "US",
+        excerpt:
+          "As altitude increases, atmospheric pressure drops and so does the boiling point: at about 3 000 m water boils near 90 °C…",
+        snippet: "At about 3 000 m water boils near 90 °C.",
+        domainReliability: 0.95,
+        retrievedAt: RETRIEVED_AT,
+      },
+    ],
+  },
+
+  [flood.id]: {
+    claimId: flood.id,
+    queries: [
+      { text: "Албишоара затопило ливень", language: "ru", engine: "tavily" },
+      { text: "inundație strada Albișoara", language: "ro", engine: "tavily" },
+    ],
+    sources: [
+      {
+        id: "src_flood_1",
+        url: "https://primaria-chisinau.example/2026/10/01/albisoara",
+        title: "Ливень: подтоплен участок улицы Албишоара, работают коммунальные службы",
+        publisher: "Мэрия Кишинёва (пример)",
+        domain: "primaria-chisinau.example",
+        sourceType: "government",
+        publishedAt: "2026-10-01T06:10:00Z",
+        language: "ru",
+        excerpt:
+          "После сильного ливня подтоплен участок улицы Албишоара. Движение затруднено, коммунальные службы откачивают воду…",
+        snippet: "После сильного ливня подтоплен участок улицы Албишоара, движение затруднено.",
+        domainReliability: 0.85,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_flood_2",
+        url: "https://novosti-md.example/2026/10/01/albisoara-potop",
+        title: "Улицу Албишоара затопило после ливня",
+        publisher: "Новости MD (пример)",
+        domain: "novosti-md.example",
+        sourceType: "news",
+        publishedAt: "2026-10-01T07:00:00Z",
+        language: "ru",
+        excerpt: "Улицу Албишоара затопило после ливня, движение парализовано, сообщает мэрия…",
+        snippet: "Улицу Албишоара затопило после ливня, сообщает мэрия.",
+        domainReliability: 0.6,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_flood_3",
+        url: "https://portal-x.example/news/albisoara",
+        title: "В Кишинёве из-за ливня затопило улицу Албишоара",
+        publisher: "Портал X (пример)",
+        domain: "portal-x.example",
+        sourceType: "news",
+        publishedAt: "2026-10-01T08:30:00Z",
+        language: "ru",
+        excerpt: "В Кишинёве из-за сильного ливня затопило улицу Албишоара, движение парализовано…",
+        snippet: "В Кишинёве из-за сильного ливня затопило улицу Албишоара.",
+        domainReliability: 0.4,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_flood_4",
+        url: "https://tv-md.example/stiri/albisoara-sub-apa",
+        title: "Strada Albișoara, sub apă după ploaia torențială",
+        publisher: "Телеканал MD (пример)",
+        domain: "tv-md.example",
+        sourceType: "news",
+        publishedAt: "2026-10-01T09:15:00Z",
+        language: "ro",
+        excerpt:
+          "Reporterul nostru a fost pe strada Albișoara: apa a ajuns până la genunchi, mai multe mașini s-au oprit în mijlocul drumului…",
+        snippet: "Pe strada Albișoara apa a ajuns până la genunchi, mai multe mașini s-au oprit.",
+        domainReliability: 0.7,
+        retrievedAt: RETRIEVED_AT,
+      },
+    ],
+  },
+
+  [gas.id]: {
+    claimId: gas.id,
+    queries: [
+      { text: "тариф на газ Молдова 1 октября", language: "ru", engine: "tavily" },
+      { text: "tarif gaze naturale 1 octombrie Moldova", language: "ro", engine: "tavily" },
+    ],
+    sources: [
+      {
+        id: "src_gas_1",
+        url: "https://energie-gov-md.example/2026/09/26/tarif-gaze",
+        title: "С 1 октября тариф на природный газ для населения повышается на 13%",
+        publisher: "Министерство энергетики (пример)",
+        domain: "energie-gov-md.example",
+        sourceType: "government",
+        publishedAt: "2026-09-26T12:00:00Z",
+        language: "ru",
+        excerpt: "С 1 октября 2026 года тариф на природный газ для бытовых потребителей повышается на 13%…",
+        snippet: "С 1 октября тариф на газ для бытовых потребителей повышается на 13%.",
+        domainReliability: 0.9,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_gas_2",
+        url: "https://novosti-md.example/2026/09/26/gaz-podorozhaet",
+        title: "Газ подорожает на 13% с 1 октября",
+        publisher: "Новости MD (пример)",
+        domain: "novosti-md.example",
+        sourceType: "news",
+        publishedAt: "2026-09-26T14:00:00Z",
+        language: "ru",
+        excerpt: "С 1 октября газ для населения подорожает на 13%, сообщает Министерство энергетики…",
+        snippet: "С 1 октября газ для населения подорожает на 13%.",
+        domainReliability: 0.6,
+        retrievedAt: RETRIEVED_AT,
+      },
+      {
+        id: "src_gas_3",
+        url: "https://t.me/s/ceny_md_example/1290",
+        title: "С 1 октября газ дорожает на 30%!",
+        publisher: "Telegram-канал «Цены MD» (пример)",
+        domain: "t.me",
+        sourceType: "other",
+        publishedAt: "2026-09-30T18:00:00Z",
+        language: "ru",
+        excerpt: "По данным министерства, с 1 октября газ дорожает на 30%! Готовьте кошельки.",
+        snippet: "По данным министерства, с 1 октября газ дорожает на 30%!",
+        domainReliability: 0.2,
+        retrievedAt: RETRIEVED_AT,
+      },
+    ],
+  },
+
+  [schools.id]: {
+    claimId: schools.id,
+    queries: [
+      { text: "мэрия Кишинёва закрыла школы на ремонт", language: "ru", engine: "tavily" },
+      { text: "Primăria Chișinău școli închise reparație", language: "ro", engine: "tavily" },
+    ],
+    sources: [
+      {
+        id: "src_sch_1",
+        url: "https://portal-x.example/news/shkoly-remont",
+        title: "Родители: в Кишинёве закрыли пять школ на ремонт",
+        publisher: "Портал X (пример)",
+        domain: "portal-x.example",
+        sourceType: "news",
+        publishedAt: "2026-09-29T09:00:00Z",
+        language: "ru",
+        excerpt:
+          "Мэрия Кишинёва закрыла пять школ на ремонт, пишут родители в соцсетях. Официального сообщения нет…",
+        snippet: "Мэрия закрыла пять школ на ремонт, пишут родители в соцсетях.",
+        domainReliability: 0.4,
+        retrievedAt: RETRIEVED_AT,
+      },
+    ],
+    search: {
+      rounds: 3,
+      sufficient: false,
+      unconfirmed: ["мэрия не сообщала о закрытии школ — есть только пересказ постов родителей"],
+      gaps: ["нет официального источника"],
+    },
+  },
+};
+
 // ===================== MOCK-РЕАЛИЗАЦИЯ (STAGE_SOURCE_SEARCH=mock) =====================
 
-export const searchSourcesMock: Stage<SourceSearchInput, SourceSearchOutput> = async (input) => {
-  return { ...mockSourceSearchOutput, claimId: input.claim.id };
+/** Демо-тезис — его источники (mockDemoSearch); незнакомый — в моке искать негде, источников нет */
+export const searchSourcesMock: Stage<SourceSearchInput, SourceSearchOutput> = async ({ claim }) => {
+  return (
+    mockDemoSearch[claim.id] ?? {
+      claimId: claim.id,
+      queries: [{ text: claim.normalized, language: claim.language, engine: "mock" }],
+      sources: [],
+      copies: [],
+      search: {
+        rounds: 1,
+        sufficient: false,
+        unconfirmed: [],
+        gaps: ["демо-режим: источники подобраны только для примеров из подсказки"],
+      },
+    }
+  );
 };

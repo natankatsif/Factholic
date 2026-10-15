@@ -1,5 +1,6 @@
 import type { Stage } from "../../pipeline/context.ts";
 import { mockCaptionsChunk } from "../01-ingest/mock.ts";
+import { cuesToWords, textToSegments, wordsToSegments } from "./sentences.ts";
 import type { TranscriptionInput, TranscriptionOutput } from "./types.ts";
 
 export const mockTranscriptionInput: TranscriptionInput = {
@@ -47,6 +48,30 @@ export const mockTranscriptionOutput: TranscriptionOutput = {
 
 // ===================== MOCK-РЕАЛИЗАЦИЯ (STAGE_TRANSCRIPTION=mock) =====================
 
-export const transcribeMock: Stage<TranscriptionInput, TranscriptionOutput> = async ({ chunk }) => {
-  return { ...mockTranscriptionOutput, jobId: chunk.jobId, seq: chunk.seq, range: chunk.range };
+/**
+ * Субтитры и текст режем на предложения тем же кодом, что real (внешних API там нет), — мок этапа 03 узнаёт
+ * в них демо-тезисы. Звук и картинку распознавать нечем — пример транскрипта.
+ */
+export const transcribeMock: Stage<TranscriptionInput, TranscriptionOutput> = async ({
+  chunk,
+  languageHint,
+}) => {
+  const base = { jobId: chunk.jobId, seq: chunk.seq, range: chunk.range };
+  if (chunk.kind === "captions") {
+    return {
+      ...base,
+      language: chunk.language,
+      origin: "captions",
+      segments: wordsToSegments(cuesToWords(chunk.cues), chunk.seq),
+    };
+  }
+  if (chunk.kind === "text") {
+    return {
+      ...base,
+      language: chunk.language ?? languageHint ?? "und",
+      origin: "text",
+      segments: textToSegments(chunk.text, chunk.seq),
+    };
+  }
+  return { ...mockTranscriptionOutput, ...base };
 };
