@@ -16,13 +16,32 @@ export const mockMutationsInput: MutationsInput = {
  * Пример с раздутыми цифрами и старой датой — снегопад в mockDemoMutations ниже.
  */
 export const mockMutationsOutput: MutationsOutput = {
-  claimId: "clm_05",
-  mutations: [],
+  claimId: mockClaim.id,
+  mutations: [
+    {
+      fromId: "src_flood_2",
+      toId: "src_flood_3",
+      field: "attribution",
+      before: "мэрия Кишинёва",
+      after: "без ссылки",
+      direction: "removed",
+      note: "Ссылка на мэрию пропала",
+    },
+    {
+      fromId: "src_flood_2",
+      toId: "src_flood_3",
+      field: "certainty",
+      before: "движение затруднено",
+      after: "движение парализовано",
+      direction: "inflated",
+      note: "Затруднение движения подано как полная парализация",
+    },
+  ],
 };
 
 // ===================== ДЕМО-СЦЕНАРИИ =====================
 
-const { war2023, snow, flood, gas, schools } = mockDemoClaims;
+const { snow, flood, gas, schools } = mockDemoClaims;
 
 /**
  * Мутации демо-деревьев (mockDemoTrees из мока 05): по рёбрам и по пути корень → материал ("video").
@@ -30,18 +49,6 @@ const { war2023, snow, flood, gas, schools } = mockDemoClaims;
  */
 export const mockDemoMutations: Record<ClaimId, ClaimMutation[]> = {
   [mockClaim.id]: mockMutationsOutput.mutations,
-
-  [war2023.id]: [
-    {
-      fromId: "src_w23_2",
-      toId: VIDEO_NODE_ID,
-      field: "time",
-      before: "24 февраля 2022 года",
-      after: "в 2023 году",
-      direction: "shifted",
-      note: "Начало войны перенесено на 2023 год",
-    },
-  ],
 
   [snow.id]: [
     {
@@ -100,18 +107,7 @@ export const mockDemoMutations: Record<ClaimId, ClaimMutation[]> = {
     },
   ],
 
-  // ссылку на мэрию потеряли на ребре новости → портал; к самому тексту утверждение дошло без изменений
-  [flood.id]: [
-    {
-      fromId: "src_flood_2",
-      toId: "src_flood_3",
-      field: "attribution",
-      before: "мэрия Кишинёва",
-      after: "без ссылки",
-      direction: "removed",
-      note: "Ссылка на мэрию пропала",
-    },
-  ],
+  [flood.id]: mockMutationsOutput.mutations,
 
   [gas.id]: [
     {

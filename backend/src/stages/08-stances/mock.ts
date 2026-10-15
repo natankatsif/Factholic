@@ -9,36 +9,37 @@ export const mockStancesInput: StancesInput = {
   claim: mockClaim,
   sources: mockSourceSearchOutput.sources,
   surroundingText:
-    "Давайте немного о том, что происходит в мире. В Украине сейчас идёт война, и это, конечно, влияет на цены на всё.",
+    "В Кишинёве после сильного ливня затопило улицу Албишоара, движение транспорта было парализовано на несколько часов.",
   uiLanguage: "ru",
   voteGroups: mockProvenanceTree.voteGroups,
 };
 
-/** 3 источника «за», но DW пересказывает Reuters — независимых групп «за» две; Википедия — mixed */
+/** 2 независимые группы «за»: мэрия (первоисточник) + TV8 (репортаж на месте); 1 mixed */
 export const mockStancesOutput: StancesOutput = {
-  claimId: "clm_05",
+  claimId: mockClaim.id,
   consensus: {
     status: "agree",
     groupsFor: 2,
     groupsAgainst: 0,
     groupsMixed: 1,
-    summary: "ООН, Reuters и Deutsche Welle сообщают о продолжающихся боевых действиях.",
+    summary: "Мэрия Кишинёва и телеканал TV8 подтверждают затопление улицы Албишоара после сильного ливня.",
     explanation:
-      "Сообщение DW основано на данных Reuters, поэтому они считаются одной группой. Вместе с ООН — две независимые группы «за»; Википедия подтверждает только начало войны в 2022 году.",
+      "NewsMaker и Point.md пересказывают сообщение мэрии — это одна группа первоисточника. TV8 вела собственную съёмку на месте — вторая независимая группа «за».",
+    authority: "Мэрия Кишинёва",
   },
   sourceAssessments: [
-    { sourceId: "src_05_1", stance: "supports", relevance: 0.95 },
-    { sourceId: "src_05_2", stance: "supports", relevance: 0.9 },
-    { sourceId: "src_05_3", stance: "supports", relevance: 0.9 },
-    { sourceId: "src_05_4", stance: "mixed", relevance: 0.6 },
+    { sourceId: "src_flood_1", stance: "supports", relevance: 0.95 },
+    { sourceId: "src_flood_2", stance: "supports", relevance: 0.9 },
+    { sourceId: "src_flood_3", stance: "supports", relevance: 0.85 },
+    { sourceId: "src_flood_4", stance: "supports", relevance: 0.9 },
   ],
   model: "mock",
-  checkedAt: "2026-10-03T10:02:05Z",
+  checkedAt: "2024-09-14T18:00:00Z",
 };
 
 // ===================== ДЕМО-СЦЕНАРИИ =====================
 
-const { war2023, population, snow, water, flood, gas, schools } = mockDemoClaims;
+const { airport, population, snow, water, flood, gas, schools } = mockDemoClaims;
 
 /**
  * Стороны демо-тезисов на источниках мока 04 и группах голосов из мока 05. Статусы и число групп — такие, какие
@@ -47,22 +48,23 @@ const { war2023, population, snow, water, flood, gas, schools } = mockDemoClaims
 export const mockDemoStances: Record<ClaimId, Omit<StancesOutput, "model" | "checkedAt">> = {
   [mockClaim.id]: mockStancesOutput,
 
-  [war2023.id]: {
-    claimId: war2023.id,
+  [airport.id]: {
+    claimId: airport.id,
     consensus: {
-      status: "mostly_against",
-      groupsFor: 0,
-      groupsAgainst: 3,
+      status: "agree",
+      groupsFor: 2,
+      groupsAgainst: 0,
       groupsMixed: 0,
-      summary: "Источники датируют начало полномасштабного вторжения 24 февраля 2022 года.",
+      summary:
+        "Администрация аэропорта и TV8 подтверждают ввод в эксплуатацию автоматических электронных ворот Pax Track.",
       explanation:
-        "DW пересказывает Reuters — это одна группа. Вместе с ООН и Википедией — три независимые группы, и все называют февраль 2022 года; Википедия добавляет, что вооружённый конфликт на востоке Украины идёт с 2014 года.",
+        "NewsMaker ссылается на пресс-релиз аэропорта — это одна группа первоисточника. TV8 снял собственный видеосюжет — вторая независимая группа.",
+      authority: "Международный аэропорт Кишинёва",
     },
     sourceAssessments: [
-      { sourceId: "src_w23_1", stance: "refutes", relevance: 0.9 },
-      { sourceId: "src_w23_2", stance: "refutes", relevance: 0.95 },
-      { sourceId: "src_w23_3", stance: "refutes", relevance: 0.8 },
-      { sourceId: "src_w23_4", stance: "refutes", relevance: 0.9 },
+      { sourceId: "src_air_1", stance: "supports", relevance: 0.95 },
+      { sourceId: "src_air_2", stance: "supports", relevance: 0.9 },
+      { sourceId: "src_air_3", stance: "supports", relevance: 0.88 },
     ],
   },
 
@@ -124,24 +126,7 @@ export const mockDemoStances: Record<ClaimId, Omit<StancesOutput, "model" | "che
     ],
   },
 
-  [flood.id]: {
-    claimId: flood.id,
-    consensus: {
-      status: "agree",
-      groupsFor: 2,
-      groupsAgainst: 0,
-      groupsMixed: 0,
-      summary: "Мэрия и телеканал сообщают о подтоплении улицы Албишоара после ливня.",
-      explanation:
-        "Новости и портал пересказывают сообщение мэрии — это одна группа. Телеканал снимал на месте сам — вторая. Мэрия пишет, что движение затруднено.",
-    },
-    sourceAssessments: [
-      { sourceId: "src_flood_1", stance: "supports", relevance: 0.9 },
-      { sourceId: "src_flood_2", stance: "supports", relevance: 0.85 },
-      { sourceId: "src_flood_3", stance: "supports", relevance: 0.85 },
-      { sourceId: "src_flood_4", stance: "supports", relevance: 0.8 },
-    ],
-  },
+  [flood.id]: mockStancesOutput,
 
   [gas.id]: {
     claimId: gas.id,
@@ -153,7 +138,7 @@ export const mockDemoStances: Record<ClaimId, Omit<StancesOutput, "model" | "che
       summary: "Министерство энергетики сообщило о росте тарифа на газ для населения на 13% с 1 октября.",
       explanation:
         "Все публикации восходят к сообщению министерства — это одна группа, вывод по официальному первоисточнику. 30% встречается только в Telegram-канале.",
-      authority: "Министерство энергетики (пример)",
+      authority: "Министерство энергетики Молдовы",
     },
     sourceAssessments: [
       { sourceId: "src_gas_1", stance: "refutes", relevance: 0.95 },

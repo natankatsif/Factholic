@@ -18,9 +18,9 @@ export const mockProvenanceInput: ProvenanceInput = {
   // как в оркестраторе: copies из 04, у старых моков их нет — источники как копии
   copies: mockSourceSearchOutput.copies ?? copiesFromSources(mockSourceSearchOutput.sources),
   video: {
-    url: "https://www.youtube.com/watch?v=MOCK123",
-    title: "Большое интервью: экономика, наука и мировые события",
-    publishedAt: "2026-10-02T09:00:00Z",
+    url: "https://www.youtube.com/watch?v=13R5R5nTcsk",
+    title: "Новая система в аэропорту Кишинёва и последствия ливня в столице",
+    publishedAt: "2024-09-14T19:00:00Z",
   },
 };
 
@@ -28,112 +28,96 @@ export const mockProvenanceInput: ProvenanceInput = {
 const sameClaim: ClaimStructure = mockClaim.structure!;
 
 /**
- * Пример выхода на источниках 04 (src_05_*): Reuters (корень) ← DW (ссылка на Reuters) ← Point.md (ссылка на DW);
- * видео — вероятно, пересказ DW. ООН и Википедия без дат и без связей — отдельные ветки (и отдельные голоса
- * в «сторонах»). На id и датах этого дерева построены моки 06–09 — меняй вместе с ними.
+ * Выход на реальных молдавских источниках 04 (src_flood_*): Мэрия Кишинёва (корень) ← NewsMaker (ссылка на мэрию)
+ * ← Point.md (перепечатка, утеряна ссылка); видео — пересказ Point.md. TV8 (съёмочная группа на месте) — отдельная ветка
+ * и независимый голос в «сторонах». На id и датах этого дерева построены моки 06–09.
  */
 export const mockProvenanceTree: ProvenanceTree = {
-  claimId: "clm_05",
-  rootId: "src_05_2",
+  claimId: "clm_flood_01",
+  rootId: "src_flood_1",
   nodes: [
     {
-      id: "src_05_2",
-      url: "https://www.reuters.com/world/europe/",
-      title: "Ukraine war latest",
-      publisher: "Reuters",
-      domain: "reuters.com",
-      publishedAt: "2026-10-02T08:00:00Z",
+      id: "src_flood_1",
+      url: "https://chisinau.md/ro/press/interventie-servicii-strada-albisoara",
+      title: "Intervenția serviciilor municipale pe strada Albișoara",
+      publisher: "Примэрия Кишинёва",
+      domain: "chisinau.md",
+      publishedAt: "2024-09-14T15:20:00Z",
       parentId: null,
       via: null,
       confidence: null,
       structure: sameClaim,
     },
     {
-      id: "src_05_3",
-      url: "https://www.dw.com/ru/",
-      title: "Война в Украине: главное за сутки",
-      publisher: "Deutsche Welle",
-      domain: "dw.com",
-      publishedAt: "2026-10-02T18:00:00Z",
-      parentId: "src_05_2",
+      id: "src_flood_2",
+      url: "https://newsmaker.md/rus/novosti/v-kishineve-iz-za-livnya-zatopilo-ulitsu-albishoara-dvizhenie-zatrudneno/",
+      title: "В Кишиневе из-за ливня затопило улицу Албишоара: движение затруднено",
+      publisher: "NewsMaker",
+      domain: "newsmaker.md",
+      publishedAt: "2024-09-14T16:40:00Z",
+      parentId: "src_flood_1",
       via: "link",
       confidence: "confirmed",
       structure: {
         ...sameClaim,
         certainty: "reported",
-        certaintyMarkers: ["по данным Reuters"],
-        attributedTo: "Reuters",
+        certaintyMarkers: ["сообщили в мэрии"],
+        attributedTo: "Примэрия Кишинёва",
       },
     },
     {
-      id: "src_05_5",
-      url: "https://point.md/ru/novosti/v-mire/voina-v-ukraine-glavnoe",
-      title: "Война в Украине: главное за сутки",
+      id: "src_flood_3",
+      url: "https://point.md/ru/novosti/obschestvo/v-kishineve-zatopilo-ulitsu-albishoara-dvizhenie-paralizovano/",
+      title: "В Кишинёве затопило улицу Албишоара: движение полностью парализовано",
       publisher: "Point.md",
       domain: "point.md",
-      publishedAt: "2026-10-02T19:30:00Z",
-      parentId: "src_05_3",
-      via: "link",
-      confidence: "confirmed",
+      publishedAt: "2024-09-14T17:10:00Z",
+      parentId: "src_flood_2",
+      via: "duplicate",
+      confidence: "probable",
       structure: {
         ...sameClaim,
-        certainty: "reported",
-        certaintyMarkers: ["как сообщает DW"],
-        attributedTo: "DW",
+        certainty: "asserted",
+        certaintyMarkers: [],
+        attributedTo: null,
       },
     },
     {
-      id: "src_05_1",
-      url: "https://www.ohchr.org/en/countries/ukraine",
-      title: "Ukraine — UN Human Rights Office",
-      publisher: "Управление ООН по правам человека",
-      domain: "ohchr.org",
+      id: "src_flood_4",
+      url: "https://tv8.md/2024/09/14/video-strada-albisoara-sub-ape-dupa-ploaia-torentiala-masini-blocate-in-chisinau/",
+      title: "Strada Albișoara sub ape după ploaia torențială",
+      publisher: "TV8",
+      domain: "tv8.md",
+      publishedAt: "2024-09-14T16:15:00Z",
       parentId: null,
       via: null,
       confidence: null,
       structure: sameClaim,
-    },
-    {
-      id: "src_05_4",
-      url: "https://ru.wikipedia.org/wiki/Вторжение_России_в_Украину",
-      title: "Вторжение России в Украину (с 2022) — Википедия",
-      publisher: "Википедия",
-      domain: "ru.wikipedia.org",
-      parentId: null,
-      via: null,
-      confidence: null,
-      // о начале войны, а не о том, что она идёт сейчас
-      structure: {
-        ...sameClaim,
-        event: "начало войны в Украине",
-        time: { text: "24 февраля 2022 года", date: "2022-02-24", relative: false },
-      },
     },
     {
       id: VIDEO_NODE_ID,
-      url: "https://www.youtube.com/watch?v=MOCK123",
-      title: "Большое интервью: экономика, наука и мировые события",
+      url: "https://www.youtube.com/watch?v=13R5R5nTcsk",
+      title: "Новая система в аэропорту Кишинёва и последствия ливня в столице",
       publisher: "Это видео",
       domain: "youtube.com",
-      publishedAt: "2026-10-02T09:00:00Z",
-      parentId: "src_05_3",
+      publishedAt: "2024-09-14T19:00:00Z",
+      parentId: "src_flood_3",
       via: "duplicate",
       confidence: "probable",
       structure: sameClaim,
     },
   ],
   voteGroups: {
-    src_05_1: "src_05_1",
-    src_05_2: "src_05_2",
-    src_05_3: "src_05_2",
-    src_05_4: "src_05_4",
-    src_05_5: "src_05_2",
+    src_flood_1: "src_flood_1",
+    src_flood_2: "src_flood_1",
+    src_flood_3: "src_flood_1",
+    src_flood_4: "src_flood_4",
   },
 };
 
 // ===================== ДЕМО-СЦЕНАРИИ =====================
 
-const { war2023, population, snow, water, flood, gas, schools } = mockDemoClaims;
+const { airport, population, snow, water, flood, gas, schools } = mockDemoClaims;
 const demoSources = new Map(
   Object.values(mockDemoSearch)
     .flatMap((s) => s.sources)
@@ -145,7 +129,7 @@ function node(
   id: SourceId,
   parentId: SourceId | null,
   via: ProvenanceVia | null,
-  structure: ClaimStructure | null,
+  structure: ClaimStructure | null | undefined,
 ): TreeNode {
   const s = demoSources.get(id)!;
   return {
@@ -158,12 +142,12 @@ function node(
     parentId,
     via,
     confidence: via === null ? null : via === "link" ? "confirmed" : "probable",
-    structure,
+    structure: structure ?? null,
   };
 }
 
 /** Узел самого материала: адрес, название и дату подставляет buildProvenanceTreeMock */
-function videoNode(parentId: SourceId | null, structure: ClaimStructure | null): TreeNode {
+function videoNode(parentId: SourceId | null, structure: ClaimStructure | null | undefined): TreeNode {
   return {
     id: VIDEO_NODE_ID,
     url: "",
@@ -173,7 +157,7 @@ function videoNode(parentId: SourceId | null, structure: ClaimStructure | null):
     parentId,
     via: parentId === null ? null : "duplicate",
     confidence: parentId === null ? null : "probable",
-    structure,
+    structure: structure ?? null,
   };
 }
 
@@ -182,10 +166,9 @@ function reported(structure: ClaimStructure, marker: string, attributedTo: strin
   return { ...structure, certainty: "reported", certaintyMarkers: [marker], attributedTo };
 }
 
-const war2023Root: ClaimStructure = {
-  ...war2023.structure,
-  event: "начало полномасштабного вторжения России в Украину",
-  time: { text: "24 февраля 2022 года", date: "2022-02-24", relative: false },
+const airportRoot: ClaimStructure = {
+  ...airport.structure,
+  event: "запуск электронных ворот в аэропорту Кишинёва",
 };
 const populationRoot: ClaimStructure = {
   ...population.structure,
@@ -213,25 +196,25 @@ const gasRoot: ClaimStructure = {
 export const mockDemoTrees: Record<ClaimId, ProvenanceTree> = {
   [mockClaim.id]: mockProvenanceTree,
 
-  // Reuters ← DW (ссылка); материал сдвигает год — вероятно, пересказ Reuters. ООН и Википедия — отдельные ветки
-  [war2023.id]: {
-    claimId: war2023.id,
-    rootId: "src_w23_2",
+  // Администрация аэропорта ← NewsMaker (ссылка на администрацию); TV8 — самостоятельный репортаж
+  [airport.id]: {
+    claimId: airport.id,
+    rootId: "src_air_1",
     nodes: [
-      node("src_w23_2", null, null, war2023Root),
-      node("src_w23_4", "src_w23_2", "link", reported(war2023Root, "по данным Reuters", "Reuters")),
-      node("src_w23_1", null, null, war2023Root),
-      node("src_w23_3", null, null, {
-        ...war2023Root,
-        time: { text: "в феврале 2022 года", date: "2022-02", relative: false },
-      }),
-      videoNode("src_w23_2", war2023.structure),
+      node("src_air_1", null, null, airportRoot),
+      node("src_air_2", null, null, airport.structure),
+      node(
+        "src_air_3",
+        "src_air_1",
+        "link",
+        reported(airport.structure, "сообщает администрация", "администрация аэропорта"),
+      ),
+      videoNode("src_air_2", airport.structure),
     ],
     voteGroups: {
-      src_w23_1: "src_w23_1",
-      src_w23_2: "src_w23_2",
-      src_w23_3: "src_w23_3",
-      src_w23_4: "src_w23_2",
+      src_air_1: "src_air_1",
+      src_air_2: "src_air_2",
+      src_air_3: "src_air_1",
     },
   },
 
@@ -293,28 +276,7 @@ export const mockDemoTrees: Record<ClaimId, ProvenanceTree> = {
   },
 
   // мэрия ← новости (ссылка) ← портал (дубль, без ссылки на мэрию) ← текст; телеканал снимал сам — своя ветка
-  [flood.id]: {
-    claimId: flood.id,
-    rootId: "src_flood_1",
-    nodes: [
-      node("src_flood_1", null, null, flood.structure),
-      node(
-        "src_flood_2",
-        "src_flood_1",
-        "link",
-        reported(flood.structure, "сообщает мэрия", "мэрия Кишинёва"),
-      ),
-      node("src_flood_3", "src_flood_2", "duplicate", flood.structure),
-      node("src_flood_4", null, null, flood.structure),
-      videoNode("src_flood_3", flood.structure),
-    ],
-    voteGroups: {
-      src_flood_1: "src_flood_1",
-      src_flood_2: "src_flood_1",
-      src_flood_3: "src_flood_1",
-      src_flood_4: "src_flood_4",
-    },
-  },
+  [flood.id]: mockProvenanceTree,
 
   // министерство (13%) ← новости (ссылка); Telegram ссылается на министерство, но пишет 30% ← текст
   [gas.id]: {

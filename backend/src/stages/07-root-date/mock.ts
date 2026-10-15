@@ -5,14 +5,14 @@ import type { RootDateInput, RootDateOutput } from "./types.ts";
 export const mockRootDateInput: RootDateInput = {
   claim: mockClaim,
   tree: mockProvenanceTree,
-  videoPublishedAt: "2026-10-02T09:00:00Z",
+  videoPublishedAt: "2024-09-14T19:00:00Z",
 };
 
-/** «Сейчас идёт война» (time: «сейчас», relative) — корень Reuters от того же дня, флага нет */
+/** «Затопило улицу Албишоара» — корень Мэрия Кишинёва от того же дня, флага нет */
 export const mockRootDateOutput: RootDateOutput = {
-  claimId: "clm_05",
-  claimedAt: "2026-10-02T00:00:00Z",
-  rootPublishedAt: "2026-10-02T08:00:00Z",
+  claimId: mockClaim.id,
+  claimedAt: null,
+  rootPublishedAt: "2024-09-14T15:20:00Z",
   flag: null,
 };
 
