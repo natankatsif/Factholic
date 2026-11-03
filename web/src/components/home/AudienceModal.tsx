@@ -36,7 +36,7 @@ const AUDIENCES: Record<Audience, AudienceInfo> = {
       "Стороны: сколько независимых источников подтверждают и возражают — перепечатки одной новости считаются за один голос",
       "Разбор видео по таймкодам — утверждения отмечены прямо на полосе плеера",
     ],
-    contact: { text: "Чтобы подключить редакцию, напишите нам:", email: "press@factholic.ai" },
+    contact: { text: "Чтобы подключить редакцию, напишите нам:", email: "natankatsif@gmail.com" },
   },
   business: {
     title: "Для бизнеса",
@@ -56,7 +56,7 @@ const AUDIENCES: Record<Audience, AudienceInfo> = {
     ],
     contact: {
       text: "Чтобы обсудить подключение для компании, напишите нам:",
-      email: "business@factholic.ai",
+      email: "natankatsif@gmail.com",
     },
   },
 };
