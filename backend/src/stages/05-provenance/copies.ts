@@ -1,7 +1,7 @@
 import type { SourceId } from "@news/contracts";
 import type { FoundSource, SourceCopy } from "../04-source-search/types.ts";
 import { canonicalUrl } from "./tree.ts";
-import type { ProvenanceTree } from "./types.ts";
+import type { ProvenanceTree, TreeNode } from "./types.ts";
 
 /**
  * Фолбэк, когда этап 04 не вернул `copies` (старые моки): источники как копии.
@@ -16,7 +16,7 @@ export function copiesFromSources(sources: FoundSource[]): SourceCopy[] {
     domain: s.domain,
     sourceType: s.sourceType,
     language: s.language,
-    ...(s.publishedAt ? { publishedAt: s.publishedAt } : {}),
+    ...(s.publishedAt ? { publishedAt: s.publishedAt, dateSource: "search" as const } : {}),
     excerpt: s.excerpt,
     outboundLinks: [],
     attributions: [],
@@ -54,4 +54,46 @@ export function voteGroupsForSources(
   for (const s of sources)
     groups[s.id] = tree.voteGroups[s.id] ?? groupByUrl.get(canonicalUrl(s.url)) ?? s.id;
   return groups;
+}
+
+/** Всего голосующих источников: каждый — это текст в запросе к основной модели */
+const MAX_VOTERS = 9;
+
+/**
+ * Голоса из дерева. Этап 04 отбирает источники на разнообразие, поэтому в них могут не попасть публикации,
+ * которые прямо сообщают утверждение. От каждой независимой ветки дерева голосует её самая ранняя публикация:
+ * перепечатки и так считаются одним голосом, поэтому запрос к LLM растёт на ветки, а не на копии.
+ */
+export function votersFromTree(
+  tree: ProvenanceTree,
+  copies: SourceCopy[],
+  sources: FoundSource[],
+  max = MAX_VOTERS,
+): FoundSource[] {
+  const byId = new Map(copies.map((c) => [c.id, c]));
+  const taken = new Set(sources.map((s) => canonicalUrl(s.url)));
+  const groups = new Set(Object.values(voteGroupsForSources(tree, copies, sources)));
+  const voters: FoundSource[] = [];
+  const candidates = tree.nodes.filter((n: TreeNode) => n.structure && n.relation !== "mentions");
+  for (const node of candidates) {
+    if (sources.length + voters.length >= max) break;
+    const copy = byId.get(node.id);
+    const group = tree.voteGroups[node.id];
+    if (!copy?.voter || !group || groups.has(group) || taken.has(canonicalUrl(copy.url))) continue;
+    groups.add(group);
+    voters.push({
+      id: copy.id,
+      url: copy.url,
+      title: copy.title,
+      publisher: copy.publisher,
+      domain: copy.domain,
+      sourceType: copy.sourceType,
+      language: copy.language,
+      ...(copy.publishedAt ? { publishedAt: copy.publishedAt } : {}),
+      excerpt: copy.excerpt,
+      retrievedAt: copy.retrievedAt,
+      ...copy.voter,
+    });
+  }
+  return voters;
 }

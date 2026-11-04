@@ -13,7 +13,9 @@
     "test": "tsx --test \"src/stages/**/*.test.ts\" \"src/pipeline/**/*.test.ts\"",
     "eval:03": "tsx src/stages/03-claim-extraction/eval/run.ts",
     "eval:04": "tsx src/stages/04-source-search/eval/run.ts",
-    "eval:08": "tsx src/stages/08-stances/eval/run.ts"
+    "eval:08": "tsx src/stages/08-stances/eval/run.ts",
+    "eval:pipeline": "tsx src/pipeline/eval/run.ts",
+    "eval:search": "tsx src/pipeline/eval/search-compare.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.83",

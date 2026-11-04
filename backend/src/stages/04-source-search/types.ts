@@ -75,6 +75,24 @@ export interface SearchReport {
   unconfirmed: string[];
   /** Мягкие пробелы — повод искать дальше, но не приговор: «нет официального источника» */
   gaps: string[];
+  /** Что отработали по следам (TRACE_SEARCH=on) и почему остановились */
+  traces?: TraceReport;
+}
+
+/** Зацепка на первоисточник и что с ней стало. Это задача поиска, а не вывод об истине */
+export interface Trace {
+  kind: "link" | "citation" | "older" | "phrase";
+  /** Адрес, название источника или язык */
+  target: string;
+  /** found — нашли публикацию; not_found — проверили, пусто; out_of_budget — не успели */
+  status: "found" | "not_found" | "out_of_budget";
+}
+
+export interface TraceReport {
+  rounds: number;
+  /** exhausted — открытых следов нет; budget — следы остались, кончился бюджет */
+  stopped: "exhausted" | "budget";
+  traces: Trace[];
 }
 
 /** Одна публикация об утверждении — будущий узел дерева первоисточника */
@@ -97,5 +115,11 @@ export interface SourceCopy {
   attributions: string[];
   /** Найдена запросом «самое раннее упоминание» (поиск по датам до самой старой известной копии) */
   earliestSearch: boolean;
+  /** Найдена по следу: по ссылке или названному источнику из другой копии */
+  traced?: boolean;
+  /** Полный текст страницы: по нему этап 05 находит перепечатки. Только при TRACE_SEARCH=on */
+  fullText?: string;
+  /** Для голосования на этапе 08, если копия станет источником. Только при TRACE_SEARCH=on */
+  voter?: Pick<FoundSource, "snippet" | "domainReliability" | "country">;
   retrievedAt: ISODateString;
 }

@@ -51,7 +51,10 @@ export function assessSufficiency(claim: Claim, relevant: Enriched[]): Sufficien
 
   // число подтверждено, если хоть одна страница называет его (в любом написании: 2,5 / 2.5) РЯДОМ с тем,
   // что оно считает: «200 пострадавших», а не «200 метров от рынка» на той же странице
-  const texts = relevant.map((e) => normalizeNumbers(`${e.candidate.title} ${e.excerpt}`));
+  const texts = relevant.map((e) => {
+    const text = normalizeNumbers(`${e.candidate.title} ${e.excerpt}`);
+    return `${text} ${expandScale(text)}`;
+  });
   for (const n of claimNumbers(claim)) {
     const about = claim.structure?.numbers.find((x) => normalizeNumbers(x.value).includes(n))?.about ?? "";
     const aboutStems = keywordStems(about);
@@ -61,6 +64,18 @@ export function assessSufficiency(claim: Claim, relevant: Enriched[]): Sufficien
   }
 
   return { sufficient: unconfirmed.length === 0 && gaps.length === 0, unconfirmed, gaps };
+}
+
+const DISTINCT_NUMBER_DIGITS = 4;
+const SCALE =
+  /(\d+(?:\.\d+)?)\s*(?:de\s+)?(тысяч\p{L}*|тыс\.?|mii|thousand|миллион\p{L}*|млн\.?|milioane|million\p{L}*)/giu;
+
+/** «300 тысяч», «300 de mii» → 300000: источник и утверждение пишут одно число по-разному */
+export function expandScale(text: string): string {
+  return text.replace(SCALE, (_, value: string, unit: string) => {
+    const factor = /^(тыс|mii|thousand)/i.test(unit) ? 1_000 : 1_000_000;
+    return String(Math.round(Number(value) * factor));
+  });
 }
 
 /** Сколько символов вокруг числа смотреть, чтобы найти, что оно считает */
@@ -76,7 +91,8 @@ export function mentionsNumber(text: string, n: string, aboutStems: string[]): b
     "g",
   );
   for (const m of text.matchAll(re)) {
-    if (!aboutStems.length) return true;
+    // длинное число случайно не совпадает, а слова рядом могут быть на другом языке, чем утверждение
+    if (!aboutStems.length || core.replace(".", "").length >= DISTINCT_NUMBER_DIGITS) return true;
     const from = Math.max(0, m.index - NUMBER_CONTEXT_CHARS);
     const window = text.slice(from, m.index + m[0].length + NUMBER_CONTEXT_CHARS);
     if (hits(stemSet(window), aboutStems) > 0) return true;

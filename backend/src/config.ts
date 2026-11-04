@@ -67,6 +67,8 @@ export const config = {
     /** Сколько запросов к поиску (Tavily) одновременно — на весь сервер */
     // замер (5 тезисов статьи): 6 → 40 с, 15 → 25 с, 30 → 16 с, ожидание слота 0, ошибок нет
     searchParallel: positiveInt("SEARCH_MAX_PARALLEL", 30),
+    /** Сколько запросов к поиску в минуту. Ключ разработчика Tavily блокируется (429) примерно на 100 */
+    searchPerMinute: positiveInt("SEARCH_MAX_PER_MINUTE", 80),
     /** Сколько первых 30-секундных кусков материала разбирать (LLM на каждый): 60 — первые 30 минут */
     maxChunksPerJob: positiveInt("MAX_CHUNKS_PER_JOB", 60),
     /** Максимальная длина вставленного текста, символов */
@@ -85,6 +87,11 @@ export const config = {
     dailyJobs: positiveInt("DAILY_JOBS_LIMIT", 300),
     dailyChecks: positiveInt("DAILY_CHECKS_LIMIT", 600),
     dailyChat: positiveInt("DAILY_CHAT_LIMIT", 500),
+  },
+  /** Изменения, которые ещё сравниваются с прежним поведением (backend/src/pipeline/eval) */
+  experiments: {
+    /** Поиск по следам (этап 04) и дерево с типами связей (этап 05). off — прежнее поведение */
+    traceSearch: oneOf<"on" | "off">("TRACE_SEARCH", ["on", "off"], "off") === "on",
   },
   /** Настройки провайдеров для real-реализаций. Пустая строка = не задано. */
   providers: {

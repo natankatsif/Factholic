@@ -135,7 +135,7 @@ function buildFlags(
     flags.push({
       type: "outdated",
       label: "Старый контент",
-      detail: `первоисточник от ${formatShortDate(rootDate.rootPublishedAt)}`,
+      detail: `самая ранняя из найденных публикаций от ${formatShortDate(rootDate.rootPublishedAt)}`,
       severity: "warning",
     });
   }
@@ -274,7 +274,9 @@ function buildConsensus(
     };
   }
   // итог меняют только серьёзные флаги; мягкие (ссылка на источник, уверенность, расхождение цифр) — только в карточке
-  const major = flags.filter(isMajorFlag);
+  // источники подтверждают утверждение как оно звучит: расхождение с ранней заметкой остаётся флагом на карточке,
+  // но итог не меняет (ранняя заметка о первом чтении, утверждение о финальном голосовании)
+  const major = flags.filter((f) => isMajorFlag(f) && !(status === "agree" && f.type === "distortion"));
   if (major.length > 0) {
     const hasOutdated = flags.some((f) => f.type === "outdated");
     const hasExaggerated = flags.some((f) => f.type === "exaggerated");
@@ -339,6 +341,9 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
       categoryLabel = "паблик";
     }
 
+    // разбор показываем как разбор: он не пересказывает историю, а проверяет её
+    if (n.relation === "debunks") categoryLabel = "разбор";
+
     const tags: string[] = [];
     for (const m of nodeMutations) {
       if (m.field === "numbers") tags.push(`${m.before} → ${m.after}`);
@@ -358,6 +363,9 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
           label: "Открыть источник ↗",
           url: n.url,
         };
+
+    // более ранняя публикация могла не найтись: обещать «первая» нельзя
+    if (isPrimary) categoryLabel = "самая ранняя из найденных";
 
     const shortCode = n.publisher.slice(0, 2).toUpperCase();
 
@@ -447,6 +455,28 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
     pathChain.unshift(curr);
     curr = curr.parentId !== null ? byId.get(curr.parentId) : undefined;
   }
+  // Не найденный источник, на который указывают копии: узел без ссылки, чтобы не выдавать ближайшую копию за начало
+  for (const hidden of tree.hiddenSources ?? []) {
+    nodes.push({
+      id: hidden.id,
+      name: hidden.name,
+      category: "other",
+      categoryLabel: "источник не найден",
+      role: "retelling",
+      date: "дата неизвестна",
+      quote: `На этот источник ссылаются публикации: ${hidden.copyIds.length}`,
+    });
+    for (const copyId of hidden.copyIds) {
+      edges.push({
+        id: `edge_${hidden.id}_${copyId}`,
+        fromNodeId: hidden.id,
+        toNodeId: copyId,
+        relationType: "likely_derived",
+        label: "ссылается на этот источник",
+      });
+    }
+  }
+
   // Путь — связи от материала вверх. Первоисточник (самая ранняя публикация с утверждением) не связан с
   // этой цепочкой — всё равно ставим первым: он отвечает «когда появилось впервые», но следующий шаг
   // помечаем linked: false, и UI рисует разрыв, а не стрелку «взял у».

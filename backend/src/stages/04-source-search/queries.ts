@@ -3,6 +3,7 @@
  */
 import { z } from "zod";
 import type { LanguageCode } from "@news/contracts";
+import { config } from "../../config.ts";
 import type { StageContext } from "../../pipeline/context.ts";
 import { askJson, LlmConfigError } from "./llm.ts";
 import type { SourceSearchInput } from "./types.ts";
@@ -59,6 +60,7 @@ export async function planQueries(input: SourceSearchInput, ctx: StageContext): 
     const { data } = await askJson(
       {
         effort: "low",
+        fast: config.experiments.traceSearch,
         // обычно ~4 с; зависший запрос через 20 с повторяется
         timeoutMs: 20_000,
         system: SYSTEM_PROMPT,
@@ -144,7 +146,14 @@ export async function planFollowUpQueries(
   ].join("\n");
   try {
     const { data } = await askJson(
-      { effort: "low", timeoutMs: 20_000, system: FOLLOW_UP_SYSTEM, prompt, schema: QueriesSchema },
+      {
+        effort: "low",
+        fast: config.experiments.traceSearch,
+        timeoutMs: 20_000,
+        system: FOLLOW_UP_SYSTEM,
+        prompt,
+        schema: QueriesSchema,
+      },
       ctx,
     );
     const seen = new Set(used.map((q) => q.trim().toLowerCase()));

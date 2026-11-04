@@ -9,18 +9,24 @@ import {
   attributionEdges,
   buildTree,
   canonicalUrl,
+  checkedRelation,
+  citedKey,
   citeMatches,
   compareDates,
   copyCites,
   cosine,
+  detailEdges,
   duplicateEdges,
   embeddingSimilarity,
   jaccard,
   linkEdges,
   pickForExtraction,
+  rareShingles,
   shingles,
+  sharedRareDetails,
   shingleSimilarity,
   siteLinkEdges,
+  textReuseEdges,
   siteName,
   type CopyFacts,
   type Similarity,
@@ -554,6 +560,7 @@ describe("copiesFromSources", () => {
         sourceType: "news",
         language: "ru",
         publishedAt: D1,
+        dateSource: "search",
         excerpt: "Текст",
         outboundLinks: [],
         attributions: [],
@@ -680,5 +687,406 @@ describe("siteLinkEdges: ссылка на другую страницу сай�
       }),
     ];
     assert.deepEqual(siteLinkEdges(copies), []);
+  });
+});
+
+describe("дерево при TRACE_SEARCH=on", () => {
+  const nums = (...values: string[]): ClaimStructure => ({
+    ...S,
+    numbers: values.map((value) => ({ value, about: "см" })),
+    places: [],
+  });
+  const dated = (day: string) => ({ publishedAt: `2026-10-${day}T10:00:00Z` });
+
+  it("разбор, который ссылается на фейк, — отдельный голос", () => {
+    const fake = copy("fake", dated("01"));
+    const check = copy(
+      "check",
+      { ...dated("02"), outboundLinks: [fake.source.url] },
+      { relation: "debunks" },
+    );
+    const similarity = sim(2, [], [0, 0]);
+    const off = buildTree({ claimId: "c", copies: [fake, check], video: VIDEO, similarity });
+    const on = buildTree({ claimId: "c", copies: [fake, check], video: VIDEO, similarity, traceMode: true });
+    assert.equal(off.voteGroups.check, off.voteGroups.fake);
+    assert.notEqual(on.voteGroups.check, on.voteGroups.fake);
+  });
+
+  it("перепечатка разбора остаётся в группе разбора", () => {
+    const check = copy("check", dated("02"), { relation: "debunks" });
+    const reprint = copy(
+      "reprint",
+      { ...dated("03"), outboundLinks: [check.source.url] },
+      { relation: "debunks" },
+    );
+    const tree = buildTree({
+      claimId: "c",
+      copies: [check, reprint],
+      video: VIDEO,
+      similarity: sim(2, [], [0, 0]),
+      traceMode: true,
+    });
+    assert.equal(tree.voteGroups.reprint, tree.voteGroups.check);
+  });
+
+  it("две заметки по одному не найденному источнику — один голос", () => {
+    const a = copy("a", dated("01"), { cites: ["мэрия Кишинёва"] });
+    const b = copy("b", dated("02"), { cites: ["по данным мэрии Кишинёва"] });
+    const similarity = sim(2, [], [0, 0]);
+    const off = buildTree({ claimId: "c", copies: [a, b], video: VIDEO, similarity });
+    const on = buildTree({ claimId: "c", copies: [a, b], video: VIDEO, similarity, traceMode: true });
+    assert.notEqual(off.voteGroups.a, off.voteGroups.b);
+    assert.equal(on.voteGroups.a, on.voteGroups.b);
+  });
+
+  it("«очевидцы» голоса не объединяют", () => {
+    const a = copy("a", dated("01"), { cites: ["очевидцы"] });
+    const b = copy("b", dated("02"), { cites: ["очевидцы"] });
+    const tree = buildTree({
+      claimId: "c",
+      copies: [a, b],
+      video: VIDEO,
+      similarity: sim(2, [], [0, 0]),
+      traceMode: true,
+    });
+    assert.notEqual(tree.voteGroups.a, tree.voteGroups.b);
+  });
+
+  it("общая редкая цифра важнее похожего текста", () => {
+    const copies = [
+      copy("orig", dated("01"), { structure: nums("10") }),
+      copy("mut", dated("02"), { structure: nums("30") }),
+      copy("other", dated("03"), { structure: nums("10") }),
+      copy("other2", dated("03"), { structure: nums("10") }),
+      copy("other3", dated("03"), { structure: nums("10") }),
+      copy("child", dated("04"), { structure: nums("30") }),
+    ];
+    const shared = sharedRareDetails(copies);
+    assert.equal(shared(1, 5), 1);
+    assert.equal(shared(0, 2), 0);
+    const similarity = sim(
+      6,
+      [
+        [0, 5, 0.97],
+        [1, 5, 0.91],
+      ],
+      [0, 0, 0, 0, 0, 0],
+    );
+    const edges = duplicateEdges(copies, similarity, shared).filter((e) => e.child === 5);
+    assert.equal(edges[0].parent, 1);
+  });
+
+  it("две редкие детали дают ребро и без похожего текста: перевод", () => {
+    const structure = (...places: string[]): ClaimStructure => ({
+      ...S,
+      numbers: [{ value: "77", about: "x" }],
+      places,
+    });
+    const copies = [
+      copy("ro", dated("01"), { structure: structure("Деренеу") }),
+      copy("ru", dated("02"), { structure: structure("Деренеу") }),
+      copy("x", dated("02"), { structure: nums("1") }),
+      copy("y", dated("02"), { structure: nums("2") }),
+      copy("z", dated("02"), { structure: nums("3") }),
+      copy("w", dated("02"), { structure: nums("4") }),
+    ];
+    const edges = detailEdges(copies, sharedRareDetails(copies));
+    assert.deepEqual(
+      edges.map((e) => [e.parent, e.child]),
+      [[0, 1]],
+    );
+    assert.equal(edges[0].confidence, "probable");
+  });
+
+  it("ключ источника не зависит от падежа", () => {
+    assert.equal(citedKey("по данным мэрии Кишинёва"), citedKey("мэрия Кишинёва"));
+  });
+
+  it("ранняя копия читается первой, даже если меньше похожа", () => {
+    const list = [
+      { publishedAt: "2026-10-01" },
+      { publishedAt: "2026-10-01" },
+      { publishedAt: "2026-10-01", earliestSearch: true },
+    ];
+    assert.deepEqual(pickForExtraction(list, [0.9, 0.8, 0.1], 2, true), [0, 2]);
+  });
+});
+
+describe("корень и связи: история, а не только утверждение", () => {
+  const D = (day: string) => ({ publishedAt: `2026-05-${day}T10:00:00Z` });
+  const text = (seed: string) =>
+    Array.from({ length: 60 }, (_, i) => `${seed}${i} слово${i} текст${i} часть${i} строка${i}`).join(" ");
+
+  it("исходное событие с другими словами становится корнем", () => {
+    const origin = copy("origin", D("01"), { relation: "source_event" });
+    const fake = copy("fake", D("05"), { relation: "repeats" });
+    assert.equal(
+      buildTree({ claimId: "c", copies: [origin, fake], video: VIDEO, similarity: sim(2), traceMode: true })
+        .rootId,
+      "origin",
+    );
+  });
+
+  it("разбор не становится корнем, даже если он самый ранний", () => {
+    const check = copy("check", D("01"), { relation: "debunks" });
+    const fake = copy("fake", D("05"), { relation: "repeats" });
+    assert.equal(
+      buildTree({ claimId: "c", copies: [check, fake], video: VIDEO, similarity: sim(2), traceMode: true })
+        .rootId,
+      "fake",
+    );
+  });
+
+  it("только разборы: корня нет, а не ложный корень", () => {
+    const check = copy("check", D("01"), { relation: "debunks" });
+    assert.equal(
+      buildTree({ claimId: "c", copies: [check], video: VIDEO, similarity: sim(1), traceMode: true }).rootId,
+      null,
+    );
+  });
+
+  it("разбор, ссылающийся на статью, не показывается её пересказом", () => {
+    const article = copy("article", D("01"), { relation: "repeats" });
+    const check = copy("check", { ...D("02"), outboundLinks: [article.source.url] }, { relation: "debunks" });
+    const tree = buildTree({
+      claimId: "c",
+      copies: [article, check],
+      video: VIDEO,
+      similarity: sim(2),
+      traceMode: true,
+    });
+    assert.equal(node(tree, "check").parentId, null);
+    assert.equal(node(tree, "check").relation, "debunks");
+  });
+
+  it("видео не берёт разбор в родители", () => {
+    const check = copy("check", D("01"), { relation: "debunks" });
+    const fake = copy("fake", D("02"), { relation: "repeats" });
+    const tree = buildTree({
+      claimId: "c",
+      copies: [check, fake],
+      video: VIDEO,
+      similarity: sim(2, [], [0.9, 0.2]),
+      traceMode: true,
+    });
+    assert.equal(node(tree, VIDEO_NODE_ID).parentId, "fake");
+  });
+
+  it("дословная перепечатка находится по полному тексту, а не по выдержке", () => {
+    const body = text("общий");
+    const a = copy("a", { ...D("01"), fullText: body });
+    const b = copy("b", { ...D("02"), fullText: `${body} ${text("своё")}` });
+    assert.deepEqual(
+      textReuseEdges([a, b]).map((e) => [e.parent, e.child]),
+      [[0, 1]],
+    );
+  });
+
+  it("разные тексты перепечаткой не считаются", () => {
+    const a = copy("a", { ...D("01"), fullText: text("один") });
+    const b = copy("b", { ...D("02"), fullText: text("два") });
+    assert.deepEqual(textReuseEdges([a, b]), []);
+  });
+
+  it("одинаковый текст на одном сайте распространением не считается", () => {
+    const body = text("общий");
+    const a = copy("a", { ...D("01"), fullText: body, domain: "site.example" });
+    const b = copy("b", { ...D("02"), fullText: body, domain: "site.example" });
+    const tree = buildTree({
+      claimId: "c",
+      copies: [a, b],
+      video: VIDEO,
+      similarity: sim(2),
+      traceMode: true,
+    });
+    assert.equal(node(tree, "b").parentId, null);
+  });
+});
+
+describe("корень — верх самой ранней ветви", () => {
+  const D = (day: string) => ({ publishedAt: `2026-05-${day}T10:00:00Z` });
+
+  it("родитель без даты важнее поздней страницы без родителя", () => {
+    const origin = copy("origin", {}, { relation: "repeats" });
+    const a = copy("a", { ...D("05"), outboundLinks: [origin.source.url] }, { relation: "repeats" });
+    const late = copy("late", D("20"), { relation: "repeats" });
+    const tree = buildTree({
+      claimId: "c",
+      copies: [origin, a, late],
+      video: VIDEO,
+      similarity: sim(3),
+      traceMode: true,
+    });
+    assert.equal(tree.rootId, "origin");
+  });
+});
+
+describe("разбор определяет и код", () => {
+  const page = (domain: string, title: string) => ({ domain, title, sourceType: "news" as const });
+
+  it("домен фактчекера важнее ответа LLM", () => {
+    assert.equal(checkedRelation(page("mythdetector.com", "The Original Source"), "repeats"), "debunks");
+  });
+
+  it("заголовок разбора важнее ответа LLM", () => {
+    assert.equal(checkedRelation(page("x.md", "Фейк о покупке"), "repeats"), "debunks");
+  });
+
+  it("обычная публикация сохраняет ответ LLM", () => {
+    assert.equal(checkedRelation(page("rg.ru", "Майю Санду обвинили"), "repeats"), "repeats");
+  });
+
+  it("в режиме без типов связей ничего не меняется", () => {
+    assert.equal(checkedRelation(page("mythdetector.com", "Фейк"), undefined), undefined);
+  });
+});
+
+describe("надёжный корень", () => {
+  const at = (date: string, over: Partial<SourceCopy> = {}) => ({
+    publishedAt: date,
+    dateSource: "page" as const,
+    ...over,
+  });
+  const tree = (copies: CopyFacts[]) =>
+    buildTree({ claimId: "c", copies, video: VIDEO, similarity: sim(copies.length), traceMode: true });
+
+  it("дата только от поисковика не даёт стать корнем", () => {
+    const wrong = copy(
+      "wrong",
+      { publishedAt: "2025-02-10T00:00:00Z", dateSource: "search" },
+      { relation: "repeats" },
+    );
+    const real = copy("real", at("2025-08-01T00:00:00Z"), { relation: "repeats" });
+    assert.equal(tree([wrong, real]).rootId, "real");
+  });
+
+  it("только даты поисковика: корня нет", () => {
+    const a = copy(
+      "a",
+      { publishedAt: "2025-02-10T00:00:00Z", dateSource: "search" },
+      { relation: "repeats" },
+    );
+    assert.equal(tree([a]).rootId, null);
+  });
+
+  it("предыстория без связи не становится началом свежего эпизода", () => {
+    const copies = [
+      copy("old", at("2019-04-30T00:00:00Z"), { relation: "repeats" }),
+      copy("a", at("2026-01-30T00:00:00Z"), { relation: "repeats" }),
+      copy("b", at("2026-02-02T00:00:00Z"), { relation: "repeats" }),
+      copy("c", at("2026-02-09T00:00:00Z"), { relation: "repeats" }),
+    ];
+    const result = tree(copies);
+    assert.equal(result.rootId, "a");
+    assert.ok(
+      result.nodes.some((n) => n.id === "old"),
+      "предыстория остаётся на таймлайне",
+    );
+  });
+
+  it("старая новость без свежего всплеска остаётся корнем: это и есть старый контент", () => {
+    const copies = [
+      copy("old", at("2021-01-10T00:00:00Z"), { relation: "repeats" }),
+      copy("a", at("2026-10-01T00:00:00Z"), { relation: "repeats" }),
+    ];
+    assert.equal(tree(copies).rootId, "old");
+  });
+
+  it("старая страница со ссылкой из свежих копий остаётся корнем", () => {
+    const old = copy("old", at("2021-01-10T00:00:00Z"), { relation: "repeats" });
+    const copies = [
+      old,
+      copy("a", at("2026-10-01T00:00:00Z", { outboundLinks: [old.source.url] }), { relation: "repeats" }),
+      copy("b", at("2026-10-02T00:00:00Z"), { relation: "repeats" }),
+      copy("c", at("2026-10-03T00:00:00Z"), { relation: "repeats" }),
+    ];
+    assert.equal(tree(copies).rootId, "old");
+  });
+});
+
+describe("редкие фрагменты текста", () => {
+  it("фрагмент почти у всех копий считается шаблоном", () => {
+    const sets = [1, 2, 3, 4, 5].map((i) => new Set(["шаблон сайта", `своё ${i}`]));
+    sets[0].add("редкое");
+    sets[1].add("редкое");
+    const rare = rareShingles(sets);
+    assert.equal(rare[0].has("шаблон сайта"), false);
+    assert.equal(rare[0].has("редкое"), true);
+  });
+
+  it("мало копий: частоту не считаем", () => {
+    const sets = [new Set(["а"]), new Set(["а"])];
+    assert.equal(rareShingles(sets)[0].has("а"), true);
+  });
+});
+
+describe("узел «источник не найден»", () => {
+  const dated = (day: string) => ({ publishedAt: `2026-10-${day}T10:00:00Z`, dateSource: "page" as const });
+
+  it("две копии с одним не найденным источником дают скрытый узел", () => {
+    const a = copy("a", dated("01"), { cites: ["мэрия Кишинёва"], relation: "repeats" });
+    const b = copy("b", dated("02"), { cites: ["по данным мэрии Кишинёва"], relation: "repeats" });
+    const tree = buildTree({
+      claimId: "c",
+      copies: [a, b],
+      video: VIDEO,
+      similarity: sim(2),
+      traceMode: true,
+    });
+    assert.deepEqual(tree.hiddenSources?.[0]?.copyIds, ["a", "b"]);
+    assert.equal(tree.hiddenSources?.[0]?.name, "мэрия Кишинёва");
+  });
+
+  it("одна копия скрытого узла не создаёт", () => {
+    const a = copy("a", dated("01"), { cites: ["мэрия Кишинёва"], relation: "repeats" });
+    const tree = buildTree({ claimId: "c", copies: [a], video: VIDEO, similarity: sim(1), traceMode: true });
+    assert.equal(tree.hiddenSources, undefined);
+  });
+});
+
+describe("скрытый источник — только имя собственное", () => {
+  it("обрывки фразы не объединяют голоса и не создают узел", () => {
+    const dated = (day: string) => ({ publishedAt: `2026-10-${day}T10:00:00Z`, dateSource: "page" as const });
+    const a = copy("a", dated("01"), { cites: ["lui"], relation: "repeats" });
+    const b = copy("b", dated("02"), { cites: ["украинский посол в"], relation: "repeats" });
+    const c = copy("c", dated("03"), { cites: ["lui"], relation: "repeats" });
+    const tree = buildTree({
+      claimId: "c",
+      copies: [a, b, c],
+      video: VIDEO,
+      similarity: sim(3),
+      traceMode: true,
+    });
+    assert.equal(tree.hiddenSources, undefined);
+    assert.notEqual(tree.voteGroups.a, tree.voteGroups.c);
+  });
+});
+
+describe("заимствование внутри длинной статьи", () => {
+  const dated = (day: string) => ({ publishedAt: `2026-10-${day}T10:00:00Z` });
+  const unique = (seed: string, n: number) => Array.from({ length: n }, (_, i) => `${seed}${i}`).join(" ");
+
+  it("общий абзац находится, даже если это малая часть страницы", () => {
+    const quote = unique("цитата", 40);
+    const a = copy("a", { ...dated("01"), fullText: `${unique("своё", 2000)} ${quote}` });
+    const b = copy("b", { ...dated("02"), fullText: `${quote} ${unique("другое", 2000)}` });
+    assert.deepEqual(
+      textReuseEdges([a, b]).map((e) => [e.parent, e.child]),
+      [[0, 1]],
+    );
+  });
+
+  it("короткая общая формула ребра не даёт", () => {
+    const phrase = unique("конвенция", 12);
+    const a = copy("a", { ...dated("01"), fullText: `${unique("а", 300)} ${phrase}` });
+    const b = copy("b", { ...dated("02"), fullText: `${phrase} ${unique("б", 300)}` });
+    assert.deepEqual(textReuseEdges([a, b]), []);
+  });
+
+  it("служебная разметка PDF не считается заимствованием", () => {
+    const body = unique("obj", 100);
+    const a = copy("a", { ...dated("01"), url: "https://a.example/file.pdf", fullText: body });
+    const b = copy("b", { ...dated("02"), fullText: body });
+    assert.deepEqual(textReuseEdges([a, b]), []);
   });
 });

@@ -1,18 +1,21 @@
 import { z } from "zod";
 import type { SourceId } from "@news/contracts";
+import { config } from "../../config.ts";
 import type { Stage, StageContext } from "../../pipeline/context.ts";
 import type { Claim, ClaimStructure } from "../03-claim-extraction/types.ts";
 import type { SourceCopy } from "../04-source-search/types.ts";
 import { askJson, embed, LlmConfigError } from "./llm.ts";
-import { buildPrompt, SYSTEM_PROMPT } from "./prompt.ts";
+import { buildPrompt, RELATION_RULE, SYSTEM_PROMPT } from "./prompt.ts";
 import {
   buildTree,
+  checkedRelation,
   claimText,
   copyText,
   embeddingSimilarity,
   pickForExtraction,
   shingleSimilarity,
   type CopyFacts,
+  type CopyRelation,
   type Similarity,
 } from "./tree.ts";
 import { VIDEO_NODE_ID, type ProvenanceInput, type ProvenanceTree } from "./types.ts";
@@ -36,6 +39,20 @@ const ExtractionSchema = z.object({
   copies: z.array(
     z.object({
       id: z.string(),
+      containsClaim: z.boolean(),
+      cites: z.array(z.string()),
+      structure: StructureSchema.nullable(),
+    }),
+  ),
+});
+
+/** То же плюс отношение копии к утверждению (TRACE_SEARCH=on) */
+const TraceExtractionSchema = z.object({
+  video: StructureSchema,
+  copies: z.array(
+    z.object({
+      id: z.string(),
+      relation: z.enum(["repeats", "source_event", "debunks", "mentions"]),
       containsClaim: z.boolean(),
       cites: z.array(z.string()),
       structure: StructureSchema.nullable(),
@@ -76,7 +93,8 @@ export const buildProvenanceTreeReal: Stage<ProvenanceInput, ProvenanceTree> = a
   const t0 = Date.now();
   const similarity = await textSimilarity(claim, copies, ctx);
   const tSim = Date.now();
-  const picked = pickForExtraction(copies, similarity.toClaim).map((i) => copies[i]);
+  const traceMode = config.experiments.traceSearch;
+  const picked = pickForExtraction(copies, similarity.toClaim, undefined, traceMode).map((i) => copies[i]);
   if (picked.length < copies.length)
     ctx.log(`05: ${claim.id}: структуру читаем в ${picked.length} из ${copies.length} копий`);
   const extraction = await extractStructures(input, picked, ctx);
@@ -85,15 +103,16 @@ export const buildProvenanceTreeReal: Stage<ProvenanceInput, ProvenanceTree> = a
       `структуры LLM (${picked.length} копий) ${((Date.now() - tSim) / 1000).toFixed(1)}с`,
   );
 
-  const facts = copies.map((source): CopyFacts => ({
-    source,
-    ...(extraction?.copies.get(source.id) ?? { structure: null, cites: [] }),
-  }));
+  const facts = copies.map((source): CopyFacts => {
+    const found = extraction?.copies.get(source.id) ?? { structure: null, cites: [] };
+    return { source, ...found, relation: checkedRelation(source, found.relation) };
+  });
   const tree = buildTree({
     claimId: claim.id,
     copies: facts,
     video: { ...video, structure: claim.structure ?? extraction?.video ?? null },
     similarity,
+    traceMode,
   });
 
   const via = (v: string) => tree.nodes.filter((n) => n.id !== VIDEO_NODE_ID && n.via === v).length;
@@ -164,6 +183,7 @@ async function extractStructures(
   ctx: StageContext,
 ): Promise<Extraction | null> {
   const { claim } = input;
+  const traceMode = config.experiments.traceSearch;
   const batches: SourceCopy[][] = [];
   for (let i = 0; i < copies.length; i += EXTRACT_BATCH) batches.push(copies.slice(i, i + EXTRACT_BATCH));
 
@@ -176,9 +196,9 @@ async function extractStructures(
           fast: true,
           // пачка обычно ~4 с; повисшая через 15 с повторяется, а не ждёт 90
           timeoutMs: 15_000,
-          system: SYSTEM_PROMPT,
+          system: traceMode ? SYSTEM_PROMPT + RELATION_RULE : SYSTEM_PROMPT,
           prompt: buildPrompt(claim, input.video, batch),
-          schema: ExtractionSchema,
+          schema: traceMode ? TraceExtractionSchema : ExtractionSchema,
         },
         ctx,
       ),
@@ -211,6 +231,7 @@ async function extractStructures(
     byId.set(raw.id, {
       structure: raw.containsClaim && raw.structure ? cleanStructure(raw.structure) : null,
       cites: cleanCites(raw.cites),
+      ...("relation" in raw ? { relation: raw.relation as CopyRelation } : {}),
     });
   }
   const missing = copies.length - byId.size;

@@ -68,6 +68,7 @@ const RETRY_AFTER_429_MS = 1500;
  */
 export async function tavilyPost(body: Record<string, unknown>, signal: AbortSignal): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
+    await throttle();
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
@@ -179,6 +180,33 @@ export async function factCheckSearch(q: PlannedQuery, signal: AbortSignal): Pro
 const MAX_PARALLEL = config.limits.searchParallel;
 let active = 0;
 const waiting: Array<() => void> = [];
+
+/** Скользящее окно: выдаёт, сколько подождать, чтобы за windowMs ушло не больше limit запросов */
+export class RateWindow {
+  private readonly starts: number[] = [];
+
+  constructor(
+    private readonly limit: number,
+    private readonly windowMs = 60_000,
+  ) {}
+
+  /** Занимает ближайшее свободное место и возвращает паузу до него, мс */
+  reserve(now: number): number {
+    while (this.starts.length && this.starts[0]! <= now - this.windowMs) this.starts.shift();
+    const at =
+      this.starts.length < this.limit ? now : this.starts[this.starts.length - this.limit]! + this.windowMs;
+    this.starts.push(at);
+    return at - now;
+  }
+}
+
+const rate = new RateWindow(config.limits.searchPerMinute);
+
+/** Дождаться места в минутном лимите. Вызывается перед каждым HTTP-запросом к поиску, включая повторы */
+export async function throttle(): Promise<void> {
+  const pause = rate.reserve(Date.now());
+  if (pause > 0) await new Promise((resolve) => setTimeout(resolve, pause));
+}
 
 /** Замеры очереди к поиску: сколько запросов, сколько ждали свободного слота и сколько шли сами (для логов и бенчмарков) */
 export const searchStats = { calls: 0, waitMs: 0, runMs: 0, maxWaitMs: 0 };

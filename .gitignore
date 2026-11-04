@@ -12,3 +12,8 @@ tmp/
 !web/public/**/*.png
 !web/src/app/*.png
 !docs/screenshots/*.png
+
+# Obsidian: состояние окна меняется при каждом открытии
+**/.obsidian/workspace.json
+**/.obsidian/workspace-mobile.json
+**/.obsidian/cache/

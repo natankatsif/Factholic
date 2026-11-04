@@ -7,7 +7,16 @@
 import type { ClaimId, ISODateString, SourceId } from "@news/contracts";
 import type { Claim, ClaimStructure } from "../03-claim-extraction/types.ts";
 import type { SourceCopy } from "../04-source-search/types.ts";
-import { VIDEO_NODE_ID, type ProvenanceTree, type ProvenanceVia, type TreeNode } from "./types.ts";
+import {
+  VIDEO_NODE_ID,
+  type CopyRelation,
+  type HiddenSource,
+  type ProvenanceTree,
+  type ProvenanceVia,
+  type TreeNode,
+} from "./types.ts";
+
+export type { CopyRelation };
 
 // ===================== КОНСТАНТЫ =====================
 
@@ -35,6 +44,8 @@ export interface CopyFacts {
    * Фразы-атрибуции этапа 04 (`source.attributions`) добавляются к ним в `copyCites`.
    */
   cites: string[];
+  /** Как копия относится к утверждению: разбор фейка и сам фейк — не один голос. Нет — считаем repeats */
+  relation?: CopyRelation;
 }
 
 export interface Similarity {
@@ -135,14 +146,19 @@ export function shingleSimilarity(claim: string, texts: string[]): Similarity {
 
 /** Какие копии отправить LLM на шаге 1: сначала датированные (дата — главный материал дерева), внутри — самые похожие на утверждение */
 export function pickForExtraction(
-  copies: Pick<SourceCopy, "publishedAt">[],
+  copies: Array<Pick<SourceCopy, "publishedAt"> & Partial<Pick<SourceCopy, "earliestSearch" | "traced">>>,
   toClaim: number[],
   max = MAX_COPIES,
+  /** Ранние и найденные по следу копии читаем первыми: корнем может стать только прочитанная копия */
+  earlyFirst = false,
 ): number[] {
   const dated = (i: number) => (validDate(copies[i].publishedAt) ? 1 : 0);
+  const early = (i: number) => (earlyFirst && (copies[i].earliestSearch || copies[i].traced) ? 1 : 0);
   return copies
     .map((_, i) => i)
-    .sort((a, b) => dated(b) - dated(a) || (toClaim[b] ?? 0) - (toClaim[a] ?? 0) || a - b)
+    .sort(
+      (a, b) => early(b) - early(a) || dated(b) - dated(a) || (toClaim[b] ?? 0) - (toClaim[a] ?? 0) || a - b,
+    )
     .slice(0, max)
     .sort((a, b) => a - b);
 }
@@ -429,7 +445,12 @@ export function attributionEdges(copies: CopyFacts[]): Edge[] {
  * Нужны даты у обоих; родитель — более ранний (при равных датах — раньше во входном списке).
  * Из нескольких более ранних — самый похожий.
  */
-export function duplicateEdges(copies: CopyFacts[], similarity: Similarity): Edge[] {
+export function duplicateEdges(
+  copies: CopyFacts[],
+  similarity: Similarity,
+  /** Сколько редких деталей делят две копии: важнее похожести (см. sharedRareDetails) */
+  shared: (a: number, b: number) => number = () => 0,
+): Edge[] {
   const dates = copies.map((c) => validDate(c.source.publishedAt));
   const threshold = similarity.method === "embeddings" ? DUP_THRESHOLD : SHINGLE_THRESHOLD;
   const sim = (a: number, b: number) => similarity.pairs[a]?.[b] ?? 0;
@@ -445,9 +466,194 @@ export function duplicateEdges(copies: CopyFacts[], similarity: Similarity): Edg
         const cmp = compareDates(pd, cd);
         return cmp < 0 || (cmp === 0 && p < child);
       })
-      .sort((a, b) => sim(b, child) - sim(a, child) || a - b)
+      .sort((a, b) => shared(b, child) - shared(a, child) || sim(b, child) - sim(a, child) || a - b)
       .map((parent): Edge => ({ parent, child, via: "duplicate", confidence: "probable" }));
   });
+}
+
+/** Меньше копий с утверждением — редкость посчитать не из чего */
+const MIN_COPIES_FOR_RARITY = 3;
+/** Столько общих редких деталей дают ребро и без похожего текста (например, перевод) */
+const MIN_SHARED_FOR_EDGE = 2;
+
+/** Числа и места копии в сравнимом виде. Этап 05 приводит места к языку утверждения */
+function details(s: ClaimStructure): Set<string> {
+  const numbers = s.numbers.flatMap((n) => n.value.replace(",", ".").match(/\d+(?:\.\d+)?/g) ?? []);
+  return new Set([...numbers.map((n) => `#${n}`), ...s.places.map((p) => phrase(p).slice(0, 6))]);
+}
+
+/**
+ * Сколько РЕДКИХ деталей делят две копии. Совпадение общих фактов ничего не доказывает, а одна и та же
+ * редкая деталь, особенно ошибка, выдаёт заимствование (Dong et al., VLDB 2009).
+ * Редкая — есть не больше чем у трети копий с утверждением, но минимум у двух.
+ */
+export function sharedRareDetails(copies: CopyFacts[]): (a: number, b: number) => number {
+  const sets = copies.map((c) => (c.structure ? details(c.structure) : new Set<string>()));
+  const structured = copies.filter((c) => c.structure).length;
+  if (structured < MIN_COPIES_FOR_RARITY) return () => 0;
+  const counts = new Map<string, number>();
+  for (const set of sets) for (const d of set) counts.set(d, (counts.get(d) ?? 0) + 1);
+  const limit = Math.max(2, Math.floor(structured / 3));
+  return (a, b) => [...sets[a]].filter((d) => sets[b].has(d) && (counts.get(d) ?? 0) <= limit).length;
+}
+
+/** Длина фрагмента: 7 слов реже совпадают случайно, чем 5 (Nicholls, 2019) */
+export const REUSE_GRAM = 7;
+/**
+ * Сколько редких фрагментов дают ребро. Доля от страницы не подходит: цитата занимает малую часть длинной статьи.
+ * Живые страницы: настоящие заимствования от 12 общих фрагментов, названия конвенций и шаблоны до 5.
+ */
+export const REUSE_MIN_GRAMS = 10;
+
+/** Фрагмент есть больше чем у такой доли копий: шаблон или общая формула, а не след заимствования */
+const COMMON_SHINGLE_SHARE = 0.6;
+const MIN_COPIES_FOR_COMMON = 5;
+
+/** Убирает слишком частые фрагменты: важны редкие совпадения, а не общие слова (Nicholls, 2019) */
+export function rareShingles(sets: Set<string>[]): Set<string>[] {
+  if (sets.length < MIN_COPIES_FOR_COMMON) return sets;
+  const counts = new Map<string, number>();
+  for (const set of sets) for (const s of set) counts.set(s, (counts.get(s) ?? 0) + 1);
+  const limit = sets.length * COMMON_SHINGLE_SHARE;
+  return sets.map((set) => new Set([...set].filter((s) => (counts.get(s) ?? 0) <= limit)));
+}
+
+/** PDF: при извлечении текста совпадает служебная разметка файла */
+const BINARY_DOCUMENT = /\.pdf($|[?#])/i;
+
+/**
+ * Перепечатки и общие цитаты по полному тексту страниц. Выдержки у копий вырезаны по-разному, поэтому их
+ * эмбеддинги не видят даже почти дословный текст. Считаем общие редкие фрагменты, а не долю страницы.
+ * Родитель — более ранний; при равных датах направление неизвестно, берём порядок входа. Всегда probable.
+ */
+export function textReuseEdges(copies: CopyFacts[]): Edge[] {
+  const dates = copies.map((c) => validDate(c.source.publishedAt));
+  const sets = rareShingles(
+    copies.map((c) =>
+      BINARY_DOCUMENT.test(c.source.url) ? new Set<string>() : shingles(c.source.fullText ?? "", REUSE_GRAM),
+    ),
+  );
+  const reuse = (a: number, b: number) => {
+    let shared = 0;
+    for (const s of sets[a]) if (sets[b].has(s)) shared++;
+    return shared;
+  };
+  return copies.flatMap((_, child) => {
+    const cd = dates[child];
+    if (!cd) return [];
+    return copies
+      .map((__, p) => ({ p, score: p === child ? 0 : reuse(p, child) }))
+      .filter(({ p, score }) => {
+        const pd = dates[p];
+        if (!pd || score < REUSE_MIN_GRAMS) return false;
+        const cmp = compareDates(pd, cd);
+        return cmp < 0 || (cmp === 0 && p < child);
+      })
+      .sort((a, b) => b.score - a.score || a.p - b.p)
+      .map(({ p }): Edge => ({ parent: p, child, via: "duplicate", confidence: "probable" }));
+  });
+}
+
+/** Рёбра по редким деталям: ловят перепечатки, чей текст не похож (перевод, рерайт). Всегда probable */
+export function detailEdges(copies: CopyFacts[], shared: (a: number, b: number) => number): Edge[] {
+  const dates = copies.map((c) => validDate(c.source.publishedAt));
+  return copies.flatMap((_, child) => {
+    const cd = dates[child];
+    if (!cd) return [];
+    return copies
+      .map((__, p) => p)
+      .filter((p) => {
+        const pd = dates[p];
+        return p !== child && !!pd && compareDates(pd, cd) < 0 && shared(p, child) >= MIN_SHARED_FOR_EDGE;
+      })
+      .sort((a, b) => shared(b, child) - shared(a, child) || a - b)
+      .map((parent): Edge => ({ parent, child, via: "duplicate", confidence: "probable" }));
+  });
+}
+
+/** Источник назван, но ничего конкретного не сообщает: «очевидцы» не объединяют голоса */
+const VAGUE_CITE =
+  /^(источник|очевид|эксперт|журналист|пользоват|сми|медиа|surse|sursa|martor|expert|presa|media|source|witness)/iu;
+const CITE_MARKER =
+  /^(по данным|по информации|по словам|со ссылкой на|как сообщает|как сообщил[аио]?|сообщает|сообщил[аио]?|заявил[аио]?|potrivit|conform|citat de|a declarat|a anunțat|according to|reported by|citing|said)\s+/iu;
+
+/** Есть имя собственное и фраза короткая: «lui» или «украинский посол в» — обрывки, а не источник */
+function isProperName(name: string): boolean {
+  return /(^|\s)\p{Lu}/u.test(name) && name.split(/\s+/).length <= 4;
+}
+
+/** «по данным мэрии Кишинёва» и «мэрия Кишинёва» → один ключ: начала слов без окончаний */
+export function citedKey(cite: string): string {
+  return words(cite.replace(CITE_MARKER, ""))
+    .slice(0, 3)
+    .map((w) => w.slice(0, 4))
+    .join(" ");
+}
+
+/** Разбор не пересказывает то, что разбирает, а упоминание никого не копирует: это не связь «кто у кого взял» */
+function derivable(copies: CopyFacts[], edge: Edge): boolean {
+  const parent = copies[edge.parent].relation;
+  const child = copies[edge.child].relation;
+  if (parent === "mentions" || child === "mentions") return false;
+  return (parent === "debunks") === (child === "debunks");
+}
+
+/** Копии одного сайта: связь внутри него ничего не говорит о распространении */
+function sameSite(copies: CopyFacts[], edge: Edge): boolean {
+  const site = (c: CopyFacts) => baseDomain(c.source.domain || domainOf(c.source.url));
+  return site(copies[edge.parent]) === site(copies[edge.child]);
+}
+
+/** Фактчекеры Молдовы и региона: многих нет в справочнике доменов этапа 04 */
+const FACT_CHECK_HOST =
+  /(^|\.)(mythdetector\.com|stopfals\.md|veridica\.ro|euvsdisinfo\.eu|stopfake\.org|provereno\.media|factcheck\.ge|factual\.ro)$/i;
+/** Заголовок разбора. Слова из текста не берём: фейк может сам писать про «фейки» */
+const DEBUNK_TITLE =
+  /фейк|дезинформ|опроверг|разоблач|\bfake\b|\bfals\b|dezinform|fact.?check|debunk|\bhoax\b|manipul[aă]r/iu;
+
+/** Отношение LLM ошибается на разборах, поэтому явные признаки проверяет код */
+export function checkedRelation(
+  source: Pick<SourceCopy, "domain" | "sourceType" | "title">,
+  relation: CopyRelation | undefined,
+): CopyRelation | undefined {
+  if (!relation) return relation;
+  const explicit =
+    source.sourceType === "fact_checker" ||
+    FACT_CHECK_HOST.test(source.domain) ||
+    DEBUNK_TITLE.test(source.title);
+  return explicit ? "debunks" : relation;
+}
+
+/** Публикация может быть началом истории: разбор и упоминание не могут */
+function canBeOrigin(c: CopyFacts): boolean {
+  return c.relation !== "debunks" && c.relation !== "mentions";
+}
+
+/** Источник, на который копия ссылается, но которого нет среди копий; null — такого нет */
+function unresolvedCite(index: number, copies: CopyFacts[]): string | null {
+  for (const cite of copyCites(copies[index])) {
+    const name = cite.replace(CITE_MARKER, "");
+    if (VAGUE_CITE.test(name) || citedKey(cite).length < 3 || !isProperName(name)) continue;
+    if (copies.some((c) => citeMatches(cite, c.source))) continue;
+    return citedKey(cite);
+  }
+  return null;
+}
+
+/**
+ * Группа независимости копии. Отличия от простого «корень ветки»:
+ *  - разбор и то, что он разбирает, — разные голоса, даже если разбор ссылается на фейк;
+ *  - копии, которые ссылаются на один не найденный источник, — один голос, а не несколько.
+ */
+export function independentGroup(index: number, copies: CopyFacts[], parents: (Edge | null)[]): string {
+  const debunks = (i: number) => copies[i].relation === "debunks";
+  let top = index;
+  for (let edge = parents[top]; edge && debunks(top) === debunks(edge.parent); edge = parents[top]) {
+    top = edge.parent;
+  }
+  if (debunks(top)) return copies[top].source.id;
+  const cited = unresolvedCite(top, copies);
+  return cited ? `cited:${cited}` : copies[top].source.id;
 }
 
 // ===================== ОДИН РОДИТЕЛЬ =====================
@@ -489,7 +695,7 @@ export function videoParent(copies: CopyFacts[], video: VideoFacts, toClaim: num
   const videoDate = validDate(video.publishedAt);
   let best: number | null = null;
   copies.forEach((c, i) => {
-    if (!c.structure || !((toClaim[i] ?? 0) > 0)) return;
+    if (!c.structure || !canBeOrigin(c) || !((toClaim[i] ?? 0) > 0)) return;
     if (videoDate) {
       const d = validDate(c.source.publishedAt);
       if (!d || compareDates(d, videoDate) > 0) return;
@@ -497,6 +703,103 @@ export function videoParent(copies: CopyFacts[], video: VideoFacts, toClaim: num
     if (best === null || toClaim[i] > toClaim[best]) best = i;
   });
   return best;
+}
+
+const DAY_MS = 86_400_000;
+/** Настолько раньше всплеска страница считается предысторией, а не началом этого эпизода */
+const PREHISTORY_GAP_DAYS = 90;
+/** Всплеск: столько разных сайтов за BURST_DAYS */
+const BURST_SITES = 3;
+const BURST_DAYS = 30;
+
+/** Дате только от поисковика не верим: это бывает дата обхода или правки */
+function trustedDate(c: CopyFacts): boolean {
+  return !!validDate(c.source.publishedAt) && c.source.dateSource !== "search";
+}
+
+/** Есть ли после даты всплеск публикаций на разных сайтах: значит, идёт отдельный свежий эпизод */
+function laterBurst(after: number, copies: CopyFacts[]): boolean {
+  const dated = copies
+    .filter((c) => c.structure && canBeOrigin(c) && dateMs(validDate(c.source.publishedAt)) < Infinity)
+    .map((c) => ({
+      at: dateMs(c.source.publishedAt),
+      site: baseDomain(c.source.domain || domainOf(c.source.url)),
+    }))
+    .filter((c) => c.at - after > PREHISTORY_GAP_DAYS * DAY_MS);
+  return dated.some(
+    (start) =>
+      new Set(
+        dated.filter((c) => c.at >= start.at && c.at - start.at <= BURST_DAYS * DAY_MS).map((c) => c.site),
+      ).size >= BURST_SITES,
+  );
+}
+
+/**
+ * Предыстория: старая страница той же темы, ничем не связанная со свежим всплеском публикаций (конфликт начался
+ * в 2018, а проверяем эпизод 2026). Она остаётся на таймлайне, но началом этого эпизода не считается.
+ * Старая новость, выданная за новую, сюда не попадает: у неё нет свежего всплеска или есть связь с копиями.
+ */
+function isPrehistory(
+  index: number,
+  copies: CopyFacts[],
+  parents: (Edge | null)[],
+  shared: (a: number, b: number) => number,
+): boolean {
+  const linked =
+    !!parents[index] ||
+    parents.some((edge) => edge?.parent === index) ||
+    copies.some((_, other) => other !== index && shared(index, other) > 0);
+  return !linked && laterBurst(dateMs(copies[index].source.publishedAt), copies);
+}
+
+/**
+ * Корень — верх самой ранней ветви. Самая ранняя копия могла сослаться на источник, у которого даты нет:
+ * тогда начало истории он, а не более поздняя страница без родителя (живой прогон: родитель трёх копий без даты).
+ * Кандидат — копия с надёжной датой; нет такой — корня нет: лучше честно не назвать, чем назвать ложный.
+ */
+export function earliestBranchTop(
+  order: number[],
+  copies: CopyFacts[],
+  parents: (Edge | null)[],
+  shared: (a: number, b: number) => number = () => 0,
+): number | undefined {
+  const first = order.find(
+    (i) =>
+      copies[i].structure !== null &&
+      canBeOrigin(copies[i]) &&
+      trustedDate(copies[i]) &&
+      !isPrehistory(i, copies, parents, shared),
+  );
+  if (first === undefined) return undefined;
+  let top = first;
+  for (let edge = parents[top]; edge && canBeOrigin(copies[edge.parent]); edge = parents[top])
+    top = edge.parent;
+  return top;
+}
+
+/** Не найденный источник, на который указывают минимум две копии: показываем его узлом, а не выдумываем корень */
+function hiddenSourcesOf(copies: CopyFacts[], voteGroups: Record<SourceId, string>): HiddenSource[] {
+  const groups = new Map<string, CopyFacts[]>();
+  for (const c of copies) {
+    const id = voteGroups[c.source.id];
+    if (id?.startsWith("cited:")) groups.set(id, [...(groups.get(id) ?? []), c]);
+  }
+  return [...groups.entries()]
+    .filter(([, members]) => members.length >= 2)
+    .map(([id, members]) => ({
+      id,
+      name: citedNameOf(id, members),
+      copyIds: members.map((c) => c.source.id),
+    }));
+}
+
+function citedNameOf(id: string, members: CopyFacts[]): string {
+  const key = id.slice("cited:".length);
+  for (const c of members) {
+    const cite = copyCites(c).find((x) => citedKey(x) === key);
+    if (cite) return cite.replace(CITE_MARKER, "");
+  }
+  return key;
 }
 
 // ===================== ДЕРЕВО =====================
@@ -507,20 +810,40 @@ export interface BuildTreeParams {
   copies: CopyFacts[];
   video: VideoFacts;
   similarity: Similarity;
+  /** TRACE_SEARCH=on: редкие детали в выборе родителя и группы голосов с учётом типа связи */
+  traceMode?: boolean;
 }
 
-export function buildTree({ claimId, copies, video, similarity }: BuildTreeParams): ProvenanceTree {
+export function buildTree({
+  claimId,
+  copies,
+  video,
+  similarity,
+  traceMode = false,
+}: BuildTreeParams): ProvenanceTree {
   const order = timelineOrder(copies);
-  const parents = chooseParents(copies.length, order, [
-    linkEdges(copies),
-    attributionEdges(copies),
-    siteLinkEdges(copies),
-    duplicateEdges(copies, similarity),
-  ]);
+  const shared = traceMode ? sharedRareDetails(copies) : () => 0;
+  const elsewhere = (edges: Edge[]) => edges.filter((e) => !sameSite(copies, e));
+  const tiers = traceMode
+    ? [
+        linkEdges(copies),
+        attributionEdges(copies),
+        siteLinkEdges(copies),
+        elsewhere(textReuseEdges(copies)),
+        elsewhere(duplicateEdges(copies, similarity, shared)),
+        elsewhere(detailEdges(copies, shared)),
+      ].map((tier) => tier.filter((e) => derivable(copies, e)))
+    : [
+        linkEdges(copies),
+        attributionEdges(copies),
+        siteLinkEdges(copies),
+        duplicateEdges(copies, similarity),
+      ];
+  const parents = chooseParents(copies.length, order, tiers);
   const idOf = (i: number): SourceId => copies[i].source.id;
 
   const nodes: TreeNode[] = order.map((i) => {
-    const { source, structure } = copies[i];
+    const { source, structure, relation } = copies[i];
     const date = validDate(source.publishedAt);
     const edge = parents[i];
     return {
@@ -534,6 +857,7 @@ export function buildTree({ claimId, copies, video, similarity }: BuildTreeParam
       via: edge?.via ?? null,
       confidence: edge?.confidence ?? null,
       structure,
+      ...(relation ? { relation } : {}),
     };
   });
 
@@ -553,16 +877,33 @@ export function buildTree({ claimId, copies, video, similarity }: BuildTreeParam
   });
 
   // order уже по дате: первый подходящий — самый ранний
-  const root = order.find(
-    (i) => !parents[i] && copies[i].structure !== null && validDate(copies[i].source.publishedAt),
-  );
+  const root = traceMode
+    ? earliestBranchTop(order, copies, parents, shared)
+    : order.find(
+        (i) =>
+          !parents[i] &&
+          copies[i].structure !== null &&
+          canBeOrigin(copies[i]) &&
+          validDate(copies[i].source.publishedAt),
+      );
 
   const voteGroups: Record<SourceId, string> = {};
   copies.forEach((c, i) => {
+    if (traceMode) {
+      voteGroups[c.source.id] = independentGroup(i, copies, parents);
+      return;
+    }
     let top = i;
     for (let edge = parents[top]; edge; edge = parents[top]) top = edge.parent;
     voteGroups[c.source.id] = idOf(top);
   });
 
-  return { claimId, rootId: root === undefined ? null : idOf(root), nodes, voteGroups };
+  const hiddenSources = traceMode ? hiddenSourcesOf(copies, voteGroups) : [];
+  return {
+    claimId,
+    rootId: root === undefined ? null : idOf(root),
+    nodes,
+    voteGroups,
+    ...(hiddenSources.length ? { hiddenSources } : {}),
+  };
 }

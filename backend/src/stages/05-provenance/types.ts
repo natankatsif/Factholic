@@ -7,6 +7,11 @@ export const VIDEO_NODE_ID = "video";
 
 export type ProvenanceVia = "link" | "attribution" | "duplicate";
 export type ProvenanceConfidence = "confirmed" | "probable";
+/**
+ * repeats — сообщает утверждение; source_event — о том, из чего оно выросло, но говорит другое;
+ * debunks — разбирает или опровергает; mentions — только упоминает.
+ */
+export type CopyRelation = "repeats" | "source_event" | "debunks" | "mentions";
 
 // ===================== ВХОД =====================
 
@@ -36,6 +41,8 @@ export interface TreeNode {
   confidence: ProvenanceConfidence | null;
   /** null — публикация по теме, но самого утверждения в ней нет */
   structure: ClaimStructure | null;
+  /** Как публикация относится к истории. Нет — режим без типов связей */
+  relation?: CopyRelation;
 }
 
 export interface ProvenanceTree {
@@ -49,4 +56,15 @@ export interface ProvenanceTree {
    * Перепечатки одной новости — одна группа, а не 5 голосов.
    */
   voteGroups: Record<SourceId, string>;
+  /** Источники, на которые ссылаются несколько копий, но которых нет среди найденных */
+  hiddenSources?: HiddenSource[];
+}
+
+/** Вероятный общий источник: его не нашли, но на него указывают копии */
+export interface HiddenSource {
+  /** Ключ группы голосов: `cited:…` */
+  id: string;
+  /** Как его называют копии */
+  name: string;
+  copyIds: SourceId[];
 }

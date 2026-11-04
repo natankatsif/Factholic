@@ -94,6 +94,8 @@ function comparablePairs({ claim, tree }: MutationsInput): NodePair[] {
   const pairs: NodePair[] = [];
   const add = (from: TreeNode | undefined, to: TreeNode | undefined, wholePath: boolean) => {
     if (!from || !to || from.id === to.id) return;
+    // разбор пересказывает утверждение, чтобы его опровергнуть: это не искажение по дороге
+    if (from.relation === "debunks" || to.relation === "debunks") return;
     const parent = structureOf(from);
     const child = structureOf(to);
     if (parent && child) pairs.push({ from, to, parent, child, wholePath });

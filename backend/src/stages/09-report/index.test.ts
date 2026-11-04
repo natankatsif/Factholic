@@ -357,3 +357,38 @@ describe("09-report: недостаточно информации после п
     );
   });
 });
+
+describe("узел «источник не найден»", () => {
+  it("показывается без ссылки и связан с копиями", () => {
+    const [first, second] = mockProvenanceTree.nodes;
+    const res = toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: mockSourceSearchOutput.sources,
+      stances: mockStancesOutput,
+      provenance: {
+        tree: {
+          ...mockProvenanceTree,
+          hiddenSources: [{ id: "cited:мэри", name: "мэрия Кишинёва", copyIds: [first.id, second.id] }],
+        },
+        mutations: null,
+        rootDate: mockRootDateOutput,
+      },
+    });
+    const node = res.provenance?.nodes.find((n) => n.id === "cited:мэри");
+    assert.equal(node?.categoryLabel, "источник не найден");
+    assert.equal(node?.url, undefined);
+    assert.equal(res.provenance?.edges.filter((e) => e.fromNodeId === "cited:мэри").length, 2);
+  });
+
+  it("корень подписан как самая ранняя из найденных", () => {
+    const res = toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: mockSourceSearchOutput.sources,
+      stances: mockStancesOutput,
+      provenance: { tree: mockProvenanceTree, mutations: null, rootDate: mockRootDateOutput },
+    });
+    assert.equal(res.provenance?.nodes.find((n) => n.isPrimary)?.categoryLabel, "самая ранняя из найденных");
+  });
+});

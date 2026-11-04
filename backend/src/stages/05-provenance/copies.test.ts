@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { FoundSource, SourceCopy } from "../04-source-search/types.ts";
-import { copiesForTree, copiesFromSources, voteGroupsForSources } from "./copies.ts";
+import type { ClaimStructure } from "../03-claim-extraction/types.ts";
+import type { TreeNode } from "./types.ts";
+import { copiesForTree, copiesFromSources, voteGroupsForSources, votersFromTree } from "./copies.ts";
 import type { ProvenanceTree } from "./types.ts";
 
 const source = (id: string, url: string): FoundSource => ({
@@ -54,5 +56,67 @@ describe("copiesForTree", () => {
       copiesForTree(copies, sources).map((c) => c.id),
       ["c1", "s2"],
     );
+  });
+});
+
+describe("votersFromTree", () => {
+  const structure: ClaimStructure = {
+    event: "",
+    numbers: [],
+    places: [],
+    time: null,
+    certainty: "asserted",
+    certaintyMarkers: [],
+    attributedTo: null,
+  };
+  const voter = { snippet: "", domainReliability: 0.7 };
+  const copyOf = (id: string) => ({ ...copiesFromSources([source(id, `https://${id}.md/news`)])[0]!, voter });
+  const node = (id: string, relation?: "repeats" | "mentions"): TreeNode => ({
+    id,
+    url: `https://${id}.md/news`,
+    title: id,
+    publisher: id,
+    domain: `${id}.md`,
+    parentId: null,
+    via: null,
+    confidence: null,
+    structure,
+    relation,
+  });
+
+  it("от каждой независимой ветки голосует одна публикация", () => {
+    const copies = [copyOf("root"), copyOf("reprint"), copyOf("other")];
+    const tree = {
+      claimId: "c",
+      rootId: "root",
+      nodes: [node("root"), node("reprint"), node("other")],
+      voteGroups: { root: "root", reprint: "root", other: "other" },
+    };
+    assert.deepEqual(
+      votersFromTree(tree, copies, []).map((s) => s.id),
+      ["root", "other"],
+    );
+  });
+
+  it("упоминание и уже взятый источник не голосуют", () => {
+    const copies = [copyOf("taken"), copyOf("side")];
+    const tree = {
+      claimId: "c",
+      rootId: null,
+      nodes: [node("taken"), node("side", "mentions")],
+      voteGroups: { taken: "taken", side: "side" },
+    };
+    assert.deepEqual(votersFromTree(tree, copies, [source("taken", "https://taken.md/news")]), []);
+  });
+
+  it("соблюдает потолок: каждый источник — это текст в запросе к основной модели", () => {
+    const copies = [copyOf("a"), copyOf("b")];
+    const tree = {
+      claimId: "c",
+      rootId: null,
+      nodes: [node("a"), node("b")],
+      voteGroups: { a: "a", b: "b" },
+    };
+    assert.equal(votersFromTree(tree, copies, [], 1).length, 1);
   });
 });

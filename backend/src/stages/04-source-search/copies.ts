@@ -10,16 +10,34 @@
  *  Раунд 2: «самое раннее упоминание» — тот же поиск с end_date раньше самой старой найденной копии
  *  Фильтр: LLM убирает копии про другое событие того же типа (same-event.ts)
  */
-import type { ISODateString } from "@news/contracts";
+import type { ISODateString, LanguageCode } from "@news/contracts";
+import { config } from "../../config.ts";
 import type { StageContext } from "../../pipeline/context.ts";
 import type { Claim } from "../03-claim-extraction/types.ts";
 import { normalizeHost } from "./domains.ts";
-import { limited, tavilyPost, type Candidate } from "./engines.ts";
+import { limited, tavilyPost, throttle, type Candidate } from "./engines.ts";
 import type { PlannedQuery } from "./queries.ts";
+import { forEachPage, htmlToMarkdown, openPage } from "./pages.ts";
 import { filterSameEvent } from "./same-event.ts";
 import { dedupe, enrich, registrableDomain, type Enriched } from "./select.ts";
 import { cleanText, hits, keywordStems, stemSet } from "./text.ts";
-import type { SourceCopy } from "./types.ts";
+import {
+  citedName,
+  claimPassages,
+  exactQuery,
+  MAX_CITATIONS_PER_ROUND,
+  MAX_LINKS_PER_ROUND,
+  MAX_PHRASES_PER_ROUND,
+  MAX_TRACE_ROUNDS,
+  oldestDate,
+  openCitations,
+  openLanguages,
+  openLinks,
+  outOfBudget,
+  quotedPhrases,
+  withoutNumbers,
+} from "./traces.ts";
+import type { SourceCopy, Trace, TraceReport } from "./types.ts";
 
 const MAX_COPY_QUERIES = 3;
 const MAX_COPIES = 25;
@@ -36,6 +54,25 @@ interface CopyHit {
   candidate: Candidate;
   links: string[];
   earliest: boolean;
+  /** Найдена по следу из другой копии */
+  traced?: boolean;
+}
+
+export interface CopiesResult {
+  copies: SourceCopy[];
+  traces?: TraceReport;
+}
+
+/** Точка входа этапа: прежний поиск или поиск по следам (TRACE_SEARCH=on) */
+export function findCopiesWithTraces(
+  claim: Claim,
+  planned: PlannedQuery[],
+  ctx: StageContext,
+  traceMode = config.experiments.traceSearch,
+): Promise<CopiesResult> {
+  return traceMode
+    ? traceCopies(claim, planned, ctx)
+    : findCopies(claim, planned, ctx).then((copies) => ({ copies }));
 }
 
 export async function findCopies(
@@ -137,6 +174,8 @@ async function tavilyCopies(
   q: PlannedQuery,
   dates: { end_date?: string },
   signal: AbortSignal,
+  /** Задан — ссылки берём только из абзацев про утверждение */
+  claimStems?: string[],
 ): Promise<CopyHit[]> {
   const res = await tavilyPost(
     {
@@ -151,7 +190,8 @@ async function tavilyCopies(
       // фокус проекта — молдавское инфопространство: поднимаем местные сайты для ro/ru
       ...(q.language === "ro" || q.language === "ru" ? { country: "moldova" } : {}),
       ...dates,
-      exclude_domains: EXCLUDE_DOMAINS,
+      // профили и страницы людей совпадают по именам, а публикациями не являются
+      exclude_domains: claimStems ? [...EXCLUDE_DOMAINS, "linkedin.com"] : EXCLUDE_DOMAINS,
     },
     signal,
   );
@@ -170,7 +210,7 @@ async function tavilyCopies(
         queries: [{ text: q.text, intent: q.intent }],
         fallbackType: "news",
       },
-      links: extractLinks(markdown, r.url),
+      links: extractLinks(claimStems ? claimPassages(markdown, claimStems) : markdown, r.url),
       earliest: false,
     };
   });
@@ -192,19 +232,46 @@ function isPublication(e: Enriched, claimStems: string[], earliest: boolean): bo
   return best >= (earliest ? 2 : 1);
 }
 
+const NUMBER = /\d+(?:[.,]\d+)?/g;
+/** Что считает «число»: дата голосования, день, год — это время */
+const DATE_LIKE =
+  /дат[аыеу]|\bдень\b|\bдня\b|\bгод|месяц|\bdate\b|\bday\b|\byear|\bmonth|\bziu|\bzi\b|\bdata\b|\banul\b/iu;
+
 /** Числа утверждения (без годов — год это время, а не величина): «8 миллиардов» → ["8"], «3,5 млн» → ["3.5"] */
 export function claimNumbers(claim: Claim): string[] {
   const sources = claim.structure?.numbers.length
-    ? claim.structure.numbers.map((n) => n.value)
+    ? claim.structure.numbers.filter((n) => !DATE_LIKE.test(n.about)).map((n) => n.value)
     : [claim.normalized];
-  const found = sources.flatMap((text) => text.match(/\d+(?:[.,]\d+)?/g) ?? []);
-  return [...new Set(found.map((n) => n.replace(",", ".")).filter((n) => !/^(19|20)\d{2}$/.test(n)))];
+  const found = sources.flatMap((text) => text.match(NUMBER) ?? []);
+  // «14 октября» — время, а не величина: источник напишет дату иначе, и число «не найдётся»
+  const timeDigits = new Set(claim.structure?.time?.text.match(NUMBER) ?? []);
+  return [
+    ...new Set(
+      found
+        .filter((n) => !timeDigits.has(n))
+        .map((n) => n.replace(",", "."))
+        .filter((n) => !/^(19|20)\d{2}$/.test(n)),
+    ),
+  ];
 }
 
 function mentionsClaimNumbers(e: Enriched, numbers: string[]): boolean {
   if (!numbers.length) return true;
   const text = `${e.candidate.title} ${e.excerpt}`.replace(/(\d),(\d)/g, "$1.$2");
   return numbers.some((n) => new RegExp(`(?<![\\d.])${n.replace(".", "\\.")}(?![\\d]|\\.\\d)`).test(text));
+}
+
+/** Страница поиска, тега или архива: это лента чужих заголовков с датой, а не публикация */
+const LISTING_PATH =
+  /\/(search|cautare|poisk|tag|tags|category|categorie|rubric|rubrica|archive|arhiva|page)(\/|$)/i;
+
+export function isListingPage(url: string): boolean {
+  try {
+    const { pathname, search } = new URL(url);
+    return LISTING_PATH.test(pathname) || /[?&](q|s|query|search)=/i.test(search);
+  } catch {
+    return true;
+  }
 }
 
 /** "/", "/ru/", "/sections/news/" — главная или рубрика; у статьи обычно длинный адрес или число */
@@ -215,6 +282,320 @@ function isFrontPage(url: string): boolean {
   } catch {
     return true;
   }
+}
+
+// ---------- поиск по следам ----------
+
+/** Запросы первого круга: сначала по одному на язык, чтобы ни один язык не выпал из поиска */
+export function queriesByLanguage(planned: PlannedQuery[], max: number): PlannedQuery[] {
+  const events = planned.filter((q) => q.intent !== "refute");
+  const seen = new Set<LanguageCode>();
+  const first = events.filter((q) => !seen.has(q.language) && seen.add(q.language));
+  return [...first, ...events.filter((q) => !first.includes(q))].slice(0, max);
+}
+
+/**
+ * Другие виды запросов к тому же утверждению: дословная цитата и связка «имена + числа».
+ * В PAN объединение разных стратегий дало намного большую полноту, чем лучшая из них.
+ */
+export function extraQueries(claim: Claim, planned: PlannedQuery[]): PlannedQuery[] {
+  const base = { language: claim.language, intent: "confirm", freshness: "any" } as const;
+  const anchors = [...claim.entities.slice(0, 3), ...claimNumbers(claim).slice(0, 2)].join(" ");
+  const texts = [exactQuery(claim.quote), claim.entities.length >= 2 ? anchors : null];
+  const known = new Set(planned.map((q) => q.text.toLowerCase()));
+  return texts
+    .filter((text): text is string => !!text && !known.has(text.toLowerCase()))
+    .map((text) => ({ ...base, text }));
+}
+
+/** Ранние и найденные по следу копии не должны выпасть из отбора из-за низкой релевантности */
+const PROTECTED_COPIES = 12;
+/**
+ * Ранняя или найденная по следу копия: заметная доля ключевых слов. Поиск раньше известной даты всегда что-то
+ * вернёт, и старая страница про «Молдову и министра» иначе станет ложным корнем. Замер: search-compare.ts
+ */
+const MIN_EARLY_MATCH = 0.6;
+/** Следы открываем только от копий по теме, иначе шум порождает новый шум */
+const MIN_TRACE_SOURCE_MATCH = 0.5;
+
+export function protectEarly<T extends { base: number; early: boolean }>(items: T[], max: number): T[] {
+  const early = items
+    .filter((e) => e.early)
+    .sort((a, b) => b.base - a.base)
+    .slice(0, PROTECTED_COPIES);
+  const rest = items.filter((e) => !early.includes(e)).sort((a, b) => b.base - a.base);
+  return [...early, ...rest].slice(0, max);
+}
+
+/** Первый заголовок страницы или её первая строка */
+function pageTitle(markdown: string, url: string): string {
+  const line = markdown.split("\n").find((l) => l.trim().length > 10);
+  return (line ?? url)
+    .replace(/^#+\s*/, "")
+    .trim()
+    .slice(0, 200);
+}
+
+/** Tavily Extract: текст страниц по адресам. Одна пачка до MAX_LINKS_PER_ROUND адресов */
+async function tavilyExtract(urls: string[], stems: string[], signal: AbortSignal): Promise<CopyHit[]> {
+  if (!urls.length) return [];
+  await throttle();
+  const res = await fetch("https://api.tavily.com/extract", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${config.providers.search.apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ urls, format: "markdown", extract_depth: "basic" }),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(PAGE_TIMEOUT_MS * 3)]),
+  });
+  if (!res.ok) throw new Error(`Tavily extract ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const body = (await res.json()) as { results?: Array<{ url: string; raw_content?: string | null }> };
+  return (body.results ?? []).flatMap((r) => {
+    const markdown = (r.raw_content ?? "").slice(0, 200_000);
+    if (!markdown) return [];
+    return [
+      {
+        candidate: {
+          url: r.url,
+          title: pageTitle(markdown, r.url),
+          text: stripMarkdown(markdown),
+          relevance: 0.5,
+          language: "und",
+          queries: [],
+          fallbackType: "news" as const,
+        },
+        links: extractLinks(claimPassages(markdown, stems), r.url),
+        earliest: false,
+        traced: true,
+      },
+    ];
+  });
+}
+
+/**
+ * Поиск по следам: первый круг по одному запросу на язык, потом до MAX_TRACE_ROUNDS кругов добора.
+ * Останавливаемся, когда открытых следов нет, а не когда «всё выяснили»: см. traces.ts.
+ */
+async function traceCopies(claim: Claim, planned: PlannedQuery[], ctx: StageContext): Promise<CopiesResult> {
+  const queries = queriesByLanguage(planned, MAX_COPY_QUERIES + 1);
+  const firstRound = [...queries, ...extraQueries(claim, queries)];
+  if (!queries.length) return { copies: [], traces: { rounds: 0, stopped: "exhausted", traces: [] } };
+  const stems = keywordStems(claim.normalized, claim.quote, ...claim.entities);
+  const languages = [...new Set(queries.map((q) => q.language))];
+  const hitsFound: CopyHit[] = [];
+  const log: Trace[] = [];
+  const triedLinks = new Set<string>();
+  const triedCitations = new Set<string>();
+  const triedPhrases = new Set<string>();
+  const searchedBefore = new Map<LanguageCode, string>();
+
+  const first = await Promise.allSettled(
+    firstRound.map((q) => limited(() => tavilyCopies(q, {}, ctx.signal, stems))),
+  );
+  for (const r of first) {
+    if (r.status === "fulfilled") hitsFound.push(...r.value);
+    else ctx.log("04 traces: запрос упал", String(r.reason));
+  }
+
+  let { copies, matches } = await assembleCopies(hitsFound, stems, ctx);
+  let rounds = 0;
+  let stopped: TraceReport["stopped"] = "exhausted";
+
+  for (;;) {
+    const focused = copies.filter((c) => (matches.get(c.url) ?? 0) >= MIN_TRACE_SOURCE_MATCH);
+    const links = openLinks(focused, triedLinks).filter((l) => !copies.some((c) => c.url === l));
+    const citations = openCitations(focused, triedCitations);
+    const oldest = oldestDate(focused);
+    const older = openLanguages(languages, oldest, searchedBefore);
+    const phrases = quotedPhrases(focused, triedPhrases);
+    if (!links.length && !citations.length && !older.length && !phrases.length) break;
+    if (rounds === MAX_TRACE_ROUNDS) {
+      stopped = "budget";
+      log.push(
+        ...outOfBudget("link", links),
+        ...outOfBudget("citation", citations),
+        ...outOfBudget("older", older),
+        ...outOfBudget("phrase", phrases),
+      );
+      break;
+    }
+    rounds++;
+
+    const pickedLinks = links.slice(0, MAX_LINKS_PER_ROUND);
+    const pickedCitations = citations.slice(0, MAX_CITATIONS_PER_ROUND);
+    for (const url of pickedLinks) triedLinks.add(canonicalLink(url));
+    for (const name of pickedCitations) triedCitations.add(name.toLowerCase());
+    const pickedPhrases = phrases.slice(0, MAX_PHRASES_PER_ROUND);
+    for (const phrase of pickedPhrases) triedPhrases.add(phrase.toLowerCase());
+    if (oldest) for (const language of older) searchedBefore.set(language, oldest);
+
+    const before = oldest
+      ? new Date(new Date(oldest).getTime() - 86_400_000).toISOString().slice(0, 10)
+      : undefined;
+    const main = queries[0]!;
+    const [fromLinks, fromCitations, fromOlder, fromPhrases] = await Promise.all([
+      limited(() => tavilyExtract(pickedLinks, stems, ctx.signal)).catch((err: unknown) => {
+        ctx.log("04 traces: ссылки не открылись", String(err));
+        return [] as CopyHit[];
+      }),
+      Promise.all(
+        pickedCitations.map((name) =>
+          limited(() =>
+            tavilyCopies(
+              { ...main, text: `${citedName(name)} ${withoutNumbers(main.text)}`.slice(0, 200) },
+              {},
+              ctx.signal,
+              stems,
+            ),
+          )
+            .then((found) => ({ name, found: found.map((h) => ({ ...h, traced: true })) }))
+            .catch(() => ({ name, found: [] as CopyHit[] })),
+        ),
+      ),
+      Promise.all(
+        older.map((language) => {
+          const q = queries.find((x) => x.language === language) ?? main;
+          return limited(() =>
+            tavilyCopies({ ...q, text: withoutNumbers(q.text) }, { end_date: before }, ctx.signal, stems),
+          )
+            .then((found) => ({ language, found: found.map((h) => ({ ...h, earliest: true })) }))
+            .catch(() => ({ language, found: [] as CopyHit[] }));
+        }),
+      ),
+      Promise.all(
+        pickedPhrases.map((phrase) =>
+          limited(() => tavilyCopies({ ...main, text: `"${phrase}"` }, {}, ctx.signal, stems))
+            .then((found) => ({ phrase, found: found.map((h) => ({ ...h, traced: true })) }))
+            .catch(() => ({ phrase, found: [] as CopyHit[] })),
+        ),
+      ),
+    ]);
+
+    const opened = new Set(fromLinks.map((h) => canonicalLink(h.candidate.url)));
+    for (const url of pickedLinks) {
+      log.push({
+        kind: "link",
+        target: url,
+        status: opened.has(canonicalLink(url)) ? "found" : "not_found",
+      });
+    }
+    for (const { name, found } of fromCitations) {
+      log.push({ kind: "citation", target: name, status: found.length ? "found" : "not_found" });
+    }
+    for (const { phrase, found } of fromPhrases) {
+      log.push({ kind: "phrase", target: phrase, status: found.length ? "found" : "not_found" });
+    }
+    for (const { language, found } of fromOlder) {
+      log.push({ kind: "older", target: language, status: found.length ? "found" : "not_found" });
+    }
+    hitsFound.push(
+      ...fromLinks,
+      ...fromCitations.flatMap((c) => c.found),
+      ...fromOlder.flatMap((o) => o.found),
+      ...fromPhrases.flatMap((p) => p.found),
+    );
+    ({ copies, matches } = await assembleCopies(hitsFound, stems, ctx));
+  }
+
+  copies.forEach((c, i) => (c.id = `k${i + 1}`));
+  const kept = await filterSameEvent(claim, copies, ctx, true);
+  kept.sort((a, b) => (a.publishedAt ?? "9999").localeCompare(b.publishedAt ?? "9999"));
+  kept.forEach((c, i) => (c.id = `${claim.id}_c${i + 1}`));
+  const found = log.filter((t) => t.status === "found").length;
+  ctx.log(
+    `04 traces: ${claim.id}: кругов ${rounds}, остановка ${stopped}, следов ${log.length}, ` +
+      `дали результат ${found}, копий ${kept.length}, самая ранняя ${kept[0]?.publishedAt ?? "—"}`,
+  );
+  return { copies: kept, traces: { rounds, stopped, traces: log } };
+}
+
+function canonicalLink(url: string): string {
+  return url
+    .replace(/^https?:\/\/(www\.)?/, "")
+    .replace(/[#?].*$/, "")
+    .replace(/\/$/, "")
+    .toLowerCase();
+}
+
+/** Найденное → копии с датами. Числа не проверяем: другое число у раннего источника и есть мутация */
+async function assembleCopies(
+  found: CopyHit[],
+  stems: string[],
+  ctx: StageContext,
+): Promise<{ copies: SourceCopy[]; matches: Map<string, number> }> {
+  const byUrl = new Map<string, CopyHit>();
+  for (const h of found) {
+    const prev = byUrl.get(h.candidate.url);
+    byUrl.set(
+      h.candidate.url,
+      prev
+        ? {
+            ...prev,
+            earliest: prev.earliest || h.earliest,
+            traced: prev.traced || h.traced,
+            links: [...new Set([...prev.links, ...h.links])],
+          }
+        : h,
+    );
+  }
+  const relevant = dedupe(found.map((h) => h.candidate))
+    .map((c) => enrich(c, stems))
+    .filter((e): e is Enriched => e !== null)
+    .filter((e) => !isListingPage(e.candidate.url))
+    .filter((e) => {
+      const hit = byUrl.get(e.candidate.url);
+      if (hit?.earliest || hit?.traced) {
+        if (e.match < MIN_EARLY_MATCH) return false;
+        // на страницу сослалась другая копия: заголовок может быть любым
+        return hit.traced || isPublication(e, stems, true);
+      }
+      return isPublication(e, stems, false);
+    })
+    .map((e) => {
+      const hit = byUrl.get(e.candidate.url);
+      return { e, base: e.base, early: !!(hit?.earliest || hit?.traced) };
+    });
+
+  const retrievedAt = new Date().toISOString();
+  const picked = protectEarly(relevant, MAX_COPIES).map(({ e }) => {
+    const hit = byUrl.get(e.candidate.url);
+    const copy: SourceCopy = {
+      ...toCopy(e, hit, retrievedAt),
+      ...(hit?.traced ? { traced: true } : {}),
+      fullText: e.candidate.text.slice(0, MAX_FULL_TEXT),
+      voter: { snippet: e.snippet, domainReliability: e.info.reliability, country: e.info.country },
+    };
+    return { copy, pageStems: [...stems, ...keywordStems(...e.candidate.queries.map((q) => q.text))] };
+  });
+  await forEachPage(picked, ({ copy, pageStems }) => readPage(copy, pageStems, ctx));
+  const copies = picked.map((p) => p.copy);
+  return { copies, matches: new Map(relevant.map(({ e }) => [e.candidate.url, e.match])) };
+}
+
+/** Сколько текста страницы храним для сравнения копий между собой */
+const MAX_FULL_TEXT = 30_000;
+
+/** Дополняет копию тем, что есть только на самой странице: датой из разметки, ссылками и атрибуциями в тексте */
+async function readPage(copy: SourceCopy, stems: string[], ctx: StageContext): Promise<void> {
+  const html = await openPage(copy.url, ctx);
+  if (!html) return;
+  if (!isLivingDocument(copy.url)) {
+    // дата поисковика бывает датой обхода: разметке страницы верим больше
+    const published = dateFromHtml(html, false) ?? (copy.publishedAt ? undefined : dateFromHtml(html));
+    if (published) Object.assign(copy, { publishedAt: published, dateSource: "page" });
+  }
+  const markdown = htmlToMarkdown(html);
+  const passages = claimPassages(markdown, stems);
+  copy.outboundLinks = [...new Set([...copy.outboundLinks, ...extractLinks(passages, copy.url)])].slice(
+    0,
+    MAX_LINKS,
+  );
+  copy.attributions = [
+    ...new Set([...copy.attributions, ...extractAttributions(stripMarkdown(passages))]),
+  ].slice(0, MAX_ATTRIBUTIONS);
+  const text = stripMarkdown(markdown);
+  if (text.length > (copy.fullText?.length ?? 0) / 2) copy.fullText = text.slice(0, MAX_FULL_TEXT);
 }
 
 function toCopy(e: Enriched, hit: CopyHit | undefined, retrievedAt: string): SourceCopy {
@@ -283,7 +664,7 @@ export function isLivingDocument(url: string): boolean {
 }
 
 /** JSON-LD datePublished → meta article:published_time и аналоги → <time datetime> → dateModified */
-export function dateFromHtml(html: string): ISODateString | undefined {
+export function dateFromHtml(html: string, allowModified = true): ISODateString | undefined {
   const published = toIso(html.match(/"datePublished"\s*:\s*"([^"]+)"/)?.[1]);
   const modified = toIso(html.match(/"dateModified"\s*:\s*"([^"]+)"/)?.[1]);
   if (published && modified && Date.parse(modified) - Date.parse(published) > LIVING_DOC_GAP_MS) {
@@ -301,7 +682,7 @@ export function dateFromHtml(html: string): ISODateString | undefined {
     if (iso) return iso;
   }
   // запасной вариант: даты публикации нет, есть только «изменено» (например, point.md)
-  return modified;
+  return allowModified ? modified : undefined;
 }
 
 /** /2023/03/14/, /2023-03-14-, /20230314/ в адресе — многие сайты кладут дату публикации в URL */

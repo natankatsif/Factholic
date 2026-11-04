@@ -1,6 +1,6 @@
 import { config } from "../../config.ts";
 import type { Stage, StageContext } from "../../pipeline/context.ts";
-import { findCopies } from "./copies.ts";
+import { findCopiesWithTraces, type CopiesResult } from "./copies.ts";
 import { factCheckSearch, limited, tavilySearch, type Candidate } from "./engines.ts";
 import { planFollowUpQueries, planQueries, type PlannedQuery } from "./queries.ts";
 import { dedupe, enrich, registrableDomain, selectDiverse, toFoundSource, type Enriched } from "./select.ts";
@@ -40,10 +40,10 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
   const t0 = Date.now();
   const planned = await planQueries(input, ctx);
   const tPlanned = Date.now();
-  const copiesPromise = findCopies(claim, planned, ctx).catch((err: unknown) => {
-    if (ctx.signal.aborted) return [];
+  const copiesPromise = findCopiesWithTraces(claim, planned, ctx).catch((err: unknown): CopiesResult => {
+    if (ctx.signal.aborted) return { copies: [] };
     ctx.log("04 copies: упал поиск копий", String(err));
-    return [];
+    return { copies: [] };
   });
 
   const stems = keywordStems(claim.normalized, claim.quote, ...claim.entities);
@@ -93,18 +93,19 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
   );
 
   const retrievedAt = new Date().toISOString();
+  const { copies, traces } = await copiesPromise.then((result) => {
+    ctx.log(
+      `⏱ 04 ${claim.id}: запросы LLM ${ms(tPlanned - t0)}, источники (${round} р.) ${ms(tSources - tPlanned)}, ` +
+        `копии готовы через ${ms(Date.now() - tPlanned)}, всего ${ms(Date.now() - t0)}`,
+    );
+    return result;
+  });
   return {
     claimId: claim.id,
     queries,
     sources: picked.map((e, i) => toFoundSource(e, `${claim.id}_s${i + 1}`, retrievedAt)),
-    search: { rounds: round, ...verdict },
-    copies: await copiesPromise.then((copies) => {
-      ctx.log(
-        `⏱ 04 ${claim.id}: запросы LLM ${ms(tPlanned - t0)}, источники (${round} р.) ${ms(tSources - tPlanned)}, ` +
-          `копии готовы через ${ms(Date.now() - tPlanned)}, всего ${ms(Date.now() - t0)}`,
-      );
-      return copies;
-    }),
+    search: { rounds: round, ...verdict, ...(traces ? { traces } : {}) },
+    copies,
   };
 };
 

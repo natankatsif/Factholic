@@ -25,6 +25,7 @@ import {
   buildProvenanceTree,
   copiesForTree,
   voteGroupsForSources,
+  votersFromTree,
   type ProvenanceTree,
 } from "../stages/05-provenance/index.ts";
 import { findMutations } from "../stages/06-mutations/index.ts";
@@ -179,7 +180,11 @@ export class ClaimChecker {
     try {
       this.progress(claim, "source_search");
       const t0 = Date.now();
-      const { sources, copies, search } = await searchSources(
+      const {
+        sources: found,
+        copies,
+        search,
+      } = await searchSources(
         // язык материала + румынский и русский (молдавское инфопространство) + английский
         {
           claim,
@@ -189,17 +194,20 @@ export class ClaimChecker {
         ctx,
       );
       // copies заполняет real-реализация 04; пустые/неполные (и у старых моков) — добираем из sources
-      const treeCopies = copiesForTree(copies, sources);
+      const treeCopies = copiesForTree(copies, found);
       this.progress(
         claim,
         "provenance",
-        `источников ${sources.length}, копий ${treeCopies.length}`,
-        sources.length,
+        `источников ${found.length}, копий ${treeCopies.length}`,
+        found.length,
       );
       const t04 = Date.now();
       const tree = await this.buildTree(claim, treeCopies);
       const t05 = Date.now();
       this.progress(claim, "stances", tree ? `узлов в дереве ${tree.nodes.length}` : "без дерева");
+      // голосуют и независимые ветки дерева: в выборку этапа 04 они могли не попасть
+      const voters = tree && config.experiments.traceSearch ? votersFromTree(tree, treeCopies, found) : [];
+      const sources = [...found, ...voters];
       // три проверки висят на дереве: мутации и стороны — параллельно, дата корня — без внешних API
       let t06 = 0;
       let t08 = 0;
