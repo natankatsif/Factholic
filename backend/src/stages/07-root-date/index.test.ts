@@ -427,3 +427,21 @@ describe("checkRootDate: корень-прогноз — не старый ко�
     assert.equal(out.flag?.type, "old_content");
   });
 });
+
+describe("корень не повторяет утверждение", () => {
+  it("событие, из которого выросло утверждение, — не старый контент", () => {
+    const structure = { ...baseStructure, time: rel("вчера") };
+    const root = {
+      ...node("root", "2021-01-10T00:00:00Z", baseStructure),
+      relation: "source_event" as const,
+    };
+    const tree: ProvenanceTree = {
+      claimId: "clm_1",
+      rootId: "root",
+      nodes: [root, node(VIDEO_NODE_ID, VIDEO_AT, structure)],
+      voteGroups: {},
+    };
+    const claim: Claim = { ...mockClaim, structure };
+    assert.equal(checkRootDate({ claim, tree, videoPublishedAt: VIDEO_AT }).flag, null);
+  });
+});

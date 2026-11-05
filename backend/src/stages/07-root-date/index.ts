@@ -98,6 +98,7 @@ export function checkRootDate(input: RootDateInput): RootDateOutput {
     claimedAt &&
     rootPublishedAt &&
     rootMs !== null &&
+    repeatsClaim(root) &&
     !rootAnticipates(root?.structure, claimed)
   ) {
     if (claimed.at - rootMs > toleranceDays(claimed) * DAY_MS) {
@@ -106,6 +107,14 @@ export function checkRootDate(input: RootDateInput): RootDateOutput {
   }
 
   return { claimId: claim.id, claimedAt, rootPublishedAt, flag };
+}
+
+/**
+ * Старый контент — то же утверждение, поданное как новое. Предшествующее событие и разбор им не являются:
+ * живой прогон дал ложный флаг на заметке 2025 года, из которой тезис 2026 года мог только вырасти.
+ */
+function repeatsClaim(root: { relation?: string } | undefined): boolean {
+  return !root?.relation || root.relation === "repeats";
 }
 
 /**

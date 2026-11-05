@@ -399,6 +399,9 @@ async function tavilyExtract(urls: string[], stems: string[], signal: AbortSigna
  * Поиск по следам: первый круг по одному запросу на язык, потом до MAX_TRACE_ROUNDS кругов добора.
  * Останавливаемся, когда открытых следов нет, а не когда «всё выяснили»: см. traces.ts.
  */
+/** Сколько слов утверждения должно быть на странице, где зацепка встретилась только в тексте */
+const MIN_ANCHOR_TOPIC_HITS = 3;
+
 /** Страницы для выписывания зацепок: сначала самые близкие к утверждению, разборы и источники вперемешку */
 function anchorPages(copies: SourceCopy[], matches: Map<string, number>, sources: Enriched[]): AnchorPage[] {
   const fromCopies = copies.map((c) => ({
@@ -449,7 +452,14 @@ async function searchAnchor(
   ]);
   const direct = sites.map((candidate): CopyHit => ({ candidate, links: [], earliest: false }));
   return [...engine, ...direct]
-    .filter((h) => mentionsAnchor(`${h.candidate.title}\n${h.candidate.text}`, anchor.term))
+    .filter(({ candidate: { title, text } }) => {
+      if (mentionsAnchor(title, anchor.term)) return true;
+      // название в тексте случайной новости ещё ни о чём не говорит: нужна и тема утверждения
+      return (
+        mentionsAnchor(text, anchor.term) &&
+        hits(stemSet(`${title}\n${text}`), stems) >= MIN_ANCHOR_TOPIC_HITS
+      );
+    })
     .map((h) => ({ ...h, traced: true }));
 }
 
@@ -712,8 +722,9 @@ async function readPage(copy: SourceCopy, stems: string[], ctx: StageContext): P
 function toCopy(e: Enriched, hit: CopyHit | undefined, retrievedAt: string): SourceCopy {
   // у Википедии и счётчиков поисковик отдаёт дату последней правки — это не дата публикации
   const living = isLivingDocument(e.candidate.url);
-  const fromSearch = living ? undefined : toIso(e.candidate.publishedAt);
-  const fromUrl = fromSearch || living ? undefined : dateFromUrl(e.candidate.url);
+  // дата в адресе надёжнее поисковика: это дата самой публикации, а не обхода
+  const fromUrl = living ? undefined : dateFromUrl(e.candidate.url);
+  const fromSearch = living || fromUrl ? undefined : toIso(e.candidate.publishedAt);
   return {
     id: "",
     url: e.candidate.url,
@@ -807,7 +818,9 @@ export function dateFromUrl(url: string): ISODateString | undefined {
   })();
   const m =
     path.match(/(?:^|\/)((?:19|20)\d{2})[/-](0[1-9]|1[0-2])[/-](0[1-9]|[12]\d|3[01])(?:\/|-|$)/) ??
-    path.match(/(?:^|\/)((?:19|20)\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?:\/|-|_|$)/);
+    path.match(/(?:^|\/)((?:19|20)\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?:\/|-|_|$)/) ??
+    // Reuters: /world/some-title-2026-06-08/
+    path.match(/-((?:19|20)\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\/?$/);
   return m ? toIso(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`) : undefined;
 }
 

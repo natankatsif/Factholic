@@ -14,11 +14,18 @@
 import { z } from "zod";
 import type { StageContext } from "../../pipeline/context.ts";
 import type { Claim } from "../03-claim-extraction/types.ts";
+import { claimCountry, mentionsCountry } from "./anchors.ts";
 import { askJson, LlmConfigError } from "./llm.ts";
+import { hits, keywordStems, stemSet } from "./text.ts";
 import type { SourceCopy } from "./types.ts";
 
 /** Сколько текста копии показываем модели: заголовок + начало выдержки */
 const EXCERPT_CHARS = 800;
+/** Сколько публикаций в одном вызове: в длинном списке модель ошибается чаще */
+const BATCH_SIZE = 20;
+/** Заголовок «почти повторяет утверждение»: столько ключевых слов и такая их доля */
+const MIN_TITLE_HITS = 3;
+const MIN_TITLE_SHARE = 0.5;
 
 const VerdictsSchema = z.object({
   verdicts: z.array(
@@ -65,32 +72,65 @@ export async function filterSameEvent(
   traceMode = false,
 ): Promise<SourceCopy[]> {
   if (copies.length < 2) return copies;
+  const batches: SourceCopy[][] = [];
+  for (let i = 0; i < copies.length; i += BATCH_SIZE) batches.push(copies.slice(i, i + BATCH_SIZE));
+  const verdicts = await Promise.all(batches.map((batch) => askVerdicts(claim, batch, ctx, traceMode)));
+  const different = new Set(verdicts.flat());
+  const rescued = traceMode ? copies.filter((c) => different.has(c.id) && namesClaim(claim, c)) : [];
+  for (const copy of rescued) different.delete(copy.id);
+  const kept = copies.filter((c) => !different.has(c.id));
+  if (kept.length < copies.length) {
+    ctx.log(
+      `04 copies: ${claim.id}: другое событие — убрано ${copies.length - kept.length} из ${copies.length}`,
+      copies.filter((c) => different.has(c.id)).map((c) => `${c.domain}: ${c.title.slice(0, 70)}`),
+    );
+  }
+  if (rescued.length) {
+    ctx.log(
+      `04 copies: ${claim.id}: заголовок повторяет утверждение, оставлено`,
+      rescued.map((c) => c.title),
+    );
+  }
+  return kept;
+}
+
+/** Id публикаций про другое событие. LLM не ответила — оставляем все: этап не должен падать из-за фильтра */
+async function askVerdicts(
+  claim: Claim,
+  copies: SourceCopy[],
+  ctx: StageContext,
+  traceMode: boolean,
+): Promise<string[]> {
   try {
     const { data } = await askJson(
       {
         effort: "low",
-        // обычно ~4 с, а на полном наборе страниц дольше; зависший запрос повторяется
-        timeoutMs: 30_000,
+        // обычно ~4 с; зависший запрос через 20 с повторяется
+        timeoutMs: 20_000,
         system: traceMode ? SAME_STORY_SYSTEM : SAME_EVENT_SYSTEM,
         prompt: buildSameEventPrompt(claim, copies),
         schema: VerdictsSchema,
       },
       ctx,
     );
-    const different = new Set(data.verdicts.filter((v) => v.verdict === "different").map((v) => v.id));
-    const kept = copies.filter((c) => !different.has(c.id));
-    if (kept.length < copies.length) {
-      ctx.log(
-        `04 copies: ${claim.id}: другое событие — убрано ${copies.length - kept.length} из ${copies.length}`,
-        copies.filter((c) => different.has(c.id)).map((c) => `${c.domain}: ${c.title.slice(0, 70)}`),
-      );
-    }
-    return kept;
+    return data.verdicts.filter((v) => v.verdict === "different").map((v) => v.id);
   } catch (err) {
     if (ctx.signal.aborted || err instanceof LlmConfigError) throw err;
     ctx.log("04 copies: проверка «то же событие» не удалась, оставляю все копии", String(err));
-    return copies;
+    return [];
   }
+}
+
+/**
+ * Страховка от ошибки модели: заголовок почти повторяет утверждение, а страна, если она названа, совпадает.
+ * Живой прогон: фильтр выбросил разбор с заголовком «Moldova renunță la neutralitate…».
+ */
+export function namesClaim(claim: Claim, copy: Pick<SourceCopy, "title" | "excerpt">): boolean {
+  const stems = keywordStems(claim.normalized);
+  const title = hits(stemSet(copy.title), stems);
+  if (title < MIN_TITLE_HITS || title / Math.max(stems.length, 1) < MIN_TITLE_SHARE) return false;
+  const country = claimCountry(claim);
+  return !country || mentionsCountry(`${copy.title} ${copy.excerpt}`, country);
 }
 
 export function buildSameEventPrompt(claim: Claim, copies: SourceCopy[]): string {

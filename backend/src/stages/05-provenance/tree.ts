@@ -754,13 +754,13 @@ function isPrehistory(
   const linked =
     !!parents[index] ||
     parents.some((edge) => edge?.parent === index) ||
-    copies.some((_, other) => other !== index && shared(index, other) > 0);
+    // одна общая деталь («Норвегия») ещё не связь: так же считает detailEdges
+    copies.some((_, other) => other !== index && shared(index, other) >= MIN_SHARED_FOR_EDGE);
   return !linked && laterBurst(dateMs(copies[index].source.publishedAt), copies);
 }
 
 /**
- * Корень — верх самой ранней ветви. Самая ранняя копия могла сослаться на источник, у которого даты нет:
- * тогда начало истории он, а не более поздняя страница без родителя (живой прогон: родитель трёх копий без даты).
+ * Корень — верх самой ранней ветви. Страница без даты корнем не становится: про неё нельзя сказать «самая ранняя».
  * Кандидат — копия с надёжной датой; нет такой — корня нет: лучше честно не назвать, чем назвать ложный.
  */
 export function earliestBranchTop(
@@ -778,7 +778,11 @@ export function earliestBranchTop(
   );
   if (first === undefined) return undefined;
   let top = first;
-  for (let edge = parents[top]; edge && canBeOrigin(copies[edge.parent]); edge = parents[top])
+  for (
+    let edge = parents[top];
+    edge && canBeOrigin(copies[edge.parent]) && validDate(copies[edge.parent].source.publishedAt);
+    edge = parents[top]
+  )
     top = edge.parent;
   return top;
 }

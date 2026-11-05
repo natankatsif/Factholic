@@ -9,6 +9,7 @@ import {
   type AnchorPage,
 } from "./anchors.ts";
 import { debunkQueries } from "./copies.ts";
+import { namesClaim } from "./same-event.ts";
 
 const page: AnchorPage = {
   id: "p1",
@@ -89,5 +90,22 @@ describe("запросы на разборы", () => {
       picked.map((x) => x.text),
       ["a"],
     );
+  });
+});
+
+describe("страховка фильтра", () => {
+  const claim = claimWith({
+    normalized: "Republica Moldova renunță la neutralitate prin ajutorul Norvegiei",
+  });
+
+  it("оставляет разбор, заголовок которого повторяет утверждение", () => {
+    const title = "DEZINFORMARE: Moldova renunță la neutralitate în schimbul sprijinului Norvegiei";
+    assert.ok(namesClaim(claim, { title, excerpt: "" }));
+  });
+
+  it("не спасает похожую новость о другой стране", () => {
+    const rezerve = claimWith({ normalized: "Guvernul Republicii Moldova cere rezerve hrană pentru 72 ore" });
+    const title = "Guvernul britanic cere rezerve de hrană pentru 72 de ore";
+    assert.equal(namesClaim(rezerve, { title, excerpt: "Marea Britanie" }), false);
   });
 });

@@ -10,7 +10,7 @@ import { CabinetShell } from "./CabinetShell";
 import { CanvasFooter, CanvasToolbar, gridStyle } from "./CanvasChrome";
 import { useCabinetText } from "./dictionary";
 import type { CabinetFixture } from "./fixtures";
-import { ArrowRightIcon, ChatDotsIcon, EyeIcon, HourglassIcon, TreeIcon } from "./icons";
+import { ArrowRightIcon, ChatDotsIcon, EyeIcon, HourglassIcon, SpinnerIcon, TreeIcon } from "./icons";
 import { EmptyPanel } from "./RightPanel";
 import type { HomeView } from "./types";
 
@@ -55,6 +55,8 @@ export function HomeScreen({ fixture }: { fixture?: Pick<CabinetFixture, "sessio
   const home = fixture?.home ?? EMPTY_HOME;
   const copy = useHomeCopy(fixture, home);
   const [input, setInput] = useState(home.input ?? "");
+  // пока модель смотрит на текст, повторная отправка запустила бы вторую платную проверку
+  const [pending, setPending] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const limit = home.state === "limit";
   const limits = fixture?.session.limits;
@@ -71,9 +73,19 @@ export function HomeScreen({ fixture }: { fixture?: Pick<CabinetFixture, "sessio
     element.style.overflowY = element.scrollHeight > MAX_FIELD_HEIGHT ? "auto" : "hidden";
   }, [input]);
 
+  const start = async (text: string) => {
+    if (disabled || pending || !text) return;
+    setPending(true);
+    try {
+      await actions.startCheck(text);
+    } finally {
+      setPending(false);
+    }
+  };
+
   const submit = (event: FormEvent | KeyboardEvent) => {
     event.preventDefault();
-    if (!disabled && input.trim()) void actions.startCheck(input.trim());
+    void start(input.trim());
   };
 
   const placeholder = !fixture
@@ -122,19 +134,22 @@ export function HomeScreen({ fixture }: { fixture?: Pick<CabinetFixture, "sessio
                 if (event.key === "Enter" && !event.shiftKey) submit(event);
               }}
               disabled={disabled}
+              readOnly={pending}
               placeholder={placeholder}
               aria-label={t.home.placeholder}
               className="min-w-0 flex-1 resize-none bg-transparent py-[19px] text-[16px] font-bold leading-[22px] outline-none placeholder:text-cabinet-ink-mid"
             />
             <button
               type="submit"
-              disabled={disabled}
+              disabled={disabled || pending}
+              aria-busy={pending}
               className={cn(
-                "mb-2 flex h-11 shrink-0 items-center whitespace-nowrap rounded-full px-[22px] text-[15px] font-extrabold",
-                disabled ? "bg-border text-cabinet-ink-mid" : "bg-primary text-white",
+                "mb-2 flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-[22px] text-[15px] font-extrabold",
+                disabled || pending ? "bg-border text-cabinet-ink-mid" : "bg-primary text-white",
               )}
             >
-              {t.home.submit}
+              {pending && <SpinnerIcon className="h-4 w-4 animate-spin" />}
+              {pending ? t.home.submitting : t.home.submit}
             </button>
           </form>
           {limit ? (
@@ -155,7 +170,8 @@ export function HomeScreen({ fixture }: { fixture?: Pick<CabinetFixture, "sessio
                   <button
                     key={suggestion}
                     type="button"
-                    onClick={() => void actions.startCheck(suggestion)}
+                    disabled={pending}
+                    onClick={() => void start(suggestion)}
                     className="flex w-full items-center gap-2.5 rounded-2xl bg-card px-4 py-3 text-left outline outline-2 -outline-offset-1 outline-border"
                   >
                     <span className="flex-1 text-[14px] font-extrabold">{suggestion}</span>

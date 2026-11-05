@@ -906,7 +906,7 @@ describe("корень и связи: история, а не только ут�
 describe("корень — верх самой ранней ветви", () => {
   const D = (day: string) => ({ publishedAt: `2026-05-${day}T10:00:00Z` });
 
-  it("родитель без даты важнее поздней страницы без родителя", () => {
+  it("родитель без даты не становится корнем: про него нельзя сказать «самая ранняя»", () => {
     const origin = copy("origin", {}, { relation: "repeats" });
     const a = copy("a", { ...D("05"), outboundLinks: [origin.source.url] }, { relation: "repeats" });
     const late = copy("late", D("20"), { relation: "repeats" });
@@ -917,7 +917,7 @@ describe("корень — верх самой ранней ветви", () => {
       similarity: sim(3),
       traceMode: true,
     });
-    assert.equal(tree.rootId, "origin");
+    assert.equal(tree.rootId, "a");
   });
 });
 
@@ -982,6 +982,17 @@ describe("надёжный корень", () => {
       result.nodes.some((n) => n.id === "old"),
       "предыстория остаётся на таймлайне",
     );
+  });
+
+  it("страница без даты не становится корнем, даже если на неё ссылаются", () => {
+    const undated = copy("undated", { url: "https://gov.md/page" }, { relation: "source_event" });
+    const copies = [
+      undated,
+      copy("a", at("2026-10-21T00:00:00Z", { outboundLinks: ["https://gov.md/page"] }), {
+        relation: "repeats",
+      }),
+    ];
+    assert.equal(tree(copies).rootId, "a");
   });
 
   it("старая новость без свежего всплеска остаётся корнем: это и есть старый контент", () => {

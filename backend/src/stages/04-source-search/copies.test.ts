@@ -39,6 +39,10 @@ describe("copies: даты", () => {
   it("дата из адреса", () => {
     assert.equal(dateFromUrl("https://x.md/2023/03/14/pozhar"), "2023-03-14T00:00:00.000Z");
     assert.equal(dateFromUrl("https://x.md/news/pozhar-v-tc"), undefined);
+    assert.equal(
+      dateFromUrl("https://www.reuters.com/world/drone-fragments-found-2026-06-08/"),
+      "2026-06-08T00:00:00.000Z",
+    );
   });
 });
 
