@@ -619,7 +619,8 @@ describe("templateNote", () => {
   it("по полю и направлению, на языке UI; неизвестный язык → английский", () => {
     assert.equal(templateNote(m, "ru"), "Число выросло: «10 см» → «50 см».");
     assert.equal(templateNote(m, "uk"), "Число зросло: «10 см» → «50 см».");
-    assert.equal(templateNote(m, "ro"), "The number grew: «10 см» → «50 см».");
+    assert.equal(templateNote(m, "ro"), "Cifra a crescut: «10 см» → «50 см».");
+    assert.equal(templateNote(m, "de"), "The number grew: «10 см» → «50 см».");
     assert.equal(
       templateNote({ field: "time", direction: "changed", before: "2021", after: "вчера" }, "ru"),
       "Изменилось время события: «2021» → «вчера».",

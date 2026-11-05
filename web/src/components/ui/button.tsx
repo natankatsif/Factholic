@@ -7,7 +7,8 @@ import { cn } from "../../lib/utils";
  */
 const VARIANTS = {
   default: "bg-primary text-primary-foreground hover:bg-[#362424]",
-  outline: "border border-solid border-border bg-background text-[#755D5C] hover:bg-white hover:text-foreground",
+  outline:
+    "border border-solid border-border bg-background text-[#755D5C] hover:bg-white hover:text-foreground",
   ghost: "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
   secondary: "bg-secondary text-secondary-foreground hover:bg-border",
 } as const;

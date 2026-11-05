@@ -3,13 +3,15 @@
 import React, { useEffect, useState } from "react";
 import { listJobs } from "../../lib/jobs";
 import { HackathonPill } from "./HackathonPill";
+import { useSiteText } from "../../i18n/site";
 
 export interface HeroHeadlineProps {
   todayVerifiedCount?: string;
   verifiedUnit?: string;
 }
 
-export function HeroHeadline({ todayVerifiedCount, verifiedUnit = "тезисов" }: HeroHeadlineProps) {
+export function HeroHeadline({ todayVerifiedCount, verifiedUnit }: HeroHeadlineProps) {
+  const t = useSiteText();
   const [count, setCount] = useState<string>(todayVerifiedCount ?? "50+");
 
   useEffect(() => {
@@ -55,16 +57,16 @@ export function HeroHeadline({ todayVerifiedCount, verifiedUnit = "тезисо�
           data-pencil-name="Title"
           className="text-[42px]/[40px] sm:text-[60px]/[56px] md:text-[76px]/[72px] lg:text-[88px]/[84px] xl:text-[102px]/[96px] 2xl:text-[112px]/[104px] font-black tracking-[-2px] text-[#4A3333] xl:tracking-[-3px]"
         >
-          Проверь
+          {t.home.headlineTop}
           <br />
-          любой тезис
+          {t.home.headlineBottom}
         </h1>
 
         <p
           data-pencil-name="Subtitle"
           className="text-sm font-extrabold leading-normal text-[#A27C7A] [text-wrap:balance] sm:text-base md:text-xl xl:text-[23px]"
         >
-          Вставь тезис, новость или видео - разберём аргументы и найдём первоисточники
+          {t.home.subtitle}
         </p>
       </div>
 
@@ -73,13 +75,13 @@ export function HeroHeadline({ todayVerifiedCount, verifiedUnit = "тезисо�
         className="box-border flex shrink-0 flex-col items-start pt-1 md:items-end md:pt-[6px]"
       >
         <div className="whitespace-nowrap text-xs font-extrabold leading-normal text-[#4A3333] sm:text-sm md:text-base xl:text-[18px]">
-          Сегодня проверено
+          {t.home.checkedToday}
         </div>
         <div className="whitespace-nowrap text-2xl font-black leading-tight tracking-[-1px] text-[#4A3333] sm:text-3xl md:text-4xl xl:text-[50px]">
           {count}
         </div>
         <div className="whitespace-nowrap text-xs font-extrabold leading-normal text-[#A27C7A] sm:text-sm md:text-base xl:text-[18px]">
-          {verifiedUnit}
+          {verifiedUnit ?? t.home.checkedUnit}
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ import type {
   TrackedClaim,
 } from "../../../../backend/src/org/types";
 import type { WatchWithClaim } from "./api";
+import { LOCALE_TAGS } from "../../i18n/locale";
 import type { CabinetDictionary } from "./dictionary";
 import type {
   AlertItem,
@@ -29,7 +30,6 @@ import type {
 
 const PALETTE = ["#1660D6", "#0A93AD", "#D42A7E", "#4A3333", "#6E1EF0", "#1DA57A", "#FF7A12"];
 const DAY_MS = 86_400_000;
-const LOCALE = "ru";
 
 function colorOf(name: string): string {
   let hash = 0;
@@ -43,20 +43,21 @@ export function ageInDays(iso: string, now = new Date()): number {
   return Math.round((dayStart(now) - dayStart(new Date(iso))) / DAY_MS);
 }
 
-const time = (iso: string) =>
-  new Date(iso).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
-const dayMonth = (iso: string) => new Date(iso).toLocaleDateString(LOCALE, { day: "numeric", month: "long" });
+const time = (iso: string, t: CabinetDictionary) =>
+  new Date(iso).toLocaleTimeString(LOCALE_TAGS[t.locale], { hour: "2-digit", minute: "2-digit" });
+const dayMonth = (iso: string, t: CabinetDictionary) =>
+  new Date(iso).toLocaleDateString(LOCALE_TAGS[t.locale], { day: "numeric", month: "long" });
 
 export function whenLabel(iso: string, t: CabinetDictionary): string {
   const age = ageInDays(iso);
-  if (age === 0) return `${t.dates.today}, ${time(iso)}`;
-  if (age === 1) return `${t.dates.yesterday}, ${time(iso)}`;
-  return `${dayMonth(iso)}, ${time(iso)}`;
+  if (age === 0) return `${t.dates.today}, ${time(iso, t)}`;
+  if (age === 1) return `${t.dates.yesterday}, ${time(iso, t)}`;
+  return `${dayMonth(iso, t)}, ${time(iso, t)}`;
 }
 
 function dayLabel(iso: string, t: CabinetDictionary): string {
   const age = ageInDays(iso);
-  return age === 0 ? t.dates.today : age === 1 ? t.dates.yesterday : dayMonth(iso);
+  return age === 0 ? t.dates.today : age === 1 ? t.dates.yesterday : dayMonth(iso, t);
 }
 
 const STANCES: Record<SourceStance, Stance> = {
@@ -135,7 +136,13 @@ function treeOf(
     if (node.role === "target") nodes.push({ id: node.id, kind: "checked", quote: factCheck.quote });
     else if (!node.url) nodes.push({ id: node.id, kind: "missing", name: node.name, note: node.quote });
     else if (!linked.has(node.id) && !node.isPrimary) {
-      unlinked.push({ id: node.id, outlet: node.name, color: colorOf(node.name), date: node.date });
+      unlinked.push({
+        id: node.id,
+        outlet: node.name,
+        color: colorOf(node.name),
+        date: node.date,
+        url: node.url,
+      });
     } else {
       const parent = tree.edges.find((edge) => edge.toNodeId === node.id);
       nodes.push(publication(node, factCheck, parent, parent && byId.get(parent.fromNodeId)?.name));
@@ -221,9 +228,12 @@ function buildFeed(
 ): FeedItem[] {
   const { check, report, watches } = detail;
   const claims = report?.factChecks ?? [];
-  const startedTime = time(check.startedAt);
+  const startedTime = time(check.startedAt, t);
   if (check.status === "failed") {
-    return [{ type: "failed" }, { type: "saved", time: time(check.finishedAt ?? check.startedAt), count: 0 }];
+    return [
+      { type: "failed" },
+      { type: "saved", time: time(check.finishedAt ?? check.startedAt, t), count: 0 },
+    ];
   }
   const found: FeedItem = {
     type: "claims",
@@ -235,7 +245,7 @@ function buildFeed(
     return claims.length ? [found, { type: "searching" }] : [{ type: "searching" }];
   if (!factCheck) return [found];
 
-  const finished = time(check.finishedAt ?? check.startedAt);
+  const finished = time(check.finishedAt ?? check.startedAt, t);
   const tree = factCheck.provenance;
   const publications = (tree?.nodes ?? []).filter((node) => node.role !== "target" && node.url);
   const root = tree?.nodes.find((node) => node.isPrimary);
@@ -254,7 +264,7 @@ function buildFeed(
       text: t.alerts.watchSummary(
         watch.frequency,
         watch.signals.length,
-        watch.until && dayMonth(watch.until),
+        watch.until && dayMonth(watch.until, t),
       ),
     });
   }
@@ -300,9 +310,9 @@ export function toCheckView(detail: OrgCheckDetail, claimIndex: number, t: Cabin
     claim: factCheck ? `«${factCheck.claim}»` : `«${check.input.slice(0, 120)}»`,
     timeLabel:
       check.status === "running"
-        ? t.panel.startedAt(time(check.startedAt))
+        ? t.panel.startedAt(time(check.startedAt, t))
         : check.status === "failed"
-          ? time(check.finishedAt ?? check.startedAt)
+          ? time(check.finishedAt ?? check.startedAt, t)
           : whenLabel(check.finishedAt ?? check.startedAt, t),
     watchFrequency: watch?.frequency,
     nodes: tree?.nodes ?? [{ id: "checked", kind: "checked", quote }],
@@ -335,7 +345,7 @@ export function toQuestionRow(
     checkId: claim.latestCheckId,
     text: `«${claim.text}»`,
     author: claim.createdByName,
-    date: dayMonth(claim.createdAt),
+    date: dayMonth(claim.createdAt, t),
     language: claim.language,
     narrative: narrative?.title,
     checks: claim.checksCount,
@@ -423,7 +433,7 @@ export function toSession(session: OrgSession, alerts: Alert[], t: CabinetDictio
     })),
     limits: {
       month: t.dates.months[start.getMonth()]!,
-      resetDate: dayMonth(session.limits.resetAt),
+      resetDate: dayMonth(session.limits.resetAt, t),
       checksUsed: session.limits.checksUsed,
       checksTotal: session.limits.checksTotal,
       watchesUsed: session.limits.watchesUsed,
@@ -449,7 +459,7 @@ export function toHomeView(
   };
 }
 
-export function toNarrativeView(detail: OrgNarrativeDetail): NarrativeView {
+export function toNarrativeView(detail: OrgNarrativeDetail, t: CabinetDictionary): NarrativeView {
   const { narrative, claims } = detail;
   return {
     id: narrative.id,
@@ -459,10 +469,10 @@ export function toNarrativeView(detail: OrgNarrativeDetail): NarrativeView {
       : (claims[0]?.status ?? "stable"),
     description: narrative.description,
     confirmedBy: narrative.confirmedBy,
-    confirmedAt: dayMonth(narrative.confirmedAt),
+    confirmedAt: dayMonth(narrative.confirmedAt, t),
     publications: detail.publications,
     languages: detail.languages,
-    lastChange: detail.lastChange ? dayMonth(detail.lastChange) : "",
+    lastChange: detail.lastChange ? dayMonth(detail.lastChange, t) : "",
     questions: claims.map((claim) => ({
       id: claim.id,
       checkId: claim.latestCheckId,

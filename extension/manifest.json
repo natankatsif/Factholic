@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "FactCheck Video",
+  "name": "__MSG_extName__",
   "version": "0.1.0",
-  "description": "Проверка фактов в видео в реальном времени",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -16,7 +17,7 @@
     }
   ],
   "action": {
-    "default_title": "FactCheck Video"
+    "default_title": "__MSG_extName__"
   },
   "permissions": ["storage"],
   "host_permissions": ["http://localhost:8787/*"]

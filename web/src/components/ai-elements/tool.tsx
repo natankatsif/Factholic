@@ -5,6 +5,7 @@ import { CheckCircleIcon, ChevronDownIcon, CircleIcon, ClockIcon, XCircleIcon } 
 import React, { type ComponentProps, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
+import { useSiteText } from "../../i18n/site";
 
 export type ToolProps = ComponentProps<typeof Collapsible>;
 
@@ -17,16 +18,6 @@ export const Tool = ({ className, ...props }: ToolProps) => (
 
 export type ToolPart = ToolUIPart | DynamicToolUIPart;
 
-const statusLabels: Record<ToolPart["state"], string> = {
-  "approval-requested": "Ждёт подтверждения",
-  "approval-responded": "Подтверждено",
-  "input-available": "Выполняется",
-  "input-streaming": "Готовится",
-  "output-available": "Готово",
-  "output-denied": "Отклонено",
-  "output-error": "Ошибка",
-};
-
 const statusIcons: Record<ToolPart["state"], ReactNode> = {
   "approval-requested": <ClockIcon className="size-3.5 text-[#FFC20E]" />,
   "approval-responded": <CheckCircleIcon className="size-3.5 text-[#1660D6]" />,
@@ -37,12 +28,17 @@ const statusIcons: Record<ToolPart["state"], ReactNode> = {
   "output-error": <XCircleIcon className="size-3.5 text-[#E2353F]" />,
 };
 
-export const getStatusBadge = (status: ToolPart["state"]) => (
-  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
-    {statusIcons[status]}
-    {statusLabels[status]}
-  </span>
-);
+const StatusBadge = ({ status }: { status: ToolPart["state"] }) => {
+  const t = useSiteText();
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+      {statusIcons[status]}
+      {t.chat.toolStates[status]}
+    </span>
+  );
+};
+
+export const getStatusBadge = (status: ToolPart["state"]) => <StatusBadge status={status} />;
 
 export type ToolHeaderProps = {
   title: ReactNode;

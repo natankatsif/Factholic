@@ -42,6 +42,23 @@ const TEXTS: Record<string, Record<FixedStances, { summary: string; explanation:
         "Твердження стосується майбутнього. Порівняти, що про нього пишуть джерела, можна буде після того, як подія настане або не настане.",
     },
   },
+  ro: {
+    no_sources: {
+      summary: "Nu am găsit surse care să vorbească despre această afirmație.",
+      explanation:
+        "Căutarea nu a dat materiale pe această temă. Fără surse nu putem arăta ce scriu diferitele părți despre afirmație.",
+    },
+    few_sources: {
+      summary: "Prea puține surse independente vorbesc direct despre această afirmație.",
+      explanation:
+        "Mai puțin de două grupuri independente de surse confirmă sau infirmă direct afirmația (republicările aceluiași material contează ca un singur grup). Atât nu ajunge pentru a vorbi despre părți.",
+    },
+    prediction: {
+      summary: "Este o prognoză: deocamdată sursele nu o pot confirma sau infirma.",
+      explanation:
+        "Afirmația se referă la viitor. Ce scriu sursele despre ea se va putea compara după ce evenimentul se produce sau nu se produce.",
+    },
+  },
   en: {
     no_sources: {
       summary: "No sources were found that discuss this claim.",

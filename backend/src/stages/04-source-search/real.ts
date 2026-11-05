@@ -1,9 +1,11 @@
 import { config } from "../../config.ts";
 import type { Stage, StageContext } from "../../pipeline/context.ts";
+import { searchUntilFound } from "./deep-search.ts";
 import { dateFromHtml, dateFromUrl, findCopiesWithTraces, type CopiesResult } from "./copies.ts";
 import { factCheckSearch, limited, tavilySearch, type Candidate } from "./engines.ts";
 import { forEachPage, openPage } from "./pages.ts";
 import { planFollowUpQueries, planQueries, type PlannedQuery } from "./queries.ts";
+import { searchSearxng } from "./searxng.ts";
 import { dedupe, enrich, registrableDomain, selectDiverse, toFoundSource, type Enriched } from "./select.ts";
 import { assessSufficiency, type Sufficiency } from "./sufficiency.ts";
 import { keywordStems } from "./text.ts";
@@ -109,21 +111,65 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
   await fillSourceDates(picked, ctx);
 
   const retrievedAt = new Date().toISOString();
-  const { copies, traces } = await copiesPromise.then((result) => {
+  const firstPass = await copiesPromise.then((result) => {
     ctx.log(
       `⏱ 04 ${claim.id}: запросы LLM ${ms(tPlanned - t0)}, источники (${round} р.) ${ms(tSources - tPlanned)}, ` +
         `копии готовы через ${ms(Date.now() - tPlanned)}, всего ${ms(Date.now() - t0)}`,
     );
     return result;
   });
+  const { copies, traces, passes } = config.experiments.deepSearch
+    ? await deepen(input, firstPass, planned, relevant, ctx)
+    : { ...firstPass, passes: undefined };
   return {
     claimId: claim.id,
     queries,
     sources: picked.map((e, i) => toFoundSource(e, `${claim.id}_s${i + 1}`, retrievedAt)),
-    search: { rounds: round, ...verdict, ...(traces ? { traces } : {}) },
+    search: { rounds: round, ...(passes ? { passes } : {}), ...verdict, ...(traces ? { traces } : {}) },
     copies,
   };
 };
+
+/** Цель шире обычной нехватки: нужны другие слова, другие языки и официальные названия */
+const THIN_RESULTS = "мало публикаций: нужны короткие запросы другими словами и на других языках из списка";
+const RETRY_QUERIES = 4;
+
+function deepen(
+  input: SourceSearchInput,
+  first: CopiesResult,
+  planned: PlannedQuery[],
+  relevant: Enriched[],
+  ctx: StageContext,
+) {
+  const { claim } = input;
+  return searchUntilFound(
+    claim.id,
+    first,
+    planned.map((q) => q.text),
+    {
+      plan: (used, found) =>
+        planFollowUpQueries(
+          input,
+          [THIN_RESULTS],
+          used,
+          found.map((c) => c.domain),
+          ctx,
+          RETRY_QUERIES,
+        ),
+      run: (queries) =>
+        findCopiesWithTraces(claim, queries, ctx, undefined, Promise.resolve(relevant), (q) =>
+          searchSearxng(q, ctx).catch((err: unknown) => {
+            ctx.log("04 searxng: источник недоступен", String(err));
+            return [];
+          }),
+        ).catch((err: unknown): CopiesResult => {
+          if (!ctx.signal.aborted) ctx.log("04: повторный заход упал", String(err));
+          return { copies: [] };
+        }),
+      log: (message) => ctx.log(message),
+    },
+  );
+}
 
 /** Поисковик часто не знает дату: берём её со страницы. Без этого источник окажется в дереве без даты */
 async function fillSourceDates(picked: Enriched[], ctx: StageContext): Promise<void> {

@@ -46,6 +46,8 @@
       "runtimeArgs": [
         "TRACE_SEARCH=on",
         "CABINET_API=on",
+        "DEEP_SEARCH=on",
+        "SEARXNG_URL=http://127.0.0.1:8899",
         "CABINET_DB_PATH=tmp/cabinet-real.sqlite",
         "CABINET_ORG_NAME=Центр коммуникаций",
         "CABINET_MEMBER_NAME=Ирина К.",
@@ -65,6 +67,12 @@
         "@news/backend"
       ],
       "port": 8787
+    },
+    {
+      "name": "searxng",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["scripts/searxng.sh"],
+      "port": 8899
     }
   ]
 }

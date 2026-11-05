@@ -1,18 +1,21 @@
 /**
- * Все постоянные тексты кабинета. Новый язык — ещё один объект той же формы в `dictionaries`.
+ * Все постоянные тексты кабинета. Русский — здесь, он задаёт форму; ro и en — в dictionary.ro.ts и dictionary.en.ts.
+ * Новый язык — ещё один объект той же формы в `dictionaries`: лишний или пропущенный ключ не пройдёт проверку типов.
  * Числа и имена подставляются функциями: порядок слов в другом языке может быть другим.
  * Данные (названия изданий, цитаты, даты) сюда не входят: они приходят с бэкенда или из fixtures.ts.
  */
+import { useLocale } from "../../i18n/LocaleProvider";
+import { DEFAULT_LOCALE, pluralWord as selectForm, type Locale, type PluralForms } from "../../i18n/locale";
+import { en } from "./dictionary.en";
+import { ro } from "./dictionary.ro";
 
-/** Формы слова для Intl.PluralRules: в ru нужны one / few / many, в других языках часть форм совпадёт */
-export interface PluralForms {
-  one: string;
-  few: string;
-  many: string;
-  other: string;
-}
+const pluralWord = (count: number, forms: PluralForms) => selectForm(count, forms, "ru");
+
+export type { PluralForms };
 
 const ru = {
+  locale: "ru" as Locale,
+  plural: pluralWord,
   meta: {
     title: "Кабинет — factholic",
     description: "История утверждений для государственных учреждений",
@@ -30,6 +33,7 @@ const ru = {
     closeMenu: "Закрыть меню",
     newCheck: "Новая проверка",
     notifications: "Уведомления",
+    language: "Язык",
     runningChecks: "Проверки в процессе",
     step: (step: number, total: number) => `шаг ${step} из ${total}`,
     more: (count: number) => `+${count}`,
@@ -114,6 +118,7 @@ const ru = {
     rootUnknownTitle: "Корень не определён",
     rootUnknownHint: "Ни одну из публикаций нельзя назвать самой ранней",
     newBadge: "новое",
+    moreItems: (count: number) => `Ещё ${count}`,
   },
   search: {
     title: "Ход поиска",
@@ -470,28 +475,13 @@ const ru = {
 };
 
 export type CabinetDictionary = typeof ru;
-export type CabinetLocale = "ru";
+const dictionaries: Record<Locale, CabinetDictionary> = { ru, ro, en };
 
-const dictionaries: Record<CabinetLocale, CabinetDictionary> = { ru };
-
-/** Пока язык один. Когда появится выбор языка, он придёт сюда параметром из адреса или настроек */
-export const CABINET_LOCALE: CabinetLocale = "ru";
-
-export function getCabinetDictionary(locale: CabinetLocale = CABINET_LOCALE): CabinetDictionary {
+export function getCabinetDictionary(locale: Locale = DEFAULT_LOCALE): CabinetDictionary {
   return dictionaries[locale];
 }
 
-/** Хук для компонентов: сейчас язык один, потом здесь появится чтение выбранного языка */
+/** Хук для компонентов: тексты на выбранном языке */
 export function useCabinetText(): CabinetDictionary {
-  return getCabinetDictionary();
-}
-
-/** Нужная форма слова для числа по правилам языка */
-export function pluralWord(
-  count: number,
-  forms: PluralForms,
-  locale: CabinetLocale = CABINET_LOCALE,
-): string {
-  const form = new Intl.PluralRules(locale).select(count);
-  return form === "one" || form === "few" || form === "many" ? forms[form] : forms.other;
+  return getCabinetDictionary(useLocale().locale);
 }

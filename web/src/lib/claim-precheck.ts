@@ -2,13 +2,10 @@
  * Пречек утверждений (client-side):
  * 1. Быстрая эвристика (0 мс) на приветствия, типовые междометия, односложные фразы
  *    (например, «привкет», «привет», «хай», «как дела»).
- * 2. Тексты сообщений для чудика, если проверять нечего (NOTHING_TO_CHECK).
+ * 2. Реплика чудика, если проверять нечего: тексты — в словаре (t.precheck), здесь только выбор.
+ * Списки слов ниже — про текст, который ввёл человек, а не про язык интерфейса: их не переводим.
  */
-
-export const NOTHING_TO_CHECK = {
-  text: "В этом тексте нет проверяемых фактов — только мнения. Нужны конкретные события или цифры.",
-  url: "В этом материале нет проверяемых фактов — только мнения или рассуждения. Попробуй другой сюжет.",
-};
+import type { SiteDictionary } from "../i18n/site";
 
 const GREETING_STEMS = [
   /^прив/i, // привет, привкет, приветик, приветос, прив, приветству...
@@ -200,9 +197,9 @@ export function isObviouslyNonFactual(raw: string): boolean {
  * Подбирает естественный, релевантный контексту ответ без смайликов и шаблонных примеров,
  * когда утверждений для проверки не найдено.
  */
-export function getNonFactualMessage(raw: string, isUrl: boolean): string {
+export function getNonFactualMessage(raw: string, isUrl: boolean, texts: SiteDictionary["precheck"]): string {
   if (isUrl) {
-    return NOTHING_TO_CHECK.url;
+    return texts.url;
   }
 
   const trimmed = raw.trim();
@@ -210,26 +207,26 @@ export function getNonFactualMessage(raw: string, isUrl: boolean): string {
 
   // Вопросы о самом сервисе
   if (/^(кто ты|что ты|ты кто|что это|как это работает|зачем ты)/i.test(trimmed)) {
-    return "Я проверяю факты и первоисточники. Пришли утверждение или ссылку на публикацию.";
+    return texts.about;
   }
 
   // Приветствия
   const words = lower.split(/[^\p{L}]+/u).filter(Boolean);
   const hasGreeting = words.some((w) => GREETING_STEMS.some((rx) => rx.test(w)));
   if (hasGreeting) {
-    return "Привет. Чтобы проверить достоверность, пришли новость, факт или ссылку на публикацию.";
+    return texts.greeting;
   }
 
   // Тестовые реплики или короткие заполнители ("123", "тест", "ок", "ясно")
   if (words.length <= 2 && (words.every((w) => FILLER_WORDS.has(w)) || /^(тест|проверк)/i.test(trimmed))) {
-    return "Для проверки нужно конкретное утверждение, новость или ссылка на материал.";
+    return texts.filler;
   }
 
   // Короткие вопросы ("правда ли?", "почему так?")
   if (trimmed.endsWith("?") && words.length <= 4) {
-    return "Сформулируй утверждение или отправь публикацию целиком, чтобы проверить факты.";
+    return texts.shortQuestion;
   }
 
   // Текст без фактов (личное мнение, рассуждения)
-  return NOTHING_TO_CHECK.text;
+  return texts.text;
 }

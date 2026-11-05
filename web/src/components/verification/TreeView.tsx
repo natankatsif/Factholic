@@ -26,8 +26,9 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { plural } from "./filters";
 import { hasProvenanceTree, materialNode, publicationNodes, type MaterialKind } from "./material";
+import { LOCALE_TAGS, type PluralForms } from "../../i18n/locale";
+import { useSiteText } from "../../i18n/site";
 
 export interface TreeViewProps {
   factCheck: FactCheck;
@@ -90,11 +91,12 @@ const rowY = (row: number) => TOP_PAD + row * ROW_H;
  * (у настоящего бэкенда их большинство) — под кнопкой «Ещё N…», чтобы не превращать дерево в ленту.
  */
 export function TreeView({ factCheck, material, onBack }: TreeViewProps) {
+  const t = useSiteText();
   const tree = useMemo(() => {
     const raw = factCheck.provenance;
     // нет ни одной связи — рисовать нечего: одинокий «этот материал» и «Ещё N публикаций без связи»
     if (!hasProvenanceTree(raw)) return undefined;
-    return { ...raw, nodes: raw.nodes.map((n) => materialNode(n, material)) };
+    return { ...raw, nodes: raw.nodes.map((n) => materialNode(n, material, t)) };
   }, [factCheck.provenance, material]);
   const [showAll, setShowAll] = useState(false);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(
@@ -146,7 +148,8 @@ export function TreeView({ factCheck, material, onBack }: TreeViewProps) {
           onClick={onBack}
           className="flex cursor-pointer items-center gap-2 rounded-full border-2 border-[#4A3333] bg-transparent px-4 py-1.5 text-[15px] font-extrabold text-[#4A3333] transition-colors hover:bg-[#4A3333] hover:text-white"
         >
-          <ArrowLeft className="h-4 w-4" />К разбору
+          <ArrowLeft className="h-4 w-4" />
+          {t.tree.back}
         </button>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h1 className="m-0 text-[24px] font-black leading-tight tracking-[-0.5px] sm:text-[28px]">
@@ -160,9 +163,7 @@ export function TreeView({ factCheck, material, onBack }: TreeViewProps) {
 
       {!tree || !fitted ? (
         <div className="rounded-[28px] bg-[#FBF8F7] p-8 text-[15px] font-semibold text-[#A27C7A]">
-          {publicationNodes(factCheck.provenance).length > 0
-            ? "Дерево первоисточника не построено: найденные публикации пишут на ту же тему, но не повторяют это утверждение. Позиции источников — в разборе."
-            : "Дерево первоисточника для этого утверждения не построено: по нему не нашлось публикаций."}
+          {publicationNodes(factCheck.provenance).length > 0 ? t.tree.noTreeOffTopic : t.tree.noTree}
         </div>
       ) : (
         <div className="flex flex-col gap-6 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8">
@@ -171,13 +172,9 @@ export function TreeView({ factCheck, material, onBack }: TreeViewProps) {
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-4">
               {factCheck.keyFinding ? <KeyFinding finding={factCheck.keyFinding} /> : <span />}
               <div className="flex flex-wrap gap-5 text-[14px] font-semibold text-[#A27C7A]">
-                <Stat n={totalSources} words={["источник", "источника", "источников"]} />
-                <Stat n={primaryCount} words={["первоисточник", "первоисточника", "первоисточников"]} />
-                <Stat
-                  n={changesCount}
-                  words={["изменение в тексте", "изменения в тексте", "изменений в тексте"]}
-                  accent
-                />
+                <Stat n={totalSources} words={t.words.sources} />
+                <Stat n={primaryCount} words={t.words.primarySources} />
+                <Stat n={changesCount} words={t.words.textChanges} accent />
               </div>
             </div>
 
@@ -206,8 +203,11 @@ export function TreeView({ factCheck, material, onBack }: TreeViewProps) {
                 className="w-fit shrink-0 cursor-pointer rounded-full border border-[#E3D9D6] bg-[#FBF8F7] px-4 py-2 text-[13px] font-extrabold text-[#755D5C] hover:bg-white"
               >
                 {showAll
-                  ? "Показать только связанные публикации"
-                  : `Ещё ${fitted.hiddenCount} ${plural(fitted.hiddenCount, ["публикация", "публикации", "публикаций"])} без установленной связи`}
+                  ? t.tree.showLinkedOnly
+                  : t.tree.moreUnlinked(
+                      fitted.hiddenCount,
+                      t.plural(fitted.hiddenCount, t.words.publications),
+                    )}
               </button>
             ) : null}
           </div>
@@ -298,6 +298,7 @@ function Canvas({
   selectedEdgeId: string | null;
   onSelectEdge: (id: string) => void;
 }) {
+  const t = useSiteText();
   const width = colX(layout.cols - 1, layout) + layout.cardW;
   // Карточки разной высоты (теги, длинные цитаты) — высоту холста меряем по самой нижней
   const boxRef = useRef<HTMLDivElement>(null);
@@ -397,7 +398,7 @@ function Canvas({
             className="absolute left-0 text-[12px] font-extrabold uppercase tracking-[0.4px] text-[#A27C7A]"
             style={{ top: rowY(layout.looseRow) - 30 }}
           >
-            Без установленной связи
+            {t.tree.unlinked}
           </span>
         )}
 
@@ -424,6 +425,7 @@ function EdgePath({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const t = useSiteText();
   const kind =
     edge.hasDistortion || edge.relationType === "distorted"
       ? "distorted"
@@ -433,7 +435,7 @@ function EdgePath({
           ? "confirmation"
           : "direct";
   const color = EDGE_COLORS[kind];
-  const label = kind === "distorted" ? "искажено" : edge.label;
+  const label = kind === "distorted" ? t.tree.distorted : edge.label;
 
   let d: string;
   let labelX: number;
@@ -520,6 +522,7 @@ function cleanTag(tag: string): string {
 }
 
 function NodeCard({ node, distorted, geo }: { node: Layout["nodes"][number]; distorted: boolean; geo: Geo }) {
+  const t = useSiteText();
   const primary = node.isPrimary || node.role === "primary";
   const isMedia = node.category === "media";
   const href = node.action?.url ?? node.url;
@@ -544,7 +547,7 @@ function NodeCard({ node, distorted, geo }: { node: Layout["nodes"][number]; dis
       {primary && (
         <span className="absolute -top-[14px] left-3 flex items-center gap-1 rounded-full bg-[#4A3333] px-2.5 py-1 text-[11px] font-extrabold text-white">
           <Anchor className="h-3 w-3" />
-          Первоисточник
+          {t.tree.primary}
         </span>
       )}
       <div className="flex items-center justify-between gap-2">
@@ -569,7 +572,7 @@ function NodeCard({ node, distorted, geo }: { node: Layout["nodes"][number]; dis
       </span>
       <span className="mt-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-[#A27C7A]">
         <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-        {node.date || "дата неизвестна"}
+        {node.date || t.tree.dateUnknown}
       </span>
       <span className="mt-2.5 line-clamp-4 text-[12.5px] font-semibold leading-snug">{node.quote}</span>
       {node.tags && node.tags.length > 0 && (
@@ -585,7 +588,7 @@ function NodeCard({ node, distorted, geo }: { node: Layout["nodes"][number]; dis
           ))}
           {node.tags.length > MAX_TAGS && (
             <span className="px-1 text-[11px] font-extrabold text-[#FF7A12]">
-              ещё {node.tags.length - MAX_TAGS}
+              {t.tree.moreTags(node.tags.length - MAX_TAGS)}
             </span>
           )}
         </span>
@@ -599,7 +602,7 @@ function NodeCard({ node, distorted, geo }: { node: Layout["nodes"][number]; dis
             distorted ? "text-[#FF7A12]" : "text-[#A27C7A]"
           }`}
         >
-          {(node.action?.label ?? "Открыть источник").replace(/\s*↗$/, "")}
+          {(node.action?.label ?? t.tree.openSource).replace(/\s*↗$/, "")}
           <ArrowUpRight className="h-3.5 w-3.5" />
         </a>
       )}
@@ -610,7 +613,11 @@ function NodeCard({ node, distorted, geo }: { node: Layout["nodes"][number]; dis
 // ---------------------------------------------------------------------------
 // Таймлайн
 
+/** Конец подписи «N лет тишины» на всех языках отчёта: без связи это просто разница дат */
+const SILENCE_SUFFIX = /\s*(тишины|de tăcere|of silence)$/;
+
 function Timeline({ layout, tree }: { layout: Layout; tree: ProvenanceTree }) {
+  const t = useSiteText();
   // одна точка на колонку цепочки: самая ранняя публикация колонки (ряд без связи — не на таймлайне)
   const chain = layout.nodes.filter((n) => n.rowIdx !== layout.looseRow);
   const chainCols = Math.max(0, ...chain.map((n) => n.col + 1));
@@ -651,8 +658,11 @@ function Timeline({ layout, tree }: { layout: Layout; tree: ProvenanceTree }) {
     const years = (t2 - t1) / (365.25 * 24 * 3600 * 1000);
     if (years < 0.5) return null;
     const rounded = Math.round(years * 10) / 10;
-    const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1).replace(".", ",");
-    return `${text} ${Number.isInteger(rounded) ? plural(rounded, ["год", "года", "лет"]) : "года"} тишины`;
+    const text = rounded.toLocaleString(LOCALE_TAGS[t.locale]);
+    return t.tree.silence(
+      text,
+      Number.isInteger(rounded) ? t.plural(rounded, t.words.years) : t.tree.yearsFraction,
+    );
   };
 
   return (
@@ -665,7 +675,7 @@ function Timeline({ layout, tree }: { layout: Layout; tree: ProvenanceTree }) {
           const next = points[i + 1];
           // «N лет тишины» — только между связанными публикациями; без связи это просто разница дат
           const linked = linkedBetween(i);
-          const label = linked ? gapLabel : `${gapLabel.replace(/\s*тишины$/, "")} · связи нет`;
+          const label = linked ? gapLabel : t.tree.noLink(gapLabel.replace(SILENCE_SUFFIX, ""));
           const color = linked ? "#6E1EF0" : "#A27C7A";
           return (
             <React.Fragment key={`gap-${i}`}>
@@ -722,6 +732,7 @@ function EdgePanel({
   nodes: ProvenanceNode[];
   onClose: () => void;
 }) {
+  const t = useSiteText();
   const from = nodes.find((n) => n.id === edge?.fromNodeId);
   const to = nodes.find((n) => n.id === edge?.toNodeId);
 
@@ -730,13 +741,13 @@ function EdgePanel({
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-[13px] font-extrabold text-[#A27C7A]">
           <span className="h-[3px] w-4 rounded-full bg-[#FF7A12]" />
-          Связь между источниками
+          {t.tree.linkBetween}
         </span>
         {edge && (
           <button
             type="button"
             onClick={onClose}
-            title="Закрыть"
+            title={t.common.close}
             className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-none bg-[#F1EBE9] text-[#4A3333] hover:bg-[#E3D9D6]"
           >
             <X className="h-4 w-4" />
@@ -746,9 +757,7 @@ function EdgePanel({
 
       {!edge || !from || !to ? (
         <p className="mt-5 text-[14px] font-semibold leading-relaxed text-[#A27C7A]">
-          {nodes.length > 1
-            ? "Нажми на связь между карточками, чтобы увидеть, что изменилось при пересказе."
-            : "Связей между публикациями не найдено."}
+          {nodes.length > 1 ? t.tree.linkHint : t.tree.noLinks}
         </p>
       ) : (
         <>
@@ -766,7 +775,7 @@ function EdgePanel({
               <DiffCards before={edge.diff.before} after={edge.diff.after} />
               {edge.diff.changes.length > 0 && (
                 <div className="mt-5 border-t border-[#E3D9D6] pt-5">
-                  <div className="text-[15px] font-black">Что изменилось</div>
+                  <div className="text-[15px] font-black">{t.tree.whatChanged}</div>
                   <ul className="mt-3 flex list-none flex-col gap-3 p-0">
                     {edge.diff.changes.map((c, i) => (
                       <ChangeRow key={i} change={c} />
@@ -776,9 +785,7 @@ function EdgePanel({
               )}
             </>
           ) : (
-            <p className="mt-4 text-[14px] font-semibold text-[#A27C7A]">
-              Подробного сравнения текстов для этой связи нет.
-            </p>
+            <p className="mt-4 text-[14px] font-semibold text-[#A27C7A]">{t.tree.noDetails}</p>
           )}
         </>
       )}
@@ -801,11 +808,12 @@ type DiffSide = { sourceName: string; date?: string; text: string };
 
 /** «Было» и «Стало»: слова, которых нет в другой версии, подсвечены */
 function DiffCards({ before, after }: { before: DiffSide; after: DiffSide }) {
+  const t = useSiteText();
   const { removed, added } = wordDiff(before.text, after.text);
   return (
     <div className="mt-4 flex flex-col gap-3">
-      <DiffCard label="Было" side={before} words={removed} tone="before" />
-      <DiffCard label="Стало" side={after} words={added} tone="after" />
+      <DiffCard label={t.tree.before} side={before} words={removed} tone="before" />
+      <DiffCard label={t.tree.after} side={after} words={added} tone="after" />
     </div>
   );
 }
@@ -932,32 +940,36 @@ function FlagBadge({ flag }: { flag: ClaimFlag }) {
   );
 }
 
-function Stat({ n, words, accent }: { n: number; words: [string, string, string]; accent?: boolean }) {
+function Stat({ n, words, accent }: { n: number; words: PluralForms; accent?: boolean }) {
+  const t = useSiteText();
   return (
     <span>
       <b className={`mr-1.5 text-[19px] font-black ${accent ? "text-[#FF7A12]" : "text-[#4A3333]"}`}>{n}</b>
-      {plural(n, words)}
+      {t.plural(n, words)}
     </span>
   );
 }
 
 function Legend() {
+  const t = useSiteText();
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-t border-[#E3D9D6] pt-3 text-[12.5px] font-semibold text-[#A27C7A]">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <b className="font-black text-[#4A3333]">Как читать</b>
-        <LegendLine color="#8C7471" /> прямая связь
-        <LegendLine color="#8C7471" dashed /> вероятно взято отсюда
-        <LegendLine color="#FF7A12" thick /> искажение
-        <span className="inline-block h-4 w-5 rounded-md border-2 border-[#4A3333]" /> первоисточник
-        <span className="rounded-full bg-[#E3EEFD] px-2.5 py-0.5 font-extrabold text-[#1660D6]">СМИ</span>
+        <b className="font-black text-[#4A3333]">{t.tree.howToRead}</b>
+        <LegendLine color="#8C7471" /> {t.tree.directLink}
+        <LegendLine color="#8C7471" dashed /> {t.tree.probableLink}
+        <LegendLine color="#FF7A12" thick /> {t.tree.distortion}
+        <span className="inline-block h-4 w-5 rounded-md border-2 border-[#4A3333]" /> {t.tree.primaryLegend}
+        <span className="rounded-full bg-[#E3EEFD] px-2.5 py-0.5 font-extrabold text-[#1660D6]">
+          {t.tree.media}
+        </span>
         <span className="rounded-full bg-[#EEE8E6] px-2.5 py-0.5 font-extrabold text-[#4A3333]">
-          официальный
+          {t.tree.official}
         </span>
       </div>
       <span className="flex items-center gap-1.5">
         <MousePointerClick className="h-4 w-4" />
-        нажми на связь
+        {t.tree.clickLink}
       </span>
     </div>
   );

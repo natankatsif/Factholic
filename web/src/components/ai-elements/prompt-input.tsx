@@ -12,6 +12,7 @@ import React, {
 } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
+import { useSiteText } from "../../i18n/site";
 
 export interface PromptInputMessage {
   text: string;
@@ -52,9 +53,10 @@ export type PromptInputTextareaProps = ComponentProps<"textarea">;
 export const PromptInputTextarea = ({
   onKeyDown,
   className,
-  placeholder = "Спросите что-нибудь…",
+  placeholder,
   ...props
 }: PromptInputTextareaProps) => {
+  const t = useSiteText();
   const [isComposing, setIsComposing] = useState(false);
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
@@ -87,7 +89,7 @@ export const PromptInputTextarea = ({
         el.style.height = "auto";
         el.style.height = `${el.scrollHeight}px`;
       }}
-      placeholder={placeholder}
+      placeholder={placeholder ?? t.chat.askAnything}
       {...props}
     />
   );
@@ -114,6 +116,7 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
+  const t = useSiteText();
   const isGenerating = status === "submitted" || status === "streaming";
 
   let Icon = <ArrowUp className="size-[18px]" />;
@@ -135,8 +138,8 @@ export const PromptInputSubmit = ({
 
   return (
     <Button
-      aria-label={isGenerating ? "Остановить" : "Спросить"}
-      title={isGenerating ? "Остановить" : "Спросить"}
+      aria-label={isGenerating ? t.chat.stop : t.chat.ask}
+      title={isGenerating ? t.chat.stop : t.chat.ask}
       className={cn(className)}
       onClick={handleClick}
       size={size}

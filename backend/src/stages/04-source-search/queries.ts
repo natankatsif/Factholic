@@ -37,7 +37,7 @@ const QueriesSchema = z.object({
 const SYSTEM_PROMPT = `Ты составляешь поисковые запросы, чтобы проверить утверждение по независимым источникам разных типов (международные организации, госорганы, информагентства и СМИ разных стран, наука, фактчекеры).
 
 Правила:
-- 3–5 запросов, каждый 3–8 слов — как их вводят в поисковик, без кавычек и операторов.
+- 3–5 запросов, каждый 3–6 слов — как их вводят в поисковик, без кавычек и операторов. Длинные запросы находят мало: бери только главные слова.
 - Минимум по одному запросу на каждом языке из списка «Языки поиска». Запрос на другом языке — это перевод сути, а не транслитерация.
 - Запрос на любом языке называет то же конкретное событие и тех же людей, а не общую тему. Имена и места пиши так, как их пишут на этом языке: Осмоческу → Osmochescu, Кишинёв → Chișinău. Числа тоже: 300 тысяч → 300 de mii.
 - Молдавские новости выходят в основном на румынском: если утверждение про Молдову, запрос на ro обязателен, даже когда оно дано по-русски.
@@ -134,6 +134,7 @@ export async function planFollowUpQueries(
   used: string[],
   found: string[],
   ctx: StageContext,
+  max = MAX_FOLLOW_UP,
 ): Promise<PlannedQuery[]> {
   const { claim } = input;
   const prompt = [
@@ -165,7 +166,7 @@ export async function planFollowUpQueries(
     return data.queries
       .map((q) => ({ ...q, text: q.text.trim(), language: isoLanguage(q.language, claim.language) }))
       .filter((q) => q.text && !seen.has(q.text.toLowerCase()))
-      .slice(0, MAX_FOLLOW_UP);
+      .slice(0, max);
   } catch (err) {
     if (ctx.signal.aborted || err instanceof LlmConfigError) throw err;
     ctx.log("04: не удалось составить дополнительные запросы, поиск остановлен", err);

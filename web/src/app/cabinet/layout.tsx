@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { getCabinetDictionary } from "../../components/cabinet/dictionary";
+import { requestLocale } from "../../i18n/server";
 
-const t = getCabinetDictionary();
-
-export const metadata: Metadata = {
-  title: t.meta.title,
-  description: t.meta.description,
-};
+export function generateMetadata(): Metadata {
+  const { title, description } = getCabinetDictionary(requestLocale()).meta;
+  return { title, description };
+}
 
 /**
  * Кабинет — приложение на весь экран: страница не должна пружинить, а свайп двумя пальцами не должен листать

@@ -1,19 +1,15 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ComponentProps,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
+import { useSiteText } from "../../i18n/site";
 
 export type SuggestionsProps = ComponentProps<"div">;
 
 export const Suggestions = ({ className, children, ...props }: SuggestionsProps) => {
+  const t = useSiteText();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -150,7 +146,7 @@ export const Suggestions = ({ className, children, ...props }: SuggestionsProps)
             tabIndex={-1}
             onClick={() => scrollByAmount("left")}
             className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-[#755D5C] shadow-sm transition hover:bg-white hover:text-foreground active:scale-95"
-            aria-label="Прокрутить влево"
+            aria-label={t.chat.scrollLeft}
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
@@ -169,9 +165,7 @@ export const Suggestions = ({ className, children, ...props }: SuggestionsProps)
           hasOverflow ? (isDragging ? "cursor-grabbing select-none" : "cursor-grab") : "cursor-default",
         )}
       >
-        <div className={cn("flex w-max flex-nowrap items-center gap-2 py-0.5", className)}>
-          {children}
-        </div>
+        <div className={cn("flex w-max flex-nowrap items-center gap-2 py-0.5", className)}>{children}</div>
       </div>
 
       {/* Right scroll chevron & fade */}
@@ -182,7 +176,7 @@ export const Suggestions = ({ className, children, ...props }: SuggestionsProps)
             tabIndex={-1}
             onClick={() => scrollByAmount("right")}
             className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-[#755D5C] shadow-sm transition hover:bg-white hover:text-foreground active:scale-95"
-            aria-label="Прокрутить вправо"
+            aria-label={t.chat.scrollRight}
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>

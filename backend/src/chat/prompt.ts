@@ -2,11 +2,23 @@
  * Инструкции ассистента и контекст разбора: модель отвечает по отчёту, а чего в нём нет — ищет в интернете.
  * Принципы продукта (AGENTS.md, раздел 2) — те же: только по найденным публикациям, нейтральный тон, без вердиктов.
  */
-import type { FactCheck, VideoReport } from "@news/contracts";
+import type { FactCheck, LanguageCode, VideoReport } from "@news/contracts";
 
 const MAX_CONTEXT_CHARS = 14_000;
 
-export function buildInstructions(report: VideoReport, claimId: string | undefined, today: string): string {
+/** На каком языке отвечать: язык интерфейса; незнакомый — на языке вопроса */
+const REPLY_LANGUAGE: Record<string, string> = {
+  ru: "По-русски",
+  ro: "По-румынски",
+  en: "По-английски",
+};
+
+export function buildInstructions(
+  report: VideoReport,
+  claimId: string | undefined,
+  today: string,
+  uiLanguage: LanguageCode = "ru",
+): string {
   const claim = report.factChecks.find((f) => f.id === claimId) ?? report.factChecks[0];
   const others = report.factChecks.filter((f) => f !== claim).map((f) => `- ${f.claim}`);
 
@@ -14,7 +26,7 @@ export function buildInstructions(report: VideoReport, claimId: string | undefin
 Сегодня ${today}.
 
 Как отвечать:
-- По-русски, коротко: 2–6 предложений или короткий список. Markdown можно, заголовки — нет.
+- ${REPLY_LANGUAGE[uiLanguage] ?? "На языке вопроса"}, коротко: 2–6 предложений или короткий список. Markdown можно, заголовки — нет.
 - Сначала опирайся на разбор ниже: первоисточник, путь утверждения, что изменилось при пересказах, позиции источников.
 - Если ответ есть в разборе — отвечай сразу, без поиска: каждый поиск — несколько секунд ожидания.
 - Если в разборе ответа нет, пользователь просит уточнить, проверить свежие новости или найти что-то ещё — вызови

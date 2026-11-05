@@ -1,6 +1,8 @@
 import React from "react";
 import { FileText, Globe } from "lucide-react";
 import type { VideoReport } from "@news/contracts";
+import { LOCALE_TAGS } from "../i18n/locale";
+import { getSiteDictionary, type SiteDictionary } from "../i18n/site";
 
 export type PlatformType = "youtube" | "shorts" | "tiktok" | "facebook" | "x" | "website" | "text";
 
@@ -17,15 +19,27 @@ export function detectPlatform(
   input: string,
   isUrl?: boolean,
   video?: VideoReport["video"],
+  /** Подписи плашки. Кому нужен только тип, может не передавать */
+  labels: SiteDictionary["platform"] = getSiteDictionary().platform,
 ): PlatformMeta {
   const urlOrText = (video?.pageUrl || input || "").trim();
   const lower = urlOrText.toLowerCase();
 
   // If explicitly not URL, or starts with text:
-  if (isUrl === false || lower.startsWith("text:") || (!lower.startsWith("http://") && !lower.startsWith("https://") && !lower.includes("youtu.be") && !lower.includes("tiktok.com") && !lower.includes("facebook.com") && !lower.includes("twitter.com") && !lower.includes("x.com"))) {
+  if (
+    isUrl === false ||
+    lower.startsWith("text:") ||
+    (!lower.startsWith("http://") &&
+      !lower.startsWith("https://") &&
+      !lower.includes("youtu.be") &&
+      !lower.includes("tiktok.com") &&
+      !lower.includes("facebook.com") &&
+      !lower.includes("twitter.com") &&
+      !lower.includes("x.com"))
+  ) {
     return {
       type: "text",
-      label: "Текст",
+      label: labels.text,
       badgeBg: "#EDE4FD",
       badgeFg: "#6E1EF0",
       badgeBorder: "#D8C7FA",
@@ -93,7 +107,12 @@ export function detectPlatform(
   }
 
   // Facebook
-  if (lower.includes("facebook.com") || lower.includes("fb.watch") || lower.includes("fb.com") || platformStr === "facebook") {
+  if (
+    lower.includes("facebook.com") ||
+    lower.includes("fb.watch") ||
+    lower.includes("fb.com") ||
+    platformStr === "facebook"
+  ) {
     return {
       type: "facebook",
       label: "Facebook",
@@ -136,12 +155,12 @@ export function detectPlatform(
     const parsed = new URL(urlOrText.startsWith("http") ? urlOrText : `https://${urlOrText}`);
     host = parsed.hostname.replace(/^www\./, "");
   } catch {
-    host = "Веб-сайт";
+    host = labels.website;
   }
 
   return {
     type: "website",
-    label: host || "Статья",
+    label: host || labels.article,
     badgeBg: "#E6F7FA",
     badgeFg: "#0AA6C2",
     badgeBorder: "#BDEBF2",
@@ -149,16 +168,16 @@ export function detectPlatform(
   };
 }
 
-export function formatTimeAgo(isoString: string): string {
+export function formatTimeAgo(isoString: string, t: SiteDictionary): string {
   try {
     const date = new Date(isoString);
     const now = new Date();
     const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-    if (diffSec < 60) return "Только что";
+    if (diffSec < 60) return t.platform.justNow;
     if (diffSec < 3600) {
       const min = Math.floor(diffSec / 60);
-      return `${min} мин назад`;
+      return t.platform.minutesAgo(min);
     }
 
     const isToday =
@@ -166,9 +185,9 @@ export function formatTimeAgo(isoString: string): string {
       date.getMonth() === now.getMonth() &&
       date.getFullYear() === now.getFullYear();
 
-    const timeStr = date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    const timeStr = date.toLocaleTimeString(LOCALE_TAGS[t.locale], { hour: "2-digit", minute: "2-digit" });
 
-    if (isToday) return `Сегодня, ${timeStr}`;
+    if (isToday) return t.platform.today(timeStr);
 
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
@@ -177,9 +196,9 @@ export function formatTimeAgo(isoString: string): string {
       date.getMonth() === yesterday.getMonth() &&
       date.getFullYear() === yesterday.getFullYear();
 
-    if (isYesterday) return `Вчера, ${timeStr}`;
+    if (isYesterday) return t.platform.yesterday(timeStr);
 
-    return date.toLocaleDateString("ru-RU", {
+    return date.toLocaleDateString(LOCALE_TAGS[t.locale], {
       day: "numeric",
       month: "short",
       hour: "2-digit",

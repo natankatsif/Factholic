@@ -4,7 +4,7 @@
  *   node build.mjs --watch   пересборка при изменениях
  */
 import { context } from "esbuild";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
@@ -38,6 +38,8 @@ mkdirSync(here("dist"), { recursive: true });
 const manifest = JSON.parse(readFileSync(here("manifest.json"), "utf8"));
 manifest.host_permissions = [`${new URL(backendUrl).origin}/*`];
 writeFileSync(here("dist/manifest.json"), JSON.stringify(manifest, null, 2));
+// название и описание на языке браузера: ru, ro, en (__MSG_…__ в manifest.json)
+cpSync(here("_locales"), here("dist/_locales"), { recursive: true });
 
 const watch = process.argv.includes("--watch");
 const contexts = await Promise.all(

@@ -22,6 +22,7 @@ import { VIDEO_NODE_ID } from "../05-provenance/types.ts";
 import type { MutationsOutput } from "../06-mutations/types.ts";
 import type { RootDateOutput } from "../07-root-date/types.ts";
 import type { ConsensusStatus, SourceAssessment } from "../08-stances/types.ts";
+import { textsFor, type ReportTexts } from "./texts.ts";
 import type { ProvenanceResult, ReportInput, ReportOutput } from "./types.ts";
 
 export type * from "./types.ts";
@@ -29,26 +30,11 @@ export type * from "./types.ts";
 /** Источники с relevance ниже — не показываем */
 const MIN_RELEVANCE = 0.3;
 
-const MONTHS_GENITIVE = [
-  "января",
-  "февраля",
-  "марта",
-  "апреля",
-  "мая",
-  "июня",
-  "июля",
-  "августа",
-  "сентября",
-  "октября",
-  "ноября",
-  "декабря",
-];
-
-function formatFullDate(iso?: string | null): string {
+function formatFullDate(iso: string | null | undefined, t: ReportTexts): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return `${d.getUTCDate()} ${MONTHS_GENITIVE[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return `${d.getUTCDate()} ${t.months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 function formatShortDate(iso?: string | null): string {
@@ -63,6 +49,7 @@ function formatShortDate(iso?: string | null): string {
 /** Чистая функция: внутренние типы пайплайна → модель для фронта. */
 export function toFactCheck(input: ReportInput): ReportOutput {
   const { claim } = input;
+  const t = textsFor(input.uiLanguage ?? "ru");
   const base: FactCheck = {
     id: claim.id,
     status: "checking",
@@ -86,18 +73,22 @@ export function toFactCheck(input: ReportInput): ReportOutput {
       return { ...base, status: "failed", error: input.error };
     case "checked": {
       const { stances, provenance } = input;
-      const flags = buildFlags(provenance?.rootDate, provenance?.mutations);
-      const unconfirmed = input.search?.unconfirmed ?? [];
+      const flags = buildFlags(provenance?.rootDate, provenance?.mutations, t);
+      // этап 04 пишет пробелы поиска только по-русски: на других языках вместо них общая фраза
+      const unconfirmed = (input.search?.unconfirmed ?? []).map((gap) =>
+        (input.uiLanguage ?? "ru") === "ru" ? gap : t.keyFinding.insufficientDetail,
+      );
       const { consensus, consensusSummary } = buildConsensus(
         stances.consensus.status,
         flags,
         unconfirmed,
+        t,
         stances.consensus.authority,
       );
       const keyFinding =
-        buildKeyFinding(flags, provenance?.rootDate, claim.structure?.time?.relative ?? true) ??
+        buildKeyFinding(flags, provenance?.rootDate, claim.structure?.time?.relative ?? true, t) ??
         (consensus === "unverifiable" && unconfirmed.length
-          ? { title: "Недостаточно информации", subtitle: unconfirmed.join("; ") }
+          ? { title: t.keyFinding.insufficient, subtitle: [...new Set(unconfirmed)].join("; ") }
           : undefined);
 
       const byId = new Map(stances.sourceAssessments.map((a) => [a.sourceId, a]));
@@ -118,7 +109,7 @@ export function toFactCheck(input: ReportInput): ReportOutput {
         },
         flags,
         keyFinding,
-        provenance: provenance ? toProvenance(provenance, claim) : undefined,
+        provenance: provenance ? toProvenance(provenance, claim, t) : undefined,
         sources,
         checkedAt: stances.checkedAt,
       };
@@ -129,13 +120,14 @@ export function toFactCheck(input: ReportInput): ReportOutput {
 function buildFlags(
   rootDate: RootDateOutput | undefined,
   mutations: MutationsOutput | null | undefined,
+  t: ReportTexts,
 ): ClaimFlag[] {
   const flags: ClaimFlag[] = [];
   if (rootDate?.flag) {
     flags.push({
       type: "outdated",
-      label: "Старый контент",
-      detail: `самая ранняя из найденных публикаций от ${formatShortDate(rootDate.rootPublishedAt)}`,
+      label: t.flags.oldContent,
+      detail: t.flags.oldContentDetail(formatShortDate(rootDate.rootPublishedAt)),
       severity: "warning",
     });
   }
@@ -150,7 +142,7 @@ function buildFlags(
       .map((m) => `${m.fromId}>${m.toId}`),
   );
   for (const m of all) {
-    const flag = mutationFlag(m, sourceRemovedOn.has(`${m.fromId}>${m.toId}`));
+    const flag = mutationFlag(m, sourceRemovedOn.has(`${m.fromId}>${m.toId}`), t);
     if (flag) flags.push(flag);
   }
 
@@ -169,8 +161,8 @@ function buildFlags(
 const MAX_FLAGS = 5;
 
 /** Серьёзные флаги: старое за новое, цифры в разы, сдвиг места/времени/цифр. Остальные — пояснения */
-function isMajorFlag(f: ClaimFlag): boolean {
-  return f.type === "outdated" || f.type === "exaggerated" || f.label === "Искажение";
+function isMajorFlag(f: ClaimFlag, t: ReportTexts): boolean {
+  return f.type === "outdated" || f.type === "exaggerated" || f.label === t.flags.distortion;
 }
 const FLAG_PRIORITY: Record<ClaimFlag["type"], number> = {
   outdated: 0,
@@ -186,37 +178,38 @@ const FLAG_PRIORITY: Record<ClaimFlag["type"], number> = {
 function mutationFlag(
   m: MutationsOutput["mutations"][number],
   sourceRemovedOnEdge: boolean,
+  t: ReportTexts,
 ): ClaimFlag | null {
   const detail = `${m.before} → ${m.after}`;
   switch (m.field) {
     case "numbers":
       // inflated — выросло в разы (этап 06: ≥ 1,5×)
       if (m.direction === "inflated")
-        return { type: "exaggerated", label: "Раздуто", detail, severity: "danger" };
+        return { type: "exaggerated", label: t.flags.exaggerated, detail, severity: "danger" };
       // changed — разошлось на 10–50% или записано иначе: источники приводят разные цифры
       if (m.direction === "changed")
-        return { type: "distortion", label: "Расхождение в цифрах", detail, severity: "info" };
+        return { type: "distortion", label: t.flags.numbersDiffer, detail, severity: "info" };
       // added — у первоисточника этой цифры нет: могла прийти из другого источника, поэтому мягкий флаг
       if (m.direction === "added")
-        return { type: "other", label: "Цифра не из первоисточника", detail, severity: "info" };
+        return { type: "other", label: t.flags.numberNotFromRoot, detail, severity: "info" };
       if (m.direction === "shifted")
-        return { type: "distortion", label: "Искажение", detail, severity: "warning" };
+        return { type: "distortion", label: t.flags.distortion, detail, severity: "warning" };
       return null;
     case "place":
     case "time":
       // added — перепечатка добавила место/время, о которых источник молчал: это подробность, а не искажение
       if (m.direction === "shifted" || m.direction === "changed")
-        return { type: "distortion", label: "Искажение", detail, severity: "warning" };
+        return { type: "distortion", label: t.flags.distortion, detail, severity: "warning" };
       return null;
     case "certainty":
       if (m.direction !== "inflated" || sourceRemovedOnEdge) return null;
-      return { type: "distortion", label: "Подано увереннее", detail, severity: "warning" };
+      return { type: "distortion", label: t.flags.moreCertain, detail, severity: "warning" };
     case "attribution":
       // сослались на источник — честнее, не флаг
       if (m.direction === "added") return null;
       if (m.direction === "removed")
-        return { type: "distortion", label: "Убрана ссылка на источник", detail, severity: "warning" };
-      return { type: "distortion", label: "Подменён источник", detail, severity: "warning" };
+        return { type: "distortion", label: t.flags.attributionRemoved, detail, severity: "warning" };
+      return { type: "distortion", label: t.flags.sourceReplaced, detail, severity: "warning" };
     default:
       return null;
   }
@@ -227,6 +220,7 @@ function buildKeyFinding(
   rootDate: RootDateOutput | undefined,
   /** «вчера» / «сейчас» — подано как недавнее; явная дата («в 2023 году») — указана более поздняя дата */
   relativeTime: boolean,
+  t: ReportTexts,
 ): KeyFinding | undefined {
   if (rootDate?.flag && rootDate.rootPublishedAt && rootDate.claimedAt) {
     const rootMs = Date.parse(rootDate.rootPublishedAt);
@@ -234,21 +228,20 @@ function buildKeyFinding(
     const diffDays = Math.round(Math.abs(claimedMs - rootMs) / (1000 * 60 * 60 * 24));
     let timeAgo: string;
     if (diffDays >= 365) {
-      const years = (diffDays / 365).toFixed(1).replace(".0", "").replace(".", ",");
-      timeAgo = `Событию ${years} года`;
+      timeAgo = t.keyFinding.yearsOld(formatYears(diffDays, t));
     } else if (diffDays >= 30) {
       const months = Math.round(diffDays / 30);
-      timeAgo = `Событию ${months} месяцев`;
+      timeAgo = t.keyFinding.monthsOld(months);
     } else {
-      timeAgo = `Событию ${diffDays} дней`;
+      timeAgo = t.keyFinding.daysOld(diffDays);
     }
     return {
       title: timeAgo,
-      subtitle: relativeTime ? "в видео подано как недавнее" : "а в видео указана более поздняя дата",
+      subtitle: relativeTime ? t.keyFinding.presentedAsRecent : t.keyFinding.laterDateClaimed,
     };
   }
   // заголовок карточки — только серьёзный флаг: «Убрана ссылка на источник» не главный вывод о верном утверждении
-  const major = flags.find(isMajorFlag);
+  const major = flags.find((f) => isMajorFlag(f, t));
   if (major) {
     return {
       title: major.label,
@@ -262,7 +255,8 @@ function buildConsensus(
   status: ConsensusStatus,
   flags: ClaimFlag[],
   /** Жёсткие пробелы поиска: «ни один источник не называет число 200» */
-  unconfirmed: string[] = [],
+  unconfirmed: string[],
+  t: ReportTexts,
   /** Вывод по одному официальному первоисточнику (этап 08): «ООН» */
   authority?: string,
 ): { consensus: ClaimConsensus; consensusSummary: string } {
@@ -270,43 +264,48 @@ function buildConsensus(
   if (status === "mostly_against") {
     return {
       consensus: "against",
-      consensusSummary: authority ? `опровергает первоисточник: ${authority}` : "источники возражают",
+      consensusSummary: authority ? t.consensus.refutedByRoot(authority) : t.consensus.sourcesObject,
     };
   }
   // итог меняют только серьёзные флаги; мягкие (ссылка на источник, уверенность, расхождение цифр) — только в карточке
   // источники подтверждают утверждение как оно звучит: расхождение с ранней заметкой остаётся флагом на карточке,
   // но итог не меняет (ранняя заметка о первом чтении, утверждение о финальном голосовании)
-  const major = flags.filter((f) => isMajorFlag(f) && !(status === "agree" && f.type === "distortion"));
+  const major = flags.filter((f) => isMajorFlag(f, t) && !(status === "agree" && f.type === "distortion"));
   if (major.length > 0) {
     const hasOutdated = flags.some((f) => f.type === "outdated");
     const hasExaggerated = flags.some((f) => f.type === "exaggerated");
     let summary: string;
-    if (hasOutdated && hasExaggerated) summary = "раздуто • старое";
-    else if (hasOutdated) summary = "старый контент";
-    else if (hasExaggerated) summary = "раздуто";
+    if (hasOutdated && hasExaggerated) summary = t.consensus.exaggeratedAndOld;
+    else if (hasOutdated) summary = t.consensus.oldContent;
+    else if (hasExaggerated) summary = t.consensus.exaggerated;
     else summary = major[0].label.toLowerCase();
     return { consensus: "flagged", consensusSummary: summary };
   }
   // три раунда поиска не нашли, чем подтвердить или опровергнуть — честно говорим, а не угадываем
   if (unconfirmed.length > 0) {
-    return { consensus: "unverifiable", consensusSummary: `недостаточно информации: ${unconfirmed[0]}` };
+    return { consensus: "unverifiable", consensusSummary: t.consensus.insufficient(unconfirmed[0]!) };
   }
 
   switch (status) {
     case "agree":
       return {
         consensus: "converge",
-        consensusSummary: authority ? `подтверждает первоисточник: ${authority}` : "позиции совпадают",
+        consensusSummary: authority ? t.consensus.confirmedByRoot(authority) : t.consensus.positionsAgree,
       };
     case "split":
-      return { consensus: "split", consensusSummary: "мнения расходятся" };
+      return { consensus: "split", consensusSummary: t.consensus.split };
     case "few_sources":
     default:
-      return { consensus: "unverifiable", consensusSummary: "мало источников" };
+      return { consensus: "unverifiable", consensusSummary: t.consensus.fewSources };
   }
 }
 
-function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): ProvenanceTree {
+/** «3,5» / «3.5» — лет между датами, для подписей */
+function formatYears(diffDays: number, t: ReportTexts): string {
+  return (diffDays / 365).toFixed(1).replace(".0", "").replace(".", t.decimalSeparator);
+}
+
+function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim, t: ReportTexts): ProvenanceTree {
   const mutationList = mutations?.mutations ?? [];
   const byId = new Map(tree.nodes.map((n) => [n.id, n]));
   // Текст узла: у публикаций — заголовок, у самого материала — цитата ЭТОГО тезиса. Заголовок материала
@@ -326,7 +325,7 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
     else if (hasDistortion) role = "distortion";
 
     let category: ProvenanceSourceCategory = "media";
-    let categoryLabel = "СМИ";
+    let categoryLabel = t.node.media;
     const pubLower = n.publisher.toLowerCase();
     if (
       pubLower.includes("мэрия") ||
@@ -335,14 +334,17 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
       n.domain.endsWith(".gov.md")
     ) {
       category = "official";
-      categoryLabel = "официальный";
+      categoryLabel = t.node.official;
     } else if (n.domain.includes("t.me") || pubLower.includes("канал") || pubLower.includes("паблик")) {
       category = "channel";
-      categoryLabel = "паблик";
+      categoryLabel = t.node.channel;
     }
 
     // разбор показываем как разбор: он не пересказывает историю, а проверяет её
-    if (n.relation === "debunks") categoryLabel = "разбор";
+    if (n.relation === "debunks") {
+      category = "fact_checker";
+      categoryLabel = t.node.debunk;
+    }
 
     const tags: string[] = [];
     for (const m of nodeMutations) {
@@ -355,17 +357,17 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
     const action: ProvenanceNodeAction = isTarget
       ? {
           type: "watch_fragment",
-          label: "Смотреть фрагмент ↗",
+          label: t.node.watchFragment,
           timecodeSec: Math.floor(claim.range.start),
         }
       : {
           type: "open_source",
-          label: "Открыть источник ↗",
+          label: t.node.openSource,
           url: n.url,
         };
 
     // более ранняя публикация могла не найтись: обещать «первая» нельзя
-    if (isPrimary) categoryLabel = "самая ранняя из найденных";
+    if (isPrimary) categoryLabel = t.node.earliest;
 
     const shortCode = n.publisher.slice(0, 2).toUpperCase();
 
@@ -377,7 +379,7 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
       categoryLabel,
       role,
       isPrimary,
-      date: formatFullDate(n.publishedAt),
+      date: formatFullDate(n.publishedAt, t),
       isoDate: n.publishedAt,
       quote: textOf(n),
       url: n.url,
@@ -404,26 +406,26 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
         category: m.field === "place" ? "location" : m.field,
         categoryLabel:
           m.field === "numbers"
-            ? "Цифры"
+            ? t.change.numbers
             : m.field === "place"
-              ? "Место"
+              ? t.change.place
               : m.field === "time"
-                ? "Время"
+                ? t.change.time
                 : m.field === "certainty"
-                  ? "Уверенность"
-                  : "Источник",
+                  ? t.change.certainty
+                  : t.change.attribution,
         description: m.note || `${m.before} → ${m.after}`,
       }));
 
       const diff: ProvenanceEdgeDiff | undefined = hasDistortion
         ? {
             before: {
-              sourceName: parentNode?.publisher || "Источник",
+              sourceName: parentNode?.publisher || t.node.source,
               date: formatShortDate(parentNode?.publishedAt),
               text: textOf(parentNode),
             },
             after: {
-              sourceName: node.publisher || "Источник",
+              sourceName: node.publisher || t.node.source,
               date: formatShortDate(node.publishedAt),
               text: textOf(node),
             },
@@ -431,11 +433,7 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
           }
         : undefined;
 
-      const label = hasDistortion
-        ? "пересказ с изменениями"
-        : node.via === "link"
-          ? "пересказ без изменений"
-          : "вероятно взят отсюда";
+      const label = hasDistortion ? t.edge.changed : node.via === "link" ? t.edge.unchanged : t.edge.probable;
 
       edges.push({
         id: `edge_${node.parentId}_${node.id}`,
@@ -461,10 +459,10 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
       id: hidden.id,
       name: hidden.name,
       category: "other",
-      categoryLabel: "источник не найден",
+      categoryLabel: t.node.sourceNotFound,
       role: "retelling",
-      date: "дата неизвестна",
-      quote: `На этот источник ссылаются публикации: ${hidden.copyIds.length}`,
+      date: t.node.dateUnknown,
+      quote: t.node.citedBy(hidden.copyIds.length),
     });
     for (const copyId of hidden.copyIds) {
       edges.push({
@@ -472,7 +470,7 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
         fromNodeId: hidden.id,
         toNodeId: copyId,
         relationType: "likely_derived",
-        label: "ссылается на этот источник",
+        label: t.edge.cites,
       });
     }
   }
@@ -495,12 +493,12 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
     const nodeMutations = mutationList.filter((m) => m.toId === n.id);
     const isDistortion = nodeMutations.length > 0;
     const tag = isRoot
-      ? "оригинал"
+      ? t.path.original
       : isChainHead && !isDistortion
-        ? "начало цепочки"
+        ? t.path.chainStart
         : isDistortion
           ? nodeMutations[0].note || `${nodeMutations[0].before} → ${nodeMutations[0].after}`
-          : "пересказ";
+          : t.path.retelling;
     return {
       name: n.publisher || n.title,
       date: formatShortDate(n.publishedAt),
@@ -511,7 +509,7 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
   });
 
   const timelineDates = [
-    ...new Set(tree.nodes.map((n) => formatFullDate(n.publishedAt)).filter((d) => d !== "—")),
+    ...new Set(tree.nodes.map((n) => formatFullDate(n.publishedAt, t)).filter((d) => d !== "—")),
   ];
 
   const timelineGaps: TimelineGap[] = [];
@@ -524,11 +522,10 @@ function toProvenance({ tree, mutations }: ProvenanceResult, claim: Claim): Prov
       if (!isNaN(msA) && !isNaN(msB)) {
         const diffDays = Math.round(Math.abs(msB - msA) / (1000 * 60 * 60 * 24));
         if (diffDays >= 180) {
-          const years = (diffDays / 365).toFixed(1).replace(".0", "").replace(".", ",");
           timelineGaps.push({
             afterNodeId: a.id,
             beforeNodeId: b.id,
-            label: `${years} года тишины`,
+            label: t.silenceYears(formatYears(diffDays, t)),
           });
         }
       }

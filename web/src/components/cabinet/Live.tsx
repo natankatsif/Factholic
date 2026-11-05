@@ -8,7 +8,7 @@ import { ActionsContext, demoActions, type CabinetActions } from "./actions";
 import { CabinetApiError, cabinetApi, subscribeCabinet } from "./api";
 import { CheckScreen } from "./CheckScreen";
 import { CabinetShell } from "./CabinetShell";
-import { CABINET_LOCALE, useCabinetText } from "./dictionary";
+import { useCabinetText } from "./dictionary";
 import { CheckSkeleton, HomeSkeleton, ListSkeleton } from "./Skeletons";
 import type { CabinetFixture } from "./fixtures";
 import { HomeScreen } from "./HomeScreen";
@@ -88,7 +88,7 @@ function useLiveActions(reload: () => Promise<void>, picker: CabinetActions["pic
     return {
       startCheck: (input) =>
         run(async () => {
-          const started = await cabinetApi.startCheck(input, CABINET_LOCALE);
+          const started = await cabinetApi.startCheck(input, t.locale);
           // если модель спросила, вопрос появится в верхней панели
           if ("check" in started) router.push(`/cabinet/checks/${started.check.id}`);
         }),
@@ -317,7 +317,7 @@ export function LiveNarrative({ id }: { id: string }) {
       <NarrativeScreen
         fixture={{
           session: toSession(data.session, data.alerts, t),
-          narrative: toNarrativeView(data.detail),
+          narrative: toNarrativeView(data.detail, t),
         }}
       />
     </LiveFrame>

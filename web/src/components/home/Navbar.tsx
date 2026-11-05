@@ -2,9 +2,9 @@ import React from "react";
 import Link from "next/link";
 import { Github, History } from "lucide-react";
 import { GITHUB_URL } from "./HackathonPill";
-import { getCabinetDictionary } from "../cabinet/dictionary";
-
-const cabinetText = getCabinetDictionary();
+import { useCabinetText } from "../cabinet/dictionary";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
+import { useSiteText } from "../../i18n/site";
 
 export interface NavbarProps {
   onGoHome?: () => void;
@@ -14,6 +14,8 @@ export interface NavbarProps {
 }
 
 export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarProps) {
+  const t = useSiteText();
+  const cabinetText = useCabinetText();
   return (
     <header
       data-pencil-name="Top Bar"
@@ -24,7 +26,7 @@ export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarP
         type="button"
         onClick={onGoHome}
         data-pencil-name="Logo"
-        title="На главную"
+        title={t.common.toHome}
         className="text-2xl sm:text-3xl lg:text-[32px] leading-normal box-border text-[#4A3333] font-black tracking-[-1px] text-left whitespace-nowrap bg-transparent border-none p-0 cursor-pointer hover:opacity-90 transition-opacity"
       >
         factholic
@@ -33,14 +35,14 @@ export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarP
       {/* Nav Menu and Action */}
       <nav
         data-pencil-name="Nav"
-        className="box-border w-fit shrink-0 h-fit flex flex-row gap-5 sm:gap-8 lg:gap-[40px] justify-start items-center"
+        className="box-border w-fit shrink-0 h-fit flex flex-row gap-2.5 sm:gap-5 lg:gap-6 xl:gap-[40px] justify-start items-center"
       >
         <button
           type="button"
           onClick={() => onNavClick?.("editorial")}
           className="text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer hidden lg:block"
         >
-          Для редакций
+          {t.nav.editorial}
         </button>
 
         <button
@@ -48,7 +50,7 @@ export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarP
           onClick={() => onNavClick?.("business")}
           className="text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer hidden lg:block"
         >
-          Для бизнеса
+          {t.nav.business}
         </button>
 
         <Link
@@ -62,20 +64,23 @@ export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarP
           <button
             type="button"
             onClick={onOpenHistory}
+            aria-label={t.common.history}
             className="flex items-center gap-1.5 text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer"
           >
             <History className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
-            <span>История</span>
+            <span className="hidden sm:inline">{t.common.history}</span>
           </button>
         )}
+
+        <LanguageSwitcher label={t.nav.language} />
 
         <a
           href={GITHUB_URL}
           target="_blank"
           rel="noreferrer"
-          title="factholic на GitHub"
-          aria-label="factholic на GitHub"
-          className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A27C7A] transition-colors hover:bg-[#E8DFDC] hover:text-[#4A3333] sm:flex lg:h-10 lg:w-10"
+          title={t.nav.github}
+          aria-label={t.nav.github}
+          className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A27C7A] transition-colors hover:bg-[#E8DFDC] hover:text-[#4A3333] xl:flex xl:h-10 xl:w-10"
         >
           <Github className="h-[18px] w-[18px] lg:h-5 lg:w-5" strokeWidth={2.2} />
         </a>
@@ -90,7 +95,7 @@ export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarP
             data-pencil-name="Btn Text"
             className="text-sm sm:text-base lg:text-[16px] leading-normal box-border font-extrabold text-left whitespace-nowrap"
           >
-            Войти
+            {t.nav.login}
           </span>
         </button>
       </nav>

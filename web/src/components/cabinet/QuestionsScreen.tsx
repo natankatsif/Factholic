@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useCabinetActions } from "./actions";
 import { CabinetShell, useOpenNarrativeDialog } from "./CabinetShell";
-import { pluralWord, useCabinetText } from "./dictionary";
+import { useCabinetText } from "./dictionary";
 import type { CabinetFixture } from "./fixtures";
 import { CaretDownIcon, EyeIcon, SearchIcon, SpinnerIcon, StackIcon } from "./icons";
 import { POPOVER_PANEL, PopoverItem, usePopover } from "./Popover";
@@ -114,7 +114,7 @@ function SelectionBar({
       )}
       <div className="flex w-[720px] items-center justify-between gap-2.5 rounded-full bg-primary py-2 pl-[22px] pr-2 shadow-[0_10px_30px_#4A333355]">
         <span className="whitespace-nowrap text-[14px] font-extrabold text-white">
-          {text.selected(selected.length, pluralWord(selected.length, text.selectedWord))}
+          {text.selected(selected.length, t.plural(selected.length, text.selectedWord))}
         </span>
         <div className="flex items-center gap-1.5">
           <button
@@ -205,7 +205,7 @@ export function QuestionsScreen({
           <p className="whitespace-nowrap text-[15px] font-bold text-cabinet-ink-mid">
             {scope === "running"
               ? text.runningSubtitle(total)
-              : text.subtitle(total, pluralWord(total, text.saved))}
+              : text.subtitle(total, t.plural(total, text.saved))}
           </p>
         </div>
         <div className="flex w-full items-center gap-2">

@@ -4,7 +4,6 @@
  */
 import { createHash, randomUUID } from "node:crypto";
 import {
-  isPendingCheck,
   type FactCheck,
   type JobId,
   type ServerEvent,
@@ -258,7 +257,9 @@ export class CabinetService {
       this.db.put("check", check);
       this.emit({ type: "check.step", checkId: id });
     }
-    if (event.type === "job.completed" || event.type === "claim.checked") this.settle(id);
+    if (event.type === "job.completed") this.settle(id);
+    // следующий из очереди начнётся сразу после этого события, поэтому смотрим уже после него
+    if (event.type === "claim.checked") setImmediate(() => this.settle(id));
   }
 
   private failCheck(check: ClaimCheck): void {
@@ -278,7 +279,9 @@ export class CabinetService {
     if (!check || check.status !== "running") return;
     const report = this.runner.report(check.jobId);
     if (!report) return;
-    if (!force && (report.status !== "completed" || report.factChecks.some(isPendingCheck))) return;
+    // «found» не ждём: утверждение сверх лимита не проверится никогда, и проверка зависла бы
+    const busy = report.factChecks.some((factCheck) => factCheck.status === "checking");
+    if (!force && (report.status !== "completed" || busy)) return;
 
     const usable = report.factChecks.filter((factCheck) => factCheck.status === "done");
     const allFailed = report.factChecks.length > 0 && usable.length === 0;

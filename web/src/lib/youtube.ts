@@ -2,6 +2,8 @@
  * YouTube: id видео из ссылки и загрузка IFrame Player API (плеер на экране разбора видео).
  */
 import type { VideoInfo } from "@news/contracts";
+import { currentLocale } from "../i18n/locale";
+import { getSiteDictionary } from "../i18n/site";
 
 const ID_RE = /^[\w-]{11}$/;
 
@@ -126,7 +128,7 @@ export function loadYoutubeApi(): Promise<YTNamespace> {
     script.async = true;
     script.onerror = () => {
       apiPromise = null;
-      reject(new Error("Не удалось загрузить плеер YouTube"));
+      reject(new Error(getSiteDictionary(currentLocale()).jobs.playerFailed));
     };
     document.head.appendChild(script);
   });

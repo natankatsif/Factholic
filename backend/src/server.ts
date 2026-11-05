@@ -18,6 +18,7 @@ import {
 import { MOCK_EVENTS, MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
 import { chatConfigErrors, handleChat, type ChatRequestBody } from "./chat/index.ts";
 import { config, configErrors, describeConfig } from "./config.ts";
+import { messagesFor, pipelineErrorText } from "./messages.ts";
 import { ClaimChecker } from "./pipeline/checks.ts";
 import { PipelineError } from "./pipeline/context.ts";
 import { allow, clientIp } from "./pipeline/guard.ts";
@@ -75,17 +76,18 @@ const server = createServer(async (req, res) => {
       request = JSON.parse(await readBody(req, MAX_JOB_BODY)) as StartAnalysisRequest;
       if (!request?.video?.pageUrl) throw new Error("нет video.pageUrl");
     } catch (err) {
-      if (err instanceof BodyTooLarge) return sendJson(res, 413, { error: "Файл слишком большой" });
+      if (err instanceof BodyTooLarge)
+        return sendJson(res, 413, { error: messagesFor(languageOf(req)).fileTooLarge });
       return sendJson(res, 400, { error: `неверный запрос: ${(err as Error).message}` });
     }
     if (request.text && request.text.length > config.limits.maxTextChars) {
       return sendJson(res, 413, {
-        error: `Текст слишком длинный: до ${config.limits.maxTextChars.toLocaleString("ru-RU")} символов`,
+        error: messagesFor(request.uiLanguage).textTooLong(config.limits.maxTextChars),
       });
     }
     // Готовое или идущее из кэша — бесплатно; новый материал — в лимит человека и дневной бюджет
     const ip = clientIp(req);
-    const denied = REPLAY || store.reusable(request) ? null : allow("job", ip);
+    const denied = REPLAY || store.reusable(request) ? null : allow("job", ip, request.uiLanguage);
     if (denied) return sendJson(res, 429, { error: denied, code: "RATE_LIMITED" });
     // Видео уже проверено или проверяется → вернётся существующая задача (cached: true — уже готово)
     const { job, cached } = store.create(randomUUID(), request, ip);
@@ -98,7 +100,9 @@ const server = createServer(async (req, res) => {
     const missing = chatConfigErrors();
     if (missing.length)
       return sendJson(res, 503, { error: `чат не настроен, в .env нужны: ${missing.join("; ")}` });
-    const report = REPLAY ? { ...MOCK_VIDEO_REPORT, jobId: chatMatch[1]! } : store.get(chatMatch[1]!)?.report;
+    const chatJob = REPLAY ? undefined : store.get(chatMatch[1]!);
+    const report = REPLAY ? { ...MOCK_VIDEO_REPORT, jobId: chatMatch[1]! } : chatJob?.report;
+    const chatLanguage = chatJob?.request.uiLanguage ?? languageOf(req);
     if (!report) return sendJson(res, 404, { error: "задача не найдена" });
     let body: ChatRequestBody;
     try {
@@ -106,14 +110,14 @@ const server = createServer(async (req, res) => {
       if (!Array.isArray(body?.messages) || !body.messages.length) throw new Error("нет messages");
     } catch (err) {
       if (err instanceof BodyTooLarge)
-        return sendJson(res, 413, { error: "Слишком длинный разговор — начни новый чат" });
+        return sendJson(res, 413, { error: messagesFor(chatLanguage).chatTooLong });
       return sendJson(res, 400, { error: `неверный запрос: ${(err as Error).message}` });
     }
-    const denied = allow("chat", clientIp(req));
+    const denied = allow("chat", clientIp(req), chatLanguage);
     if (denied) return sendJson(res, 429, { error: denied, code: "RATE_LIMITED" });
-    return handleChat(req, res, report, body).catch((err: unknown) => {
+    return handleChat(req, res, report, body, chatLanguage).catch((err: unknown) => {
       console.error(`[${report.jobId}] chat: упал`, err);
-      if (!res.headersSent) sendJson(res, 500, { error: "не удалось ответить" });
+      if (!res.headersSent) sendJson(res, 500, { error: messagesFor(chatLanguage).chatFailed });
       else res.end();
     });
   }
@@ -223,8 +227,11 @@ function startJob(job: JobRecord) {
     console.error(`[${job.id}] job.failed:`, err);
     const error =
       err instanceof PipelineError
-        ? { code: err.code, message: err.message }
-        : { code: "INTERNAL" as const, message: "Что-то пошло не так на сервере, попробуй ещё раз" };
+        ? { code: err.code, message: pipelineErrorText(err.code, err.message, job.request.uiLanguage) }
+        : {
+            code: "INTERNAL" as const,
+            message: messagesFor(job.request.uiLanguage).jobFailed.INTERNAL,
+          };
     emit({ type: "job.failed", jobId: job.id, error });
   });
 }
@@ -281,6 +288,11 @@ const MAX_JOB_BODY = 8 * 1024 * 1024;
 const MAX_CHAT_BODY = 300 * 1024;
 
 class BodyTooLarge extends Error {}
+
+/** Тело запроса ещё не прочитано или язык в нём не указан: берём первый язык браузера */
+function languageOf(req: IncomingMessage): string {
+  return req.headers["accept-language"]?.slice(0, 2).toLowerCase() || "ru";
+}
 
 function readBody(req: IncomingMessage, maxBytes: number): Promise<string> {
   return new Promise((resolve, reject) => {

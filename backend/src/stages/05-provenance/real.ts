@@ -115,6 +115,24 @@ export const buildProvenanceTreeReal: Stage<ProvenanceInput, ProvenanceTree> = a
     traceMode,
   });
 
+  // почему корень именно такой: без этого по сохранённому отчёту причину не восстановить
+  ctx.log(
+    `05: ${claim.id}: самые ранние`,
+    [...facts]
+      .filter((c) => c.source.publishedAt)
+      .sort((a, b) => a.source.publishedAt!.localeCompare(b.source.publishedAt!))
+      .slice(0, 6)
+      .map((c) =>
+        [
+          c.source.publishedAt!.slice(0, 10),
+          c.source.dateSource ?? "?",
+          c.relation ?? "?",
+          c.structure ? "есть" : "нет структуры",
+          c.source.domain,
+        ].join(" "),
+      ),
+  );
+
   const via = (v: string) => tree.nodes.filter((n) => n.id !== VIDEO_NODE_ID && n.via === v).length;
   ctx.log(`05: ${claim.id}: дерево`, {
     claim: claim.normalized,

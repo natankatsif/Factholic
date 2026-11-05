@@ -109,6 +109,8 @@ export const config = {
      * Отдельно от языка запроса эффект не измерен: нужны прогоны одного текста в обоих режимах
      */
     traceSearch: oneOf<"on" | "off">("TRACE_SEARCH", ["on", "off"], "on") === "on",
+    /** Мало публикаций — повторять поиск новыми запросами, всего до трёх заходов. Дороже и дольше обычного */
+    deepSearch: oneOf<"on" | "off">("DEEP_SEARCH", ["on", "off"], "off") === "on",
   },
   /** Настройки провайдеров для real-реализаций. Пустая строка = не задано. */
   providers: {
@@ -128,6 +130,8 @@ export const config = {
     search: { provider: env.SEARCH_PROVIDER ?? "", apiKey: env.SEARCH_API_KEY ?? "" },
     /** Google Fact Check Tools — необязательный второй поисковик этапа 04 (разборы фактчекеров) */
     factCheck: { apiKey: env.GOOGLE_FACTCHECK_API_KEY ?? "" },
+    /** Свой SearXNG для повторных заходов, например http://127.0.0.1:8899. Пусто — источник выключен */
+    searxng: { url: env.SEARXNG_URL ?? "" },
   },
 } as const;
 

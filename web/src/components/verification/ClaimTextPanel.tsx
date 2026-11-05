@@ -2,6 +2,7 @@ import React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { isPendingCheck, type ClaimConsensus, type FactCheck } from "@news/contracts";
 import { CORNER_BLOB_PEEK, CornerEmojis, type BlobMood } from "./CornerEmojis";
+import { useSiteText } from "../../i18n/site";
 
 export interface ClaimTextPanelProps {
   factChecks: FactCheck[];
@@ -114,6 +115,7 @@ export function ClaimTextPanel({
   viewedClaimIds,
   pageUrl,
 }: ClaimTextPanelProps) {
+  const t = useSiteText();
   // Находим вхождения утверждений в исходном тексте
   const textHighlights = React.useMemo(() => {
     const trimmed = sourceText?.trim();
@@ -261,7 +263,7 @@ export function ClaimTextPanel({
                 el?.scrollIntoView({ behavior: "smooth", block: "center" });
               }}
               {...hoverProps(fc.id)}
-              title={`Тезис ${idx + 1}: «${cleanQuote(fc.quote)}»${isUnviewed ? " (не просмотрено)" : ""}`}
+              title={t.text.claimTitle(idx + 1, cleanQuote(fc.quote), isUnviewed)}
               className={`relative flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-none text-xs font-black text-white transition-all duration-200 hover:scale-110 ${
                 isSelected ? "ring-2 ring-offset-2 ring-offset-[#F1EBE9]" : ""
               } ${faded(fc) ? "opacity-35" : ""}`}
@@ -283,18 +285,18 @@ export function ClaimTextPanel({
       >
         <div className="flex items-center justify-between gap-3 shrink-0">
           <h2 className="text-lg font-black uppercase tracking-[-0.2px] text-[#4A3333] sm:text-[20px]">
-            Текст который спросили
+            {t.text.askedText}
           </h2>
           {pageUrl && (
             <a
               href={pageUrl}
               target="_blank"
               rel="noreferrer"
-              title="Открыть оригинал"
+              title={t.common.openOriginal}
               className="flex items-center gap-1.5 rounded-full bg-[#F1EBE9] px-3.5 py-1.5 text-xs font-extrabold text-[#4A3333] no-underline transition-all hover:bg-[#E8DFDC]"
             >
               <img src="/blob.png" alt="" className="h-4 w-4 shrink-0 rounded-full select-none" />
-              <span>Оригинал</span>
+              <span>{t.text.original}</span>
             </a>
           )}
         </div>
@@ -351,7 +353,7 @@ export function ClaimTextPanel({
                   <div
                     className={`mb-2 transition-opacity duration-200 ${hoveredId ? "opacity-30" : ""} text-xs font-bold uppercase tracking-wider text-[#A27C7A]`}
                   >
-                    Другие тезисы
+                    {t.text.otherClaims}
                   </div>
                   <div className="flex flex-wrap items-start gap-x-1.5 gap-y-2 text-[15px] font-semibold sm:text-[17px]">
                     {textHighlights.unmatchedClaims.map((fc) => {
@@ -419,6 +421,7 @@ const RAIL_STEP_OVERLAP = 40;
  * и стрелками вверх/вниз; выбранный тезис рейка прокручивает в поле зрения сама.
  */
 function ClaimRail({ selectedClaimId, children }: { selectedClaimId: string; children: React.ReactNode }) {
+  const t = useSiteText();
   const listRef = React.useRef<HTMLDivElement>(null);
   const [edges, setEdges] = React.useState({ up: false, down: false });
 
@@ -464,7 +467,7 @@ function ClaimRail({ selectedClaimId, children }: { selectedClaimId: string; chi
         type="button"
         onClick={() => scroll(dir)}
         disabled={disabled}
-        aria-label={dir < 0 ? "Предыдущие тезисы" : "Следующие тезисы"}
+        aria-label={dir < 0 ? t.text.previousClaims : t.text.nextClaims}
         className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-[#FBF8F7] text-[#4A3333] transition-opacity hover:bg-white disabled:cursor-default disabled:opacity-30 disabled:hover:bg-[#FBF8F7]"
       >
         <Icon size={16} strokeWidth={3} />
@@ -476,7 +479,7 @@ function ClaimRail({ selectedClaimId, children }: { selectedClaimId: string; chi
   return (
     <div
       className="absolute -left-[54px] bottom-0 top-0 z-10 hidden w-11 select-none flex-col items-center gap-1 lg:flex"
-      aria-label="Навигация по тезисам"
+      aria-label={t.text.claimNavigation}
     >
       {overflow && arrow(-1)}
       {/* запас py-2 и ширина w-11 — под обводку выбранного кружка и увеличение при наведении */}

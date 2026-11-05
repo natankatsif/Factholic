@@ -1,4 +1,5 @@
 import type { ISODateString, LanguageCode, VideoInfo } from "@news/contracts";
+import { messagesFor } from "../../messages.ts";
 import { PipelineError, type Stage, type StageContext } from "../../pipeline/context.ts";
 import { fetchArticle, guessLanguage, MIN_ARTICLE_CHARS, splitText } from "./article.ts";
 import { cutWav, downloadAudio, SAMPLE_RATE } from "./audio.ts";
@@ -48,11 +49,25 @@ async function ingestRemote(input: IngestInput, ctx: StageContext): Promise<Inge
   // 0b. Картинка: загруженный скриншот или ссылка прямо на изображение → этап 02 сделает OCR
   if (request.imageDataUrl) {
     ctx.log("ingest: загруженная картинка");
-    return imageOutput(jobId, "upload", decodeDataUrl(request.imageDataUrl), ref, request.languageHint);
+    return imageOutput(
+      jobId,
+      "upload",
+      decodeDataUrl(request.imageDataUrl),
+      ref,
+      request.languageHint,
+      request.uiLanguage,
+    );
   }
   if (IMAGE_URL.test(ref.pageUrl)) {
     ctx.log("ingest: ссылка на картинку");
-    return imageOutput(jobId, "url", await fetchImage(ref.pageUrl, ctx.signal), ref, request.languageHint);
+    return imageOutput(
+      jobId,
+      "url",
+      await fetchImage(ref.pageUrl, ctx.signal),
+      ref,
+      request.languageHint,
+      request.uiLanguage,
+    );
   }
 
   // 1. Метаданные через yt-dlp
@@ -111,7 +126,7 @@ async function ingestRemote(input: IngestInput, ctx: StageContext): Promise<Inge
     pageUrl: ref.pageUrl,
     platform: ref.platform,
     platformVideoId: ref.platformVideoId ?? meta?.id,
-    title: meta?.title ?? ref.title ?? "Без названия",
+    title: meta?.title ?? ref.title ?? messagesFor(request.uiLanguage).titles.untitled,
     durationSec: duration,
     language: meta?.language ?? request.languageHint ?? "und",
     thumbnailUrl: meta?.thumbnail,
@@ -200,7 +215,7 @@ async function ingestLive(input: IngestInput): Promise<IngestOutput> {
       pageUrl: ref.pageUrl,
       platform: ref.platform,
       platformVideoId: ref.platformVideoId,
-      title: ref.title ?? "Без названия",
+      title: ref.title ?? messagesFor(request.uiLanguage).titles.untitled,
       durationSec: ref.durationSec ?? 0,
       language: request.languageHint ?? "und",
     },
@@ -333,12 +348,14 @@ function imageOutput(
   image: ImageData,
   ref: StartAnalysisRequest["video"],
   languageHint: LanguageCode | undefined,
+  uiLanguage: LanguageCode,
 ): IngestOutput {
+  const titles = messagesFor(uiLanguage).titles;
   return {
     video: {
       pageUrl: ref.pageUrl,
       platform: ref.platform,
-      title: ref.title ?? (origin === "upload" ? "Скриншот" : "Изображение"),
+      title: ref.title ?? (origin === "upload" ? titles.screenshot : titles.image),
       durationSec: 0,
       language: languageHint ?? "und",
     },

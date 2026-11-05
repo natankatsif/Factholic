@@ -4,7 +4,6 @@ import React, { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, use
 import {
   formatTimecode,
   isPendingCheck,
-  type ClaimConsensus,
   type FactCheck,
   type VideoInfo,
 } from "@news/contracts";
@@ -33,8 +32,9 @@ import { YT_STATE, loadYoutubeApi, qualityLabel, type YTPlayer } from "../../lib
 import { CONSENSUS_STYLE } from "./AnalysisCard";
 import { FlagList, StatusPill, summaryLine } from "./claim-status";
 import { cleanQuote } from "./ClaimTextPanel";
-import { plural } from "./filters";
 import { hasProvenanceTree } from "./material";
+import { LOCALE_TAGS, type Locale } from "../../i18n/locale";
+import { useSiteText, type SiteDictionary } from "../../i18n/site";
 
 export interface VideoPlayerHandle {
   /** Перемотать на секунду видео и запустить воспроизведение */
@@ -66,15 +66,6 @@ export interface VideoPlayerPanelProps {
 
 type PlayState = "unstarted" | "playing" | "paused" | "buffering" | "ended";
 
-/** Короткие подписи позиций источников: плашка утверждения и легенда */
-const SHORT_LABEL: Record<ClaimConsensus, string> = {
-  converge: "Подтверждают",
-  split: "Разделились",
-  against: "Возражают",
-  flagged: "С флагами",
-  unverifiable: "Мало данных",
-};
-
 const CHECKING_COLOR = "#C9B8B6";
 const RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
 /** Через сколько без движения мыши прячем управление во время воспроизведения */
@@ -89,9 +80,11 @@ function claimColor(fc: FactCheck): string {
     : (CONSENSUS_STYLE[fc.consensus] ?? CONSENSUS_STYLE.unverifiable).color;
 }
 
-function claimLabel(fc: FactCheck): string {
-  if (fc.status === "found") return "Не проверено";
-  return fc.status === "checking" ? "Проверяем" : (SHORT_LABEL[fc.consensus] ?? SHORT_LABEL.unverifiable);
+function claimLabel(fc: FactCheck, t: SiteDictionary): string {
+  if (fc.status === "found") return t.status.notChecked;
+  return fc.status === "checking"
+    ? t.status.checkingShort
+    : (t.status.short[fc.consensus] ?? t.status.short.unverifiable);
 }
 
 /**
@@ -123,6 +116,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
     const onTimeRef = useRef(onTime);
     onTimeRef.current = onTime;
 
+    const t = useSiteText();
     const [time, setTime] = useState(startAt);
     const [duration, setDuration] = useState(video.durationSec || 0);
     const [state, setState] = useState<PlayState>("unstarted");
@@ -584,7 +578,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
               <span className="flex items-center gap-2 rounded-full bg-[#1E1515]/70 px-3.5 py-2 text-[13px] font-extrabold text-white backdrop-blur-sm">
                 <CircleCheck className="h-4 w-4 text-[#3DDC97]" />
                 {/* пока анализ идёт, утверждения приходят по одному — считаем только уже проверенные */}
-                Проверено {checkedCount} {plural(checkedCount, ["утверждение", "утверждения", "утверждений"])}
+                {t.player.checkedCount(checkedCount, t.plural(checkedCount, t.words.claims))}
               </span>
               <div className="flex items-center gap-2 pointer-events-auto">
                 {video.pageUrl && (
@@ -592,11 +586,11 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                     href={video.pageUrl}
                     target="_blank"
                     rel="noreferrer"
-                    title="Перейти к видео"
+                    title={t.player.goToVideo}
                     className="flex items-center gap-1.5 rounded-full bg-[#1E1515]/70 px-3 py-2 text-[12px] font-extrabold text-white backdrop-blur-sm transition-all hover:bg-[#1E1515]/90 hover:scale-105 no-underline"
                   >
                     <img src="/blob.png" alt="" className="h-4 w-4 shrink-0 rounded-full select-none" />
-                    <span>Ссылка</span>
+                    <span>{t.player.link}</span>
                   </a>
                 )}
                 {quality && (
@@ -622,7 +616,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                   <button
                     type="button"
                     onClick={togglePlay}
-                    aria-label={state === "ended" ? "Смотреть сначала" : "Смотреть"}
+                    aria-label={state === "ended" ? t.player.watchAgain : t.player.watch}
                     className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-none bg-[#FBF8F7] text-[#4A3333] shadow-[0px_10px_30px_rgba(30,21,21,0.35)] transition-transform hover:scale-105 active:scale-95"
                   >
                     {state === "ended" ? (
@@ -642,7 +636,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                 rel="noreferrer"
                 className="rounded-full bg-white px-4 py-2 text-xs font-extrabold text-[#4A3333] no-underline"
               >
-                Открыть на YouTube
+                {t.player.openOnYoutube}
               </a>
             </div>
           )}
@@ -655,7 +649,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
               key={current.id}
               type="button"
               onClick={() => (fullscreen ? setDetailsOpen((v) => !v) : seek(current.range.start))}
-              title={fullscreen ? "Подробнее об утверждении" : "Смотреть утверждение с начала"}
+              title={fullscreen ? t.player.aboutClaim : t.player.watchClaim}
               className={`absolute left-4 z-10 flex min-w-0 animate-[claim-chip-in_320ms_ease-out] cursor-pointer items-center gap-2.5 rounded-full border-none py-1.5 pl-1.5 pr-3.5 text-left shadow-[0px_6px_18px_rgba(30,21,21,0.25)] backdrop-blur-md transition-all duration-300 hover:bg-[#FBF8F7] sm:left-5 ${
                 showControls
                   ? "bottom-[84px] max-w-[min(640px,calc(100%-2rem))] bg-[#FBF8F7]"
@@ -706,7 +700,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
             <div
               ref={trackRef}
               role="slider"
-              aria-label="Перемотка"
+              aria-label={t.player.seek}
               aria-valuemin={0}
               aria-valuemax={Math.round(total)}
               aria-valuenow={Math.round(shownTime)}
@@ -771,7 +765,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                           className="h-2 w-2 rounded-full"
                           style={{ backgroundColor: claimColor(hoverClaim) }}
                         />
-                        {formatTimecode(hoverClaim.range.start)} · {claimLabel(hoverClaim)}
+                        {formatTimecode(hoverClaim.range.start)} · {claimLabel(hoverClaim, t)}
                       </span>
                       <span className="line-clamp-2 w-max max-w-[260px]">
                         «{cleanQuote(hoverClaim.quote)}»
@@ -786,7 +780,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
 
             {/* управление */}
             <div className="mt-1.5 flex items-center gap-1 text-white">
-              <CtrlButton label={isPlaying ? "Пауза (K)" : "Смотреть (K)"} onClick={togglePlay}>
+              <CtrlButton label={isPlaying ? t.player.pauseKey : t.player.playKey} onClick={togglePlay}>
                 {isPlaying ? (
                   <Pause className="h-[22px] w-[22px] fill-current" />
                 ) : (
@@ -794,7 +788,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                 )}
               </CtrlButton>
               <CtrlButton
-                label="К следующему утверждению (N)"
+                label={t.player.nextClaimKey}
                 onClick={() => nextClaim && seek(nextClaim.range.start)}
                 disabled={!nextClaim}
               >
@@ -802,7 +796,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
               </CtrlButton>
 
               <div className="group/vol flex items-center">
-                <CtrlButton label={muted ? "Включить звук (M)" : "Выключить звук (M)"} onClick={toggleMute}>
+                <CtrlButton label={muted ? t.player.unmuteKey : t.player.muteKey} onClick={toggleMute}>
                   <VolumeIcon className="h-[22px] w-[22px]" />
                 </CtrlButton>
                 <input
@@ -811,7 +805,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                   max={100}
                   value={muted ? 0 : volume}
                   onChange={(e) => changeVolume(Number(e.target.value))}
-                  aria-label="Громкость"
+                  aria-label={t.player.volume}
                   className="h-1 w-0 cursor-pointer accent-white opacity-0 transition-all duration-200 focus:mr-2 focus:w-20 focus:opacity-100 group-hover/vol:mr-2 group-hover/vol:w-20 group-hover/vol:opacity-100"
                 />
               </div>
@@ -821,7 +815,10 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
               </span>
 
               <span className="ml-auto flex items-center gap-1">
-                <CtrlButton label={captions ? "Выключить субтитры" : "Субтитры"} onClick={toggleCaptions}>
+                <CtrlButton
+                  label={captions ? t.player.captionsOff : t.player.captions}
+                  onClick={toggleCaptions}
+                >
                   <Captions className={`h-[22px] w-[22px] ${captions ? "" : "opacity-70"}`} />
                   {captions && (
                     <span className="absolute bottom-1 left-1/2 h-[2px] w-4 -translate-x-1/2 rounded-full bg-[#E2353F]" />
@@ -829,7 +826,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                 </CtrlButton>
 
                 <div className="relative">
-                  <CtrlButton label="Скорость" onClick={() => setMenuOpen((v) => !v)}>
+                  <CtrlButton label={t.player.speed} onClick={() => setMenuOpen((v) => !v)}>
                     <Settings
                       className={`h-[22px] w-[22px] transition-transform duration-300 ${menuOpen ? "rotate-45" : ""}`}
                     />
@@ -837,7 +834,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                   {menuOpen && (
                     <div className="absolute bottom-11 right-0 z-40 min-w-[150px] rounded-2xl bg-[#1E1515]/95 p-1.5 shadow-xl backdrop-blur-sm">
                       <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-extrabold uppercase tracking-wider text-white/50">
-                        Скорость
+                        {t.player.speed}
                       </div>
                       {RATES.map((r) => (
                         <button
@@ -846,7 +843,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                           onClick={() => changeRate(r)}
                           className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-xl border-none bg-transparent px-2.5 py-1.5 text-left text-[13px] font-bold text-white hover:bg-white/10"
                         >
-                          {r === 1 ? "Обычная" : `${r}×`}
+                          {r === 1 ? t.player.normalSpeed : `${r}×`}
                           {r === rate && <Check className="h-4 w-4" />}
                         </button>
                       ))}
@@ -855,7 +852,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                 </div>
 
                 <CtrlButton
-                  label={fullscreen ? "Выйти из полноэкранного (F)" : "Во весь экран (F)"}
+                  label={fullscreen ? t.player.exitFullscreenKey : t.player.fullscreenKey}
                   onClick={toggleFullscreen}
                 >
                   {fullscreen ? (
@@ -872,7 +869,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
         {/* ---------- название и действия ---------- */}
         <div className={mini ? "hidden" : "flex shrink-0 flex-col gap-3 px-1"}>
           <h1 className="m-0 line-clamp-2 text-xl font-black leading-tight text-[#4A3333] sm:text-[26px]">
-            {video.title || "Видео YouTube"}
+            {video.title || t.player.youtubeVideo}
           </h1>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="flex items-center gap-2.5 text-[13px] font-bold text-[#A27C7A]">
@@ -882,7 +879,9 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
               <span className="flex flex-col leading-tight">
                 <span className="text-[14px] font-extrabold text-[#4A3333]">YouTube</span>
                 <span>
-                  {[formatTimecode(total), publishedLabel(video.publishedAt)].filter(Boolean).join(" · ")}
+                  {[formatTimecode(total), publishedLabel(video.publishedAt, t.locale)]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </span>
             </span>
@@ -895,7 +894,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                 className="flex items-center gap-2 rounded-full bg-[#FBF8F7] px-4 py-2.5 text-[13px] font-extrabold text-[#4A3333] no-underline [box-shadow:0px_2px_8px_rgba(74,51,51,0.06)] transition-colors hover:bg-white"
               >
                 <img src="/blob.png" alt="" className="h-4 w-4 shrink-0 rounded-full select-none" />
-                Открыть оригинал
+                {t.common.openOriginal}
               </a>
             </span>
           </div>
@@ -926,6 +925,7 @@ function MiniOverlay({
   onClose: () => void;
   isDragging?: boolean;
 }) {
+  const t = useSiteText();
   const hover =
     "opacity-0 transition-opacity duration-200 group-hover/player:opacity-100 group-focus-within/player:opacity-100";
   return (
@@ -940,15 +940,15 @@ function MiniOverlay({
         }`}
       >
         <GripHorizontal className="h-3.5 w-3.5 text-white/70" />
-        <span>Перетянуть</span>
+        <span>{t.player.drag}</span>
       </div>
       <div className={`absolute right-2 top-2 flex gap-1 ${hover}`}>
         {onExpand && (
-          <MiniButton label="Развернуть — к разбору" onClick={onExpand}>
+          <MiniButton label={t.player.expand} onClick={onExpand}>
             <Maximize2 className="h-4 w-4" />
           </MiniButton>
         )}
-        <MiniButton label="Закрыть" onClick={onClose}>
+        <MiniButton label={t.common.close} onClick={onClose}>
           <X className="h-4 w-4" />
         </MiniButton>
       </div>
@@ -958,7 +958,7 @@ function MiniOverlay({
           e.stopPropagation();
           onTogglePlay();
         }}
-        aria-label={isPlaying ? "Пауза" : "Смотреть"}
+        aria-label={isPlaying ? t.player.pause : t.player.watch}
         className={`absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-none bg-[#FBF8F7]/95 text-[#4A3333] shadow-lg ${
           isPlaying ? hover : ""
         }`}
@@ -1062,6 +1062,7 @@ function CtrlButton({
 
 /** «Поделиться отчётом»: копирует ссылку на эту проверку */
 function ShareButton() {
+  const t = useSiteText();
   const [copied, setCopied] = useState(false);
   const share = async () => {
     try {
@@ -1079,17 +1080,21 @@ function ShareButton() {
       className="flex cursor-pointer items-center gap-2 rounded-full border-none bg-[#FBF8F7] px-4 py-2.5 text-[13px] font-extrabold text-[#4A3333] [box-shadow:0px_2px_8px_rgba(74,51,51,0.06)] transition-colors hover:bg-white"
     >
       {copied ? <Check className="h-4 w-4 text-[#1DA57A]" /> : <Share2 className="h-4 w-4" />}
-      {copied ? "Ссылка скопирована" : "Поделиться отчётом"}
+      {copied ? t.player.linkCopied : t.player.share}
     </button>
   );
 }
 
 /** "2026-08-02T…" → «2 авг. 2026 г.» */
-function publishedLabel(iso: string | undefined): string {
-  const t = iso ? Date.parse(iso) : NaN;
-  return Number.isNaN(t)
+function publishedLabel(iso: string | undefined, locale: Locale): string {
+  const time = iso ? Date.parse(iso) : NaN;
+  return Number.isNaN(time)
     ? ""
-    : new Date(t).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
+    : new Date(time).toLocaleDateString(LOCALE_TAGS[locale], {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
 }
 
 /** Сколько источников показывать в карточке во весь экран */
@@ -1120,7 +1125,8 @@ function ClaimOverlayCard({
   onSeek: () => void;
   onOpenTree?: () => void;
 }) {
-  const summary = summaryLine(fc);
+  const t = useSiteText();
+  const summary = summaryLine(fc, t);
   const sources = fc.sources.slice(0, OVERLAY_SOURCES);
   return (
     <div
@@ -1134,7 +1140,7 @@ function ClaimOverlayCard({
         <button
           type="button"
           onClick={onSeek}
-          title="Смотреть утверждение с начала"
+          title={t.player.watchClaim}
           className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-extrabold tabular-nums text-[#A27C7A] hover:text-[#1660D6]"
         >
           {formatTimecode(fc.range.start)}
@@ -1142,7 +1148,7 @@ function ClaimOverlayCard({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Закрыть"
+          aria-label={t.common.close}
           className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-none bg-[#F1EBE9] text-[#4A3333] hover:bg-[#E3D9D6]"
         >
           <X className="h-4 w-4" />
@@ -1173,7 +1179,7 @@ function ClaimOverlayCard({
           ))}
           {fc.sources.length > OVERLAY_SOURCES && (
             <li className="pl-4 text-[12px] font-semibold text-[#A27C7A]">
-              и ещё {fc.sources.length - OVERLAY_SOURCES} — в разборе
+              {t.player.moreInAnalysis(fc.sources.length - OVERLAY_SOURCES)}
             </li>
           )}
         </ul>
@@ -1185,7 +1191,7 @@ function ClaimOverlayCard({
           className="flex w-fit cursor-pointer items-center gap-2 rounded-full border-none bg-[#4A3333] px-3.5 py-2 text-[13px] font-extrabold text-white hover:bg-[#362424]"
         >
           <GitFork className="h-4 w-4" />
-          Откуда пошло — дерево источников
+          {t.player.treeLink}
         </button>
       )}
     </div>

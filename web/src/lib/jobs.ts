@@ -18,6 +18,8 @@ import {
 } from "@news/contracts";
 import { MOCK_VIDEO_REPORT } from "@news/contracts/mocks";
 import { reportYoutubeId, youtubeVideoId } from "./youtube";
+import { currentLocale } from "../i18n/locale";
+import { getSiteDictionary } from "../i18n/site";
 
 // выше BACKEND_URL: resolveBackendUrl читает её при загрузке модуля
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]);
@@ -52,27 +54,32 @@ export interface JobRecord {
   jobId: JobId;
   input: string;
   isUrl: boolean;
+  /** На каком языке написан отчёт. Старые записи без поля — русские */
+  uiLanguage?: string;
   createdAt: string;
   report?: VideoReport;
 }
+
+const texts = () => getSiteDictionary(currentLocale()).jobs;
 
 /** Сервер отказал с понятной причиной (лимит, размер) — message можно показать пользователю как есть */
 export class JobRejectedError extends Error {}
 
 export async function createJob(input: string, isUrl: boolean): Promise<JobId> {
-  const record: JobRecord = { jobId: "", input, isUrl, createdAt: new Date().toISOString() };
+  const uiLanguage = currentLocale();
+  const record: JobRecord = { jobId: "", input, isUrl, uiLanguage, createdAt: new Date().toISOString() };
 
   if (DATA_SOURCE === "backend") {
     const res = await fetch(`${BACKEND_URL}/api/jobs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(toRequest(input, isUrl)),
+      body: JSON.stringify(toRequest(input, isUrl, uiLanguage)),
     });
     if (!res.ok) {
       // лимит, слишком длинный текст — сервер объясняет сам, показываем его текст
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
       if ((res.status === 429 || res.status === 413) && body?.error) throw new JobRejectedError(body.error);
-      throw new Error(`Не удалось начать проверку: HTTP ${res.status}`);
+      throw new Error(texts().startFailed(res.status));
     }
     const data = (await res.json()) as StartAnalysisResponse;
     record.jobId = data.jobId;
@@ -98,7 +105,7 @@ export async function getReport(jobId: JobId): Promise<VideoReport | null> {
   if (DATA_SOURCE === "backend") {
     const res = await fetch(`${BACKEND_URL}/api/jobs/${encodeURIComponent(jobId)}`);
     if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`Не удалось загрузить проверку: HTTP ${res.status}`);
+    if (!res.ok) throw new Error(texts().loadFailed(res.status));
     return (await res.json()) as VideoReport;
   }
   return listJobs().find((j) => j.jobId === jobId)?.report ?? null;
@@ -203,7 +210,7 @@ export function subscribeJob(
           const event = JSON.parse(e.data as string) as ServerEvent;
           console.debug(`[job ${jobId}]`, event.type, "stage" in event ? event.stage : "", event);
           if (event.type === "job.failed") {
-            onError(new Error(event.error.message || "Ошибка при проверке"));
+            onError(new Error(event.error.message || texts().checkFailed));
             return;
           }
           currentReport = applyEventToReport(currentReport, event, jobId);
@@ -356,10 +363,13 @@ export function findCompletedJob(input: string, isUrl: boolean): JobRecord | nul
   if (!trimmed) return null;
   const ytId = isUrl ? youtubeVideoId(trimmed) : null;
   const url = isUrl ? normalizeUrl(trimmed) : "";
+  const locale = currentLocale();
   return (
     listJobs().find((job) => {
       const report = job.report;
       if (report?.status !== "completed" || !report.factChecks.length || job.isUrl !== isUrl) return false;
+      // отчёт написан на языке проверки: на другом языке это новая проверка
+      if ((job.uiLanguage ?? "ru") !== locale) return false;
       if (!isUrl) return (report.sourceText ?? job.input).trim() === trimmed;
       if (ytId) return reportYoutubeId(report.video) === ytId;
       return normalizeUrl(report.video.pageUrl) === url;
@@ -412,7 +422,7 @@ function save(jobs: JobRecord[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
 }
 
-function toRequest(input: string, isUrl: boolean): StartAnalysisRequest {
+function toRequest(input: string, isUrl: boolean, uiLanguage: string): StartAnalysisRequest {
   const ytId = isUrl ? youtubeVideoId(input) : null;
   return isUrl
     ? {
@@ -421,13 +431,13 @@ function toRequest(input: string, isUrl: boolean): StartAnalysisRequest {
           : { pageUrl: input, platform: "generic" },
         mode: "remote",
         startFrom: 0,
-        uiLanguage: "ru",
+        uiLanguage,
       }
     : {
         video: { pageUrl: "text:pasted", platform: "generic" },
         mode: "remote",
         startFrom: 0,
-        uiLanguage: "ru",
+        uiLanguage,
         text: input,
       };
 }

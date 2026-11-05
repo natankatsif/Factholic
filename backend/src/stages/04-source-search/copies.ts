@@ -82,11 +82,13 @@ export function findCopiesWithTraces(
   traceMode = config.experiments.traceSearch,
   /** Страницы основного поиска: из них тоже берём зацепки */
   sourcePages: Promise<Enriched[]> = Promise.resolve([]),
+  /** Дополнительный источник первого круга: он есть только в повторных заходах */
+  extraSearch?: (q: PlannedQuery) => Promise<Candidate[]>,
 ): Promise<CopiesResult> {
   const country = claimCountry(claim);
   const regional = planned.map((q) => (country ? { ...q, country } : q));
   return traceMode
-    ? traceCopies(claim, regional, ctx, sourcePages)
+    ? traceCopies(claim, regional, ctx, sourcePages, extraSearch)
     : findCopies(claim, regional, ctx).then((copies) => ({ copies }));
 }
 
@@ -201,7 +203,8 @@ async function tavilyCopies(
       include_published_date: true,
       // markdown, а не text: в нём сохраняются ссылки — по ним видно, кто у кого взял
       include_raw_content: "markdown",
-      max_results: 10,
+      // цена запроса от числа результатов не зависит
+      max_results: 20,
       // страна из утверждения: поднимаем местные сайты для ro/ru, остальные остаются в выдаче
       ...(q.country && (q.language === "ro" || q.language === "ru") ? { country: q.country } : {}),
       ...dates,
@@ -468,6 +471,7 @@ async function traceCopies(
   planned: PlannedQuery[],
   ctx: StageContext,
   sourcePages: Promise<Enriched[]>,
+  extraSearch?: (q: PlannedQuery) => Promise<Candidate[]>,
 ): Promise<CopiesResult> {
   const queries = queriesByLanguage(planned, MAX_COPY_QUERIES + 1);
   const firstRound = [...queries, ...debunkQueries(planned), ...extraQueries(claim, queries)];
@@ -486,9 +490,17 @@ async function traceCopies(
   const triedAnchors = new Set<string>();
   const searchedBefore = new Map<LanguageCode, string>();
 
-  const first = await Promise.allSettled(
-    firstRound.map((q) => limited(() => tavilyCopies(q, {}, ctx.signal, stems))),
-  );
+  const extra = extraSearch
+    ? queries.map((q) =>
+        extraSearch(q).then((found) =>
+          found.map((candidate): CopyHit => ({ candidate, links: [], earliest: false })),
+        ),
+      )
+    : [];
+  const first = await Promise.allSettled([
+    ...firstRound.map((q) => limited(() => tavilyCopies(q, {}, ctx.signal, stems))),
+    ...extra,
+  ]);
   for (const r of first) {
     if (r.status === "fulfilled") hitsFound.push(...r.value);
     else ctx.log("04 traces: запрос упал", String(r.reason));

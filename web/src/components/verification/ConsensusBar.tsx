@@ -1,8 +1,8 @@
 import React from "react";
 import { formatTimecode, type FactCheck } from "@news/contracts";
 import { History, MousePointerClick, TrendingUp, type LucideIcon } from "lucide-react";
-import { plural } from "./filters";
 import type { MaterialKind } from "./material";
+import { useSiteText, type SiteDictionary } from "../../i18n/site";
 
 export interface ConsensusBarProps {
   factChecks: FactCheck[];
@@ -11,8 +11,6 @@ export interface ConsensusBarProps {
   onSelectClaimId: (id: string) => void;
   viewedClaimIds?: Set<string>;
 }
-
-const MATERIAL_ACC: Record<MaterialKind, string> = { video: "видео", text: "текст", article: "статью" };
 
 /**
  * Нижняя плашка «Что нашли»: старое событие и цифры, выросшие по пути. Каждый пункт кликабелен — выбирает
@@ -25,6 +23,7 @@ export function ConsensusBar({
   onSelectClaimId,
   viewedClaimIds,
 }: ConsensusBarProps) {
+  const t = useSiteText();
   // у видео — таймкод, у текста и статьи таймкодов нет: начало утверждения
   const where = (fc: FactCheck) =>
     material === "video" ? formatTimecode(fc.range.start) : `«${shorten(fc.claim || fc.quote, 28)}»`;
@@ -41,52 +40,51 @@ export function ConsensusBar({
   return (
     <section className="flex shrink-0 flex-col rounded-[28px] bg-[#FBF8F7] p-6 pb-5 sm:px-6 sm:pt-7 lg:min-h-[255px] [@media(max-height:780px)]:lg:min-h-[220px]">
       <div className="text-[13px] font-semibold text-[#A27C7A]">
-        Что нашли · {factChecks.length}{" "}
-        {plural(factChecks.length, ["утверждение", "утверждения", "утверждений"])} · {totalSources}{" "}
-        {plural(totalSources, ["источник", "источника", "источников"])}
+        {t.findings.summary} · {factChecks.length} {t.plural(factChecks.length, t.words.claims)} ·{" "}
+        {totalSources} {t.plural(totalSources, t.words.sources)}
       </div>
       <div className="mt-0.5 text-base font-black text-[#4A3333] sm:text-[17px]">
-        Мы не оцениваем {MATERIAL_ACC[material]} — показываем, откуда что взялось
+        {t.findings.notRating[material]}
       </div>
 
       <div className="mt-5 grid gap-5 sm:grid-cols-2 sm:gap-6">
-        <Finding icon={History} iconBg="#E8DCFD" iconColor="#6E1EF0" title="Старое событие">
+        <Finding icon={History} iconBg="#E8DCFD" iconColor="#6E1EF0" title={t.findings.oldEvent}>
           {outdated ? (
             <ItemButton onClick={() => onSelectClaimId(outdated.fc.id)}>
               {viewedClaimIds && !viewedClaimIds.has(outdated.fc.id) && (
                 <span
                   className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#0AA6C2]"
-                  title="Не просмотрено"
+                  title={t.common.unviewed}
                 />
               )}
               {where(outdated.fc)} · {outdated.flag.detail}
               {outdated.fc.keyFinding?.title && `, ${lowerFirst(outdated.fc.keyFinding.title)}`}
             </ItemButton>
           ) : (
-            <Empty>старый контент не нашли</Empty>
+            <Empty>{t.findings.noOldContent}</Empty>
           )}
         </Finding>
 
-        <Finding icon={TrendingUp} iconBg="#FFE1C7" iconColor="#FF7A12" title="Цифры выросли по пути">
+        <Finding icon={TrendingUp} iconBg="#FFE1C7" iconColor="#FF7A12" title={t.findings.numbersGrew}>
           {exaggerated ? (
             <ItemButton onClick={() => onSelectClaimId(exaggerated.fc.id)}>
               {viewedClaimIds && !viewedClaimIds.has(exaggerated.fc.id) && (
                 <span
                   className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#0AA6C2]"
-                  title="Не просмотрено"
+                  title={t.common.unviewed}
                 />
               )}
-              {where(exaggerated.fc)} · {beforeAfter(exaggerated.flag.detail)}
+              {where(exaggerated.fc)} · {beforeAfter(exaggerated.flag.detail, t)}
             </ItemButton>
           ) : (
-            <Empty>раздутых цифр не нашли</Empty>
+            <Empty>{t.findings.noInflated}</Empty>
           )}
         </Finding>
       </div>
 
       <div className="mt-auto flex items-center gap-2 pt-6 text-xs font-semibold text-[#A27C7A]">
         <MousePointerClick className="h-4 w-4 shrink-0" />
-        Каждый пункт кликабелен — ведёт к источникам и цепочке пересказов
+        {t.findings.clickHint}
       </div>
     </section>
   );
@@ -138,9 +136,9 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 /** «2 → 200 пострадавших» → «было 2, стало 200 пострадавших» */
-function beforeAfter(detail: string): string {
+function beforeAfter(detail: string, t: SiteDictionary): string {
   const [before, after] = detail.split(/\s*→\s*/);
-  return after ? `было ${before}, стало ${after}` : detail;
+  return after ? t.findings.wasBecame(before, after) : detail;
 }
 
 function shorten(text: string, max: number): string {

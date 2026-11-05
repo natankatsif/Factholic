@@ -1,5 +1,6 @@
 import React from "react";
 import { ArrowUpRight, Github } from "lucide-react";
+import { useSiteText } from "../../i18n/site";
 
 export const GITHUB_URL = "https://github.com/natankatsif/Factholic";
 
@@ -26,6 +27,7 @@ function Laurel({ flip = false }: { flip?: boolean }) {
  * Product Hunt) и ссылка на код на GitHub.
  */
 export function HackathonPill() {
+  const t = useSiteText();
   return (
     <a
       href={GITHUB_URL}
@@ -40,14 +42,16 @@ export function HackathonPill() {
           <span className="text-[8.5px] font-extrabold uppercase tracking-[0.08em] text-[#A27C7A] sm:text-[9.5px]">
             BEST Minds Hackathon
           </span>
-          <span className="mt-[3px] text-[14px] font-black tracking-[-0.2px] sm:text-[16px]">1 место</span>
+          <span className="mt-[3px] text-[14px] font-black tracking-[-0.2px] sm:text-[16px]">
+            {t.home.hackathonPlace}
+          </span>
         </span>
         <Laurel flip />
       </span>
       <span aria-hidden className="h-6 w-px shrink-0 bg-[#E2D7D4]" />
       <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-extrabold text-[#A27C7A] transition-colors group-hover:text-[#4A3333] sm:text-[13px]">
         <Github className="h-4 w-4" strokeWidth={2.3} />
-        <span className="hidden sm:inline">Код на GitHub</span>
+        <span className="hidden sm:inline">{t.home.hackathonCode}</span>
         <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-px group-hover:translate-x-px" />
       </span>
     </a>

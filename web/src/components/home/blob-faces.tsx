@@ -5,12 +5,15 @@ const TRANS_REACT = "all 440ms cubic-bezier(0.34, 1.45, 0.64, 1)";
 const TRANS_RETURN = "all 480ms cubic-bezier(0.22, 1, 0.36, 1)";
 
 // Плавные переходы для слоёв лица при гибели и оживлении
-const DEAD_LAYER_TRANS_ENTER = "opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 460ms cubic-bezier(0.34, 1.45, 0.64, 1)";
-const DEAD_LAYER_TRANS_EXIT = "opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 440ms cubic-bezier(0.22, 1, 0.36, 1)";
+const DEAD_LAYER_TRANS_ENTER =
+  "opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 460ms cubic-bezier(0.34, 1.45, 0.64, 1)";
+const DEAD_LAYER_TRANS_EXIT =
+  "opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 440ms cubic-bezier(0.22, 1, 0.36, 1)";
 
-const LIVING_LAYER_TRANS_ENTER = "opacity 460ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.34, 1.45, 0.64, 1)";
-const LIVING_LAYER_TRANS_EXIT = "opacity 380ms cubic-bezier(0.22, 1, 0.36, 1), transform 420ms cubic-bezier(0.22, 1, 0.36, 1)";
-
+const LIVING_LAYER_TRANS_ENTER =
+  "opacity 460ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.34, 1.45, 0.64, 1)";
+const LIVING_LAYER_TRANS_EXIT =
+  "opacity 380ms cubic-bezier(0.22, 1, 0.36, 1), transform 420ms cubic-bezier(0.22, 1, 0.36, 1)";
 
 export interface FaceProps {
   isReacting: boolean;
@@ -93,7 +96,6 @@ export function DeadMouth({
    1. Blue Blob (240×240) - Плавный морфинг бровей, глаз и рта
    ========================================================================= */
 export function BlueFace({ isReacting, variant, hasText = false, isDead = false }: FaceProps) {
-  
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 
   // Исходное спокойное состояние
@@ -154,72 +156,72 @@ export function BlueFace({ isReacting, variant, hasText = false, isDead = false 
         }}
       >
         <div
-        data-pencil-name="Brow L"
-        style={{
-          left: `${browL.left}px`,
-          top: `${browL.top}px`,
-          width: `${browL.width}px`,
-          height: `${browL.height}px`,
-          transform: `rotate(${browL.rotate}deg)`,
-          borderRadius: `${browL.br}px`,
-          transition: t,
-        }}
-        className="box-border origin-top-left absolute bg-[#00000059]"
-      />
-      <div
-        data-pencil-name="Brow R"
-        style={{
-          left: `${browR.left}px`,
-          top: `${browR.top}px`,
-          width: `${browR.width}px`,
-          height: `${browR.height}px`,
-          transform: `rotate(${browR.rotate}deg)`,
-          borderRadius: `${browR.br}px`,
-          transition: t,
-        }}
-        className="box-border origin-top-left absolute bg-[#00000059]"
-      />
-      <div
-        data-pencil-name="Eye L"
-        style={{
-          left: `${eyeL.left}px`,
-          top: `${eyeL.top}px`,
-          width: `${eyeL.width}px`,
-          height: `${eyeL.height}px`,
-          borderRadius: `${eyeL.br}px`,
-          transform: `rotate(${eyeL.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-1 4.4s infinite ease-in-out" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Eye R"
-        style={{
-          left: `${eyeR.left}px`,
-          top: `${eyeR.top}px`,
-          width: `${eyeR.width}px`,
-          height: `${eyeR.height}px`,
-          borderRadius: `${eyeR.br}px`,
-          transform: `rotate(${eyeR.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-1 4.4s infinite ease-in-out" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Mouth"
-        style={{
-          left: `${mouth.left}px`,
-          top: `${mouth.top}px`,
-          width: `${mouth.width}px`,
-          height: `${mouth.height}px`,
-          borderRadius: `${mouth.br}px`,
-          transform: `rotate(${mouth.rotate}deg)`,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059]"
-      />
+          data-pencil-name="Brow L"
+          style={{
+            left: `${browL.left}px`,
+            top: `${browL.top}px`,
+            width: `${browL.width}px`,
+            height: `${browL.height}px`,
+            transform: `rotate(${browL.rotate}deg)`,
+            borderRadius: `${browL.br}px`,
+            transition: t,
+          }}
+          className="box-border origin-top-left absolute bg-[#00000059]"
+        />
+        <div
+          data-pencil-name="Brow R"
+          style={{
+            left: `${browR.left}px`,
+            top: `${browR.top}px`,
+            width: `${browR.width}px`,
+            height: `${browR.height}px`,
+            transform: `rotate(${browR.rotate}deg)`,
+            borderRadius: `${browR.br}px`,
+            transition: t,
+          }}
+          className="box-border origin-top-left absolute bg-[#00000059]"
+        />
+        <div
+          data-pencil-name="Eye L"
+          style={{
+            left: `${eyeL.left}px`,
+            top: `${eyeL.top}px`,
+            width: `${eyeL.width}px`,
+            height: `${eyeL.height}px`,
+            borderRadius: `${eyeL.br}px`,
+            transform: `rotate(${eyeL.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-1 4.4s infinite ease-in-out" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Eye R"
+          style={{
+            left: `${eyeR.left}px`,
+            top: `${eyeR.top}px`,
+            width: `${eyeR.width}px`,
+            height: `${eyeR.height}px`,
+            borderRadius: `${eyeR.br}px`,
+            transform: `rotate(${eyeR.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-1 4.4s infinite ease-in-out" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Mouth"
+          style={{
+            left: `${mouth.left}px`,
+            top: `${mouth.top}px`,
+            width: `${mouth.width}px`,
+            height: `${mouth.height}px`,
+            borderRadius: `${mouth.br}px`,
+            transform: `rotate(${mouth.rotate}deg)`,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059]"
+        />
       </div>
 
       {/* Мёртвое лицо: плавное появление / исчезновение с мягким отскоком */}
@@ -242,15 +244,28 @@ export function BlueFace({ isReacting, variant, hasText = false, isDead = false 
 /* =========================================================================
    2. Teal Blob (250×250) - Бирюзовый лидер
    ========================================================================= */
-export function TealFace({ isReacting, variant, hasText = false, talking = false, isDead = false }: FaceProps) {
-  
+export function TealFace({
+  isReacting,
+  variant,
+  hasText = false,
+  talking = false,
+  isDead = false,
+}: FaceProps) {
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 
   let browL = { left: 63.8, top: 48.4, width: 39.6, height: 11, rotate: -10, br: 5.5 };
   let browR = { left: 143, top: 48.4, width: 39.6, height: 11, rotate: 10, br: 5.5 };
   let eyeL = { left: 74.8, top: 70.4, width: 17.6, height: 26.4, br: 8.8, rotate: 0 };
   let eyeR = { left: 151.8, top: 70.4, width: 17.6, height: 26.4, br: 8.8, rotate: 0 };
-  let mouth = { left: 101, top: 98, width: 48, height: 24, br: 12, rotate: 0, scale: hasText && !talking ? 1.08 : 1 };
+  let mouth = {
+    left: 101,
+    top: 98,
+    width: 48,
+    height: 24,
+    br: 12,
+    rotate: 0,
+    scale: hasText && !talking ? 1.08 : 1,
+  };
 
   if (isReacting) {
     if (variant === 1) {
@@ -303,74 +318,74 @@ export function TealFace({ isReacting, variant, hasText = false, talking = false
         }}
       >
         <div
-        data-pencil-name="Brow L"
-        style={{
-          left: `${browL.left}px`,
-          top: `${browL.top}px`,
-          width: `${browL.width}px`,
-          height: `${browL.height}px`,
-          transform: `rotate(${browL.rotate}deg)`,
-          borderRadius: `${browL.br}px`,
-          transition: t,
-        }}
-        className="box-border origin-top-left absolute bg-[#00000059]"
-      />
-      <div
-        data-pencil-name="Brow R"
-        style={{
-          left: `${browR.left}px`,
-          top: `${browR.top}px`,
-          width: `${browR.width}px`,
-          height: `${browR.height}px`,
-          transform: `rotate(${browR.rotate}deg)`,
-          borderRadius: `${browR.br}px`,
-          transition: t,
-        }}
-        className="box-border origin-top-left absolute bg-[#00000059]"
-      />
-      <div
-        data-pencil-name="Eye L"
-        style={{
-          left: `${eyeL.left}px`,
-          top: `${eyeL.top}px`,
-          width: `${eyeL.width}px`,
-          height: `${eyeL.height}px`,
-          borderRadius: `${eyeL.br}px`,
-          transform: `rotate(${eyeL.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-2 3.9s infinite ease-in-out 0.8s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Eye R"
-        style={{
-          left: `${eyeR.left}px`,
-          top: `${eyeR.top}px`,
-          width: `${eyeR.width}px`,
-          height: `${eyeR.height}px`,
-          borderRadius: `${eyeR.br}px`,
-          transform: `rotate(${eyeR.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-2 3.9s infinite ease-in-out 0.8s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      {/* Рот: плавно меняет ширину, высоту и скругление */}
-      <div
-        data-pencil-name="Mouth"
-        style={{
-          left: `${mouth.left}px`,
-          top: `${mouth.top}px`,
-          width: `${mouth.width}px`,
-          height: `${mouth.height}px`,
-          borderRadius: `${mouth.br}px`,
-          transform: `rotate(${mouth.rotate}deg) scale(${mouth.scale})`,
-          animation: talking && !isReacting ? "blob-talk 0.28s ease-in-out infinite" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute border-4 border-[#00000059] bg-transparent"
-      />
+          data-pencil-name="Brow L"
+          style={{
+            left: `${browL.left}px`,
+            top: `${browL.top}px`,
+            width: `${browL.width}px`,
+            height: `${browL.height}px`,
+            transform: `rotate(${browL.rotate}deg)`,
+            borderRadius: `${browL.br}px`,
+            transition: t,
+          }}
+          className="box-border origin-top-left absolute bg-[#00000059]"
+        />
+        <div
+          data-pencil-name="Brow R"
+          style={{
+            left: `${browR.left}px`,
+            top: `${browR.top}px`,
+            width: `${browR.width}px`,
+            height: `${browR.height}px`,
+            transform: `rotate(${browR.rotate}deg)`,
+            borderRadius: `${browR.br}px`,
+            transition: t,
+          }}
+          className="box-border origin-top-left absolute bg-[#00000059]"
+        />
+        <div
+          data-pencil-name="Eye L"
+          style={{
+            left: `${eyeL.left}px`,
+            top: `${eyeL.top}px`,
+            width: `${eyeL.width}px`,
+            height: `${eyeL.height}px`,
+            borderRadius: `${eyeL.br}px`,
+            transform: `rotate(${eyeL.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-2 3.9s infinite ease-in-out 0.8s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Eye R"
+          style={{
+            left: `${eyeR.left}px`,
+            top: `${eyeR.top}px`,
+            width: `${eyeR.width}px`,
+            height: `${eyeR.height}px`,
+            borderRadius: `${eyeR.br}px`,
+            transform: `rotate(${eyeR.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-2 3.9s infinite ease-in-out 0.8s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        {/* Рот: плавно меняет ширину, высоту и скругление */}
+        <div
+          data-pencil-name="Mouth"
+          style={{
+            left: `${mouth.left}px`,
+            top: `${mouth.top}px`,
+            width: `${mouth.width}px`,
+            height: `${mouth.height}px`,
+            borderRadius: `${mouth.br}px`,
+            transform: `rotate(${mouth.rotate}deg) scale(${mouth.scale})`,
+            animation: talking && !isReacting ? "blob-talk 0.28s ease-in-out infinite" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute border-4 border-[#00000059] bg-transparent"
+        />
       </div>
 
       {/* Мёртвое лицо: плавное появление / исчезновение с мягким отскоком */}
@@ -394,7 +409,6 @@ export function TealFace({ isReacting, variant, hasText = false, talking = false
    3. Green Blob (190×190) - Прищуренный зелёный
    ========================================================================= */
 export function GreenFace({ isReacting, variant, hasText: _hasText = false, isDead = false }: FaceProps) {
-  
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 
   let eyeL = { left: 40, top: 64, width: 30.4, height: 8.55, br: 4.275, rotate: 0 };
@@ -437,46 +451,46 @@ export function GreenFace({ isReacting, variant, hasText: _hasText = false, isDe
         }}
       >
         <div
-        data-pencil-name="Eye L"
-        style={{
-          left: `${eyeL.left}px`,
-          top: `${eyeL.top}px`,
-          width: `${eyeL.width}px`,
-          height: `${eyeL.height}px`,
-          borderRadius: `${eyeL.br}px`,
-          transform: `rotate(${eyeL.rotate}deg)`,
-          animation: !isReacting ? "eye-squint 5.2s infinite ease-in-out 1.2s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Eye R"
-        style={{
-          left: `${eyeR.left}px`,
-          top: `${eyeR.top}px`,
-          width: `${eyeR.width}px`,
-          height: `${eyeR.height}px`,
-          borderRadius: `${eyeR.br}px`,
-          transform: `rotate(${eyeR.rotate}deg)`,
-          animation: !isReacting ? "eye-squint 5.2s infinite ease-in-out 1.2s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Mouth"
-        style={{
-          left: `${mouth.left}px`,
-          top: `${mouth.top}px`,
-          width: `${mouth.width}px`,
-          height: `${mouth.height}px`,
-          borderRadius: `${mouth.br}px`,
-          transform: `rotate(${mouth.rotate}deg)`,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059]"
-      />
+          data-pencil-name="Eye L"
+          style={{
+            left: `${eyeL.left}px`,
+            top: `${eyeL.top}px`,
+            width: `${eyeL.width}px`,
+            height: `${eyeL.height}px`,
+            borderRadius: `${eyeL.br}px`,
+            transform: `rotate(${eyeL.rotate}deg)`,
+            animation: !isReacting ? "eye-squint 5.2s infinite ease-in-out 1.2s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Eye R"
+          style={{
+            left: `${eyeR.left}px`,
+            top: `${eyeR.top}px`,
+            width: `${eyeR.width}px`,
+            height: `${eyeR.height}px`,
+            borderRadius: `${eyeR.br}px`,
+            transform: `rotate(${eyeR.rotate}deg)`,
+            animation: !isReacting ? "eye-squint 5.2s infinite ease-in-out 1.2s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Mouth"
+          style={{
+            left: `${mouth.left}px`,
+            top: `${mouth.top}px`,
+            width: `${mouth.width}px`,
+            height: `${mouth.height}px`,
+            borderRadius: `${mouth.br}px`,
+            transform: `rotate(${mouth.rotate}deg)`,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059]"
+        />
       </div>
 
       {/* Мёртвое лицо: плавное появление / исчезновение с мягким отскоком */}
@@ -500,7 +514,6 @@ export function GreenFace({ isReacting, variant, hasText: _hasText = false, isDe
    4. Purple Blob (270×270) - Фиолетовый гигант
    ========================================================================= */
 export function PurpleFace({ isReacting, variant, hasText: _hasText = false, isDead = false }: FaceProps) {
-  
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 
   let browL = { left: 75.6, top: 54, width: 43.2, height: 12.15, rotate: -25, br: 6 };
@@ -553,72 +566,72 @@ export function PurpleFace({ isReacting, variant, hasText: _hasText = false, isD
         }}
       >
         <div
-        data-pencil-name="Brow L"
-        style={{
-          left: `${browL.left}px`,
-          top: `${browL.top}px`,
-          width: `${browL.width}px`,
-          height: `${browL.height}px`,
-          transform: `rotate(${browL.rotate}deg)`,
-          borderRadius: `${browL.br}px`,
-          transition: t,
-        }}
-        className="box-border origin-top-left absolute bg-[#00000059]"
-      />
-      <div
-        data-pencil-name="Brow R"
-        style={{
-          left: `${browR.left}px`,
-          top: `${browR.top}px`,
-          width: `${browR.width}px`,
-          height: `${browR.height}px`,
-          transform: `rotate(${browR.rotate}deg)`,
-          borderRadius: `${browR.br}px`,
-          transition: t,
-        }}
-        className="box-border origin-top-left absolute bg-[#00000059]"
-      />
-      <div
-        data-pencil-name="Eye L"
-        style={{
-          left: `${eyeL.left}px`,
-          top: `${eyeL.top}px`,
-          width: `${eyeL.width}px`,
-          height: `${eyeL.height}px`,
-          borderRadius: `${eyeL.br}px`,
-          transform: `rotate(${eyeL.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-3 5.5s infinite ease-in-out 2.0s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Eye R"
-        style={{
-          left: `${eyeR.left}px`,
-          top: `${eyeR.top}px`,
-          width: `${eyeR.width}px`,
-          height: `${eyeR.height}px`,
-          borderRadius: `${eyeR.br}px`,
-          transform: `rotate(${eyeR.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-3 5.5s infinite ease-in-out 2.0s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Mouth"
-        style={{
-          left: `${mouth.left}px`,
-          top: `${mouth.top}px`,
-          width: `${mouth.width}px`,
-          height: `${mouth.height}px`,
-          borderRadius: `${mouth.br}px`,
-          transform: `rotate(${mouth.rotate}deg)`,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059]"
-      />
+          data-pencil-name="Brow L"
+          style={{
+            left: `${browL.left}px`,
+            top: `${browL.top}px`,
+            width: `${browL.width}px`,
+            height: `${browL.height}px`,
+            transform: `rotate(${browL.rotate}deg)`,
+            borderRadius: `${browL.br}px`,
+            transition: t,
+          }}
+          className="box-border origin-top-left absolute bg-[#00000059]"
+        />
+        <div
+          data-pencil-name="Brow R"
+          style={{
+            left: `${browR.left}px`,
+            top: `${browR.top}px`,
+            width: `${browR.width}px`,
+            height: `${browR.height}px`,
+            transform: `rotate(${browR.rotate}deg)`,
+            borderRadius: `${browR.br}px`,
+            transition: t,
+          }}
+          className="box-border origin-top-left absolute bg-[#00000059]"
+        />
+        <div
+          data-pencil-name="Eye L"
+          style={{
+            left: `${eyeL.left}px`,
+            top: `${eyeL.top}px`,
+            width: `${eyeL.width}px`,
+            height: `${eyeL.height}px`,
+            borderRadius: `${eyeL.br}px`,
+            transform: `rotate(${eyeL.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-3 5.5s infinite ease-in-out 2.0s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Eye R"
+          style={{
+            left: `${eyeR.left}px`,
+            top: `${eyeR.top}px`,
+            width: `${eyeR.width}px`,
+            height: `${eyeR.height}px`,
+            borderRadius: `${eyeR.br}px`,
+            transform: `rotate(${eyeR.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-3 5.5s infinite ease-in-out 2.0s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Mouth"
+          style={{
+            left: `${mouth.left}px`,
+            top: `${mouth.top}px`,
+            width: `${mouth.width}px`,
+            height: `${mouth.height}px`,
+            borderRadius: `${mouth.br}px`,
+            transform: `rotate(${mouth.rotate}deg)`,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059]"
+        />
       </div>
 
       {/* Мёртвое лицо: плавное появление / исчезновение с мягким отскоком */}
@@ -642,7 +655,6 @@ export function PurpleFace({ isReacting, variant, hasText: _hasText = false, isD
    5. Red Blob (240×240) - Красный задира
    ========================================================================= */
 export function RedFace({ isReacting, variant, hasText = false, isDead = false }: FaceProps) {
-  
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 
   let browL = { left: 52.8, top: hasText ? 68 : 72, width: 48, height: 12, rotate: 18, br: 6 };
@@ -695,70 +707,70 @@ export function RedFace({ isReacting, variant, hasText = false, isDead = false }
         }}
       >
         <div
-        data-pencil-name="Brow L"
-        style={{
-          left: `${browL.left}px`,
-          top: `${browL.top}px`,
-          width: `${browL.width}px`,
-          height: `${browL.height}px`,
-          transform: `rotate(${browL.rotate}deg)`,
-          borderRadius: `${browL.br}px`,
-          transition: t,
-        }}
-        className="box-border origin-top-left absolute bg-[#00000059]"
-      />
-      <div
-        data-pencil-name="Brow R"
-        style={{
-          left: `${browR.left}px`,
-          top: `${browR.top}px`,
-          width: `${browR.width}px`,
-          height: `${browR.height}px`,
-          transform: `rotate(${browR.rotate}deg)`,
-          borderRadius: `${browR.br}px`,
-          transition: t,
-        }}
-        className="box-border origin-top-left absolute bg-[#00000059]"
-      />
-      <div
-        data-pencil-name="Eye L"
-        style={{
-          left: `${eyeL.left}px`,
-          top: `${eyeL.top}px`,
-          width: `${eyeL.width}px`,
-          height: `${eyeL.height}px`,
-          borderRadius: `${eyeL.br}px`,
-          animation: !isReacting ? "eye-blink-4 3.7s infinite ease-in-out 0.5s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Eye R"
-        style={{
-          left: `${eyeR.left}px`,
-          top: `${eyeR.top}px`,
-          width: `${eyeR.width}px`,
-          height: `${eyeR.height}px`,
-          borderRadius: `${eyeR.br}px`,
-          animation: !isReacting ? "eye-blink-4 3.7s infinite ease-in-out 0.5s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Mouth"
-        style={{
-          left: `${mouth.left}px`,
-          top: `${mouth.top}px`,
-          width: `${mouth.width}px`,
-          height: `${mouth.height}px`,
-          borderRadius: `${mouth.br}px`,
-          transform: `rotate(${mouth.rotate}deg)`,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059]"
-      />
+          data-pencil-name="Brow L"
+          style={{
+            left: `${browL.left}px`,
+            top: `${browL.top}px`,
+            width: `${browL.width}px`,
+            height: `${browL.height}px`,
+            transform: `rotate(${browL.rotate}deg)`,
+            borderRadius: `${browL.br}px`,
+            transition: t,
+          }}
+          className="box-border origin-top-left absolute bg-[#00000059]"
+        />
+        <div
+          data-pencil-name="Brow R"
+          style={{
+            left: `${browR.left}px`,
+            top: `${browR.top}px`,
+            width: `${browR.width}px`,
+            height: `${browR.height}px`,
+            transform: `rotate(${browR.rotate}deg)`,
+            borderRadius: `${browR.br}px`,
+            transition: t,
+          }}
+          className="box-border origin-top-left absolute bg-[#00000059]"
+        />
+        <div
+          data-pencil-name="Eye L"
+          style={{
+            left: `${eyeL.left}px`,
+            top: `${eyeL.top}px`,
+            width: `${eyeL.width}px`,
+            height: `${eyeL.height}px`,
+            borderRadius: `${eyeL.br}px`,
+            animation: !isReacting ? "eye-blink-4 3.7s infinite ease-in-out 0.5s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Eye R"
+          style={{
+            left: `${eyeR.left}px`,
+            top: `${eyeR.top}px`,
+            width: `${eyeR.width}px`,
+            height: `${eyeR.height}px`,
+            borderRadius: `${eyeR.br}px`,
+            animation: !isReacting ? "eye-blink-4 3.7s infinite ease-in-out 0.5s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Mouth"
+          style={{
+            left: `${mouth.left}px`,
+            top: `${mouth.top}px`,
+            width: `${mouth.width}px`,
+            height: `${mouth.height}px`,
+            borderRadius: `${mouth.br}px`,
+            transform: `rotate(${mouth.rotate}deg)`,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059]"
+        />
       </div>
 
       {/* Мёртвое лицо: плавное появление / исчезновение с мягким отскоком */}
@@ -782,7 +794,6 @@ export function RedFace({ isReacting, variant, hasText = false, isDead = false }
    6. Pink Blob (250×250) - Розовый утончённый
    ========================================================================= */
 export function PinkFace({ isReacting, variant, hasText = false, isDead = false }: FaceProps) {
-  
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 
   let eyeL = { left: 75, top: 75, width: 25, height: 42.5, br: 12.5, rotate: 0 };
@@ -830,45 +841,45 @@ export function PinkFace({ isReacting, variant, hasText = false, isDead = false 
         }}
       >
         <div
-        data-pencil-name="Eye L"
-        style={{
-          left: `${eyeL.left}px`,
-          top: `${eyeL.top}px`,
-          width: `${eyeL.width}px`,
-          height: `${eyeL.height}px`,
-          borderRadius: `${eyeL.br}px`,
-          transform: `rotate(${eyeL.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-1 4.3s infinite ease-in-out 1.5s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Eye R"
-        style={{
-          left: `${eyeR.left}px`,
-          top: `${eyeR.top}px`,
-          width: `${eyeR.width}px`,
-          height: `${eyeR.height}px`,
-          borderRadius: `${eyeR.br}px`,
-          transform: `rotate(${eyeR.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-1 4.3s infinite ease-in-out 1.5s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Mouth"
-        style={{
-          left: `${mouth.left}px`,
-          top: `${mouth.top}px`,
-          width: `${mouth.width}px`,
-          height: `${mouth.height}px`,
-          borderRadius: `${mouth.br}px`,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059]"
-      />
+          data-pencil-name="Eye L"
+          style={{
+            left: `${eyeL.left}px`,
+            top: `${eyeL.top}px`,
+            width: `${eyeL.width}px`,
+            height: `${eyeL.height}px`,
+            borderRadius: `${eyeL.br}px`,
+            transform: `rotate(${eyeL.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-1 4.3s infinite ease-in-out 1.5s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Eye R"
+          style={{
+            left: `${eyeR.left}px`,
+            top: `${eyeR.top}px`,
+            width: `${eyeR.width}px`,
+            height: `${eyeR.height}px`,
+            borderRadius: `${eyeR.br}px`,
+            transform: `rotate(${eyeR.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-1 4.3s infinite ease-in-out 1.5s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Mouth"
+          style={{
+            left: `${mouth.left}px`,
+            top: `${mouth.top}px`,
+            width: `${mouth.width}px`,
+            height: `${mouth.height}px`,
+            borderRadius: `${mouth.br}px`,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059]"
+        />
       </div>
 
       {/* Мёртвое лицо: плавное появление / исчезновение с мягким отскоком */}
@@ -892,7 +903,6 @@ export function PinkFace({ isReacting, variant, hasText = false, isDead = false 
    7. Yellow Blob (230×230) - Жёлтый оптимист
    ========================================================================= */
 export function YellowFace({ isReacting, variant, hasText = false, isDead = false }: FaceProps) {
-  
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 
   let eyeL = { left: 69, top: 69, width: 23, height: 36.8, br: 11.5, rotate: 0 };
@@ -947,41 +957,41 @@ export function YellowFace({ isReacting, variant, hasText = false, isDead = fals
         }}
       >
         <div
-        data-pencil-name="Eye L"
-        style={{
-          left: `${eyeL.left}px`,
-          top: `${eyeL.top}px`,
-          width: `${eyeL.width}px`,
-          height: `${eyeL.height}px`,
-          borderRadius: `${eyeL.br}px`,
-          transform: `rotate(${eyeL.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-2 3.6s infinite ease-in-out 2.2s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Eye R"
-        style={{
-          left: `${eyeR.left}px`,
-          top: `${eyeR.top}px`,
-          width: `${eyeR.width}px`,
-          height: `${eyeR.height}px`,
-          borderRadius: `${eyeR.br}px`,
-          transform: `rotate(${eyeR.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-2 3.6s infinite ease-in-out 2.2s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Smile"
-        style={{
-          transform: `scale(${mouthScale}) rotate(${mouthRotate}deg) translateY(${mouthY}px)`,
-          transition: t,
-        }}
-        className="box-border w-[101.2px] h-[69px] absolute left-[64.4px] top-[101.2px] bg-[#00000059] [clip-path:path('M0_34.5_C0_53.554_22.654_69_50.6_69_C78.546_69_101.2_53.554_101.2_34.5_L92.092_34.5_C92.092_50.124_73.515_62.79_50.6_62.79_C27.685_62.79_9.108_50.124_9.108_34.5_L0_34.5_Z')] origin-center"
-      />
+          data-pencil-name="Eye L"
+          style={{
+            left: `${eyeL.left}px`,
+            top: `${eyeL.top}px`,
+            width: `${eyeL.width}px`,
+            height: `${eyeL.height}px`,
+            borderRadius: `${eyeL.br}px`,
+            transform: `rotate(${eyeL.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-2 3.6s infinite ease-in-out 2.2s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Eye R"
+          style={{
+            left: `${eyeR.left}px`,
+            top: `${eyeR.top}px`,
+            width: `${eyeR.width}px`,
+            height: `${eyeR.height}px`,
+            borderRadius: `${eyeR.br}px`,
+            transform: `rotate(${eyeR.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-2 3.6s infinite ease-in-out 2.2s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Smile"
+          style={{
+            transform: `scale(${mouthScale}) rotate(${mouthRotate}deg) translateY(${mouthY}px)`,
+            transition: t,
+          }}
+          className="box-border w-[101.2px] h-[69px] absolute left-[64.4px] top-[101.2px] bg-[#00000059] [clip-path:path('M0_34.5_C0_53.554_22.654_69_50.6_69_C78.546_69_101.2_53.554_101.2_34.5_L92.092_34.5_C92.092_50.124_73.515_62.79_50.6_62.79_C27.685_62.79_9.108_50.124_9.108_34.5_L0_34.5_Z')] origin-center"
+        />
       </div>
 
       {/* Мёртвое лицо: плавное появление / исчезновение с мягким отскоком */}
@@ -1005,13 +1015,20 @@ export function YellowFace({ isReacting, variant, hasText = false, isDead = fals
    8. Orange Blob (220×220) - Оранжевый удивлённый
    ========================================================================= */
 export function OrangeFace({ isReacting, variant, hasText = false, isDead = false }: FaceProps) {
-  
   const t = isReacting ? TRANS_REACT : TRANS_RETURN;
 
   let browY = hasText ? -1.5 : 0;
   let eyeL = { left: 66, top: 70.4, width: 17.6, height: 26.4, br: 8.8, rotate: 0 };
   let eyeR = { left: 136.4, top: 70.4, width: 17.6, height: 26.4, br: 8.8, rotate: 0 };
-  let mouth = { left: 96.8, top: 114.4, width: 26.4, height: 30.8, br: 13.2, rotate: 0, scale: hasText ? 1.25 : 1 };
+  let mouth = {
+    left: 96.8,
+    top: 114.4,
+    width: 26.4,
+    height: 30.8,
+    br: 13.2,
+    rotate: 0,
+    scale: hasText ? 1.25 : 1,
+  };
 
   if (isReacting) {
     if (variant === 1) {
@@ -1053,62 +1070,62 @@ export function OrangeFace({ isReacting, variant, hasText = false, isDead = fals
         }}
       >
         <div
-        data-pencil-name="Brow L"
-        style={{
-          transform: `translateY(${browY}px)`,
-          transition: t,
-        }}
-        className="box-border w-[35.2px] h-[22px] absolute left-[57.2px] top-[39.6px] bg-[#00000059] [clip-path:path('M35.2_11_C35.2_4.925_27.32_0_17.6_0_C7.88_0_0_4.925_0_11_L5.28_11_C5.28_6.747_10.796_3.3_17.6_3.3_C24.404_3.3_29.92_6.747_29.92_11_L35.2_11_Z')]"
-      />
-      <div
-        data-pencil-name="Brow R"
-        style={{
-          transform: `translateY(${browY}px)`,
-          transition: t,
-        }}
-        className="box-border w-[35.2px] h-[22px] absolute left-[127.6px] top-[39.6px] bg-[#00000059] [clip-path:path('M35.2_11_C35.2_4.925_27.32_0_17.6_0_C7.88_0_0_4.925_0_11_L5.28_11_C5.28_6.747_10.796_3.3_17.6_3.3_C24.404_3.3_29.92_6.747_29.92_11_L35.2_11_Z')]"
-      />
-      <div
-        data-pencil-name="Eye L"
-        style={{
-          left: `${eyeL.left}px`,
-          top: `${eyeL.top}px`,
-          width: `${eyeL.width}px`,
-          height: `${eyeL.height}px`,
-          borderRadius: `${eyeL.br}px`,
-          transform: `rotate(${eyeL.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-3 4.1s infinite ease-in-out 0.7s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Eye R"
-        style={{
-          left: `${eyeR.left}px`,
-          top: `${eyeR.top}px`,
-          width: `${eyeR.width}px`,
-          height: `${eyeR.height}px`,
-          borderRadius: `${eyeR.br}px`,
-          transform: `rotate(${eyeR.rotate}deg)`,
-          animation: !isReacting ? "eye-blink-3 4.1s infinite ease-in-out 0.7s" : undefined,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
-      <div
-        data-pencil-name="Mouth"
-        style={{
-          left: `${mouth.left}px`,
-          top: `${mouth.top}px`,
-          width: `${mouth.width}px`,
-          height: `${mouth.height}px`,
-          borderRadius: `${mouth.br}px`,
-          transform: `rotate(${mouth.rotate}deg) scale(${mouth.scale})`,
-          transition: t,
-        }}
-        className="box-border absolute bg-[#00000059] origin-center"
-      />
+          data-pencil-name="Brow L"
+          style={{
+            transform: `translateY(${browY}px)`,
+            transition: t,
+          }}
+          className="box-border w-[35.2px] h-[22px] absolute left-[57.2px] top-[39.6px] bg-[#00000059] [clip-path:path('M35.2_11_C35.2_4.925_27.32_0_17.6_0_C7.88_0_0_4.925_0_11_L5.28_11_C5.28_6.747_10.796_3.3_17.6_3.3_C24.404_3.3_29.92_6.747_29.92_11_L35.2_11_Z')]"
+        />
+        <div
+          data-pencil-name="Brow R"
+          style={{
+            transform: `translateY(${browY}px)`,
+            transition: t,
+          }}
+          className="box-border w-[35.2px] h-[22px] absolute left-[127.6px] top-[39.6px] bg-[#00000059] [clip-path:path('M35.2_11_C35.2_4.925_27.32_0_17.6_0_C7.88_0_0_4.925_0_11_L5.28_11_C5.28_6.747_10.796_3.3_17.6_3.3_C24.404_3.3_29.92_6.747_29.92_11_L35.2_11_Z')]"
+        />
+        <div
+          data-pencil-name="Eye L"
+          style={{
+            left: `${eyeL.left}px`,
+            top: `${eyeL.top}px`,
+            width: `${eyeL.width}px`,
+            height: `${eyeL.height}px`,
+            borderRadius: `${eyeL.br}px`,
+            transform: `rotate(${eyeL.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-3 4.1s infinite ease-in-out 0.7s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Eye R"
+          style={{
+            left: `${eyeR.left}px`,
+            top: `${eyeR.top}px`,
+            width: `${eyeR.width}px`,
+            height: `${eyeR.height}px`,
+            borderRadius: `${eyeR.br}px`,
+            transform: `rotate(${eyeR.rotate}deg)`,
+            animation: !isReacting ? "eye-blink-3 4.1s infinite ease-in-out 0.7s" : undefined,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
+        <div
+          data-pencil-name="Mouth"
+          style={{
+            left: `${mouth.left}px`,
+            top: `${mouth.top}px`,
+            width: `${mouth.width}px`,
+            height: `${mouth.height}px`,
+            borderRadius: `${mouth.br}px`,
+            transform: `rotate(${mouth.rotate}deg) scale(${mouth.scale})`,
+            transition: t,
+          }}
+          className="box-border absolute bg-[#00000059] origin-center"
+        />
       </div>
 
       {/* Мёртвое лицо: плавное появление / исчезновение с мягким отскоком */}

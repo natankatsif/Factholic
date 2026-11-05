@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCabinetActions } from "./actions";
 import { CabinetShell, useOpenNarrativeDialog } from "./CabinetShell";
-import { pluralWord, useCabinetText } from "./dictionary";
+import { useCabinetText } from "./dictionary";
 import type { CabinetFixture } from "./fixtures";
 import { ArrowLeftIcon, ArrowRightIcon, PlusIcon, ScalesIcon } from "./icons";
 import { Avatar, Pill, SidesBar, SidesLegend, StatusPill } from "./ui";
@@ -75,12 +75,12 @@ export function NarrativeScreen({
             {narrative.description}
           </p>
           <div className="flex items-start gap-[22px] pt-1">
-            <Stat value={count} label={pluralWord(count, text.questionsWord)} />
+            <Stat value={count} label={t.plural(count, text.questionsWord)} />
             <Stat
               value={narrative.publications}
-              label={pluralWord(narrative.publications, text.publicationsWord)}
+              label={t.plural(narrative.publications, text.publicationsWord)}
             />
-            <Stat value={narrative.languages} label={pluralWord(narrative.languages, text.languagesWord)} />
+            <Stat value={narrative.languages} label={t.plural(narrative.languages, text.languagesWord)} />
             <Stat value={narrative.lastChange} label={text.lastChange} />
           </div>
         </div>

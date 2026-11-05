@@ -6,7 +6,9 @@
  * Чистая логика без внешних API.
  */
 import type { IncomingMessage } from "node:http";
+import type { LanguageCode } from "@news/contracts";
 import { config } from "../config.ts";
+import { messagesFor } from "../messages.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -78,26 +80,16 @@ const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
  * Можно ли потратить деньги на действие. null — можно (засчитано), иначе — текст для пользователя.
  * ip undefined (неизвестен) или localhost без прокси — только суточный бюджет.
  */
-export function allow(action: GuardedAction, ip: string | undefined): string | null {
-  if (ip && !LOOPBACK.has(ip) && !perIp[action].take(ip)) return LIMIT_TEXT[action].perIp;
-  if (!daily[action].take()) return LIMIT_TEXT[action].daily;
+export function allow(
+  action: GuardedAction,
+  ip: string | undefined,
+  uiLanguage: LanguageCode = "ru",
+): string | null {
+  const texts = messagesFor(uiLanguage).limits[action];
+  if (ip && !LOOPBACK.has(ip) && !perIp[action].take(ip)) return texts.perIp;
+  if (!daily[action].take()) return texts.daily;
   return null;
 }
-
-const LIMIT_TEXT: Record<GuardedAction, { perIp: string; daily: string }> = {
-  job: {
-    perIp: "Слишком много проверок подряд. Подожди немного и попробуй снова",
-    daily: "Сервис сегодня исчерпал дневной лимит проверок. Попробуй завтра",
-  },
-  check: {
-    perIp: "Слишком много проверок подряд — это утверждение проверим чуть позже",
-    daily: "Дневной лимит проверок исчерпан — попробуй завтра",
-  },
-  chat: {
-    perIp: "Слишком много вопросов подряд. Подожди немного и спроси снова",
-    daily: "Ассистент сегодня исчерпал дневной лимит. Попробуй завтра",
-  },
-};
 
 /**
  * IP посетителя. За туннелем Cloudflare и на Vercel сокет — всегда прокси, настоящий адрес — в заголовках.

@@ -1,70 +1,22 @@
 import React from "react";
 import { Briefcase, Building2, X, type LucideIcon } from "lucide-react";
+import { useSiteText } from "../../i18n/site";
 
 export type Audience = "editorial" | "business";
 
-interface AudienceInfo {
-  title: string;
-  subtitle: string;
-  icon: LucideIcon;
-  iconBg: string;
-  iconColor: string;
-  intro: string;
-  listTitle: string;
-  points: string[];
-  contact: { text: string; email: string };
-}
-
-/**
- * Что factholic даёт редакциям и бизнесу. Тексты — по тому, что продукт делает сейчас: историю утверждения
- * (первоисточник, кто у кого взял, что изменилось по дороге, стороны), а не вердикт «правда/ложь».
- */
-const AUDIENCES: Record<Audience, AudienceInfo> = {
-  editorial: {
-    title: "Для редакций",
-    subtitle: "factholic в работе фактчекеров и новостных команд",
-    icon: Building2,
-    iconBg: "#EDE4FD",
-    iconColor: "#6E1EF0",
-    intro:
-      "Вставьте видео, пост или ссылку — factholic выделит проверяемые утверждения, найдёт все публикации о них на румынском, русском и английском и покажет историю каждого: где оно появилось впервые, кто у кого его взял и что изменилось по дороге. Вердикт «правда/ложь» мы не выносим — выводы остаются за редакцией.",
-    listTitle: "Что получает редакция:",
-    points: [
-      "Первоисточник и дерево перепечаток со ссылками на каждую публикацию",
-      "Где утверждение раздули: цифры, место, время, уверенность, кто сказал",
-      "Флаг «старый контент», если событие выдают за свежее",
-      "Стороны: сколько независимых источников подтверждают и возражают — перепечатки одной новости считаются за один голос",
-      "Разбор видео по таймкодам — утверждения отмечены прямо на полосе плеера",
-    ],
-    contact: { text: "Чтобы подключить редакцию, напишите нам:", email: "natankatsif@gmail.com" },
-  },
-  business: {
-    title: "Для бизнеса",
-    subtitle: "factholic для PR, коммуникаций и управления рисками",
-    icon: Briefcase,
-    iconBg: "#DDF3EA",
-    iconColor: "#1DA57A",
-    intro:
-      "Утверждения о компании или отрасли расходятся по видео, соцсетям и СМИ и по дороге меняются. factholic показывает, откуда пошла история, как она дошла до вас и где её исказили — со ссылками на каждую публикацию, чтобы ответить по фактам, а не по слухам.",
-    listTitle: "Чем полезен бизнесу:",
-    points: [
-      "Найти первоисточник слуха или претензии о компании",
-      "Увидеть, на каком шаге перепечатки исказили цифры, место или время",
-      "Отличить новую волну от старой истории, которую подали как свежую",
-      "Проверить видео или пост перед реакцией, репостом или публичным ответом",
-      "Показать руководству дерево источников вместо пересказа",
-    ],
-    contact: {
-      text: "Чтобы обсудить подключение для компании, напишите нам:",
-      email: "natankatsif@gmail.com",
-    },
-  },
+/** Почта для заявок и оформление окна. Тексты — в словаре (t.audience): что продукт делает сейчас, без вердикта */
+const CONTACT_EMAIL = "natankatsif@gmail.com";
+const STYLES: Record<Audience, { icon: LucideIcon; iconBg: string; iconColor: string }> = {
+  editorial: { icon: Building2, iconBg: "#EDE4FD", iconColor: "#6E1EF0" },
+  business: { icon: Briefcase, iconBg: "#DDF3EA", iconColor: "#1DA57A" },
 };
 
 /** Окно «Для редакций» / «Для бизнеса» из навбара главной */
 export function AudienceModal({ audience, onClose }: { audience: Audience; onClose: () => void }) {
-  const info = AUDIENCES[audience];
-  const Icon = info.icon;
+  const t = useSiteText();
+  const info = t.audience[audience];
+  const style = STYLES[audience];
+  const Icon = style.icon;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-[#4A3333]/30 backdrop-blur-xs transition-opacity" onClick={onClose} />
@@ -78,7 +30,7 @@ export function AudienceModal({ audience, onClose }: { audience: Audience; onClo
           <div className="flex items-center gap-3">
             <div
               className="flex h-10 w-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: info.iconBg, color: info.iconColor }}
+              style={{ backgroundColor: style.iconBg, color: style.iconColor }}
             >
               <Icon className="h-5 w-5" />
             </div>
@@ -90,7 +42,7 @@ export function AudienceModal({ audience, onClose }: { audience: Audience; onClo
           <button
             type="button"
             onClick={onClose}
-            aria-label="Закрыть"
+            aria-label={t.common.close}
             className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-none bg-[#F1EBE9] text-[#4A3333] hover:bg-[#E3D9D6]"
           >
             <X className="h-4 w-4" />
@@ -105,12 +57,12 @@ export function AudienceModal({ audience, onClose }: { audience: Audience; onClo
             ))}
           </div>
           <p className="m-0 mt-1 text-xs text-[#A27C7A]">
-            {info.contact.text}{" "}
+            {info.contact}{" "}
             <a
-              href={`mailto:${info.contact.email}`}
+              href={`mailto:${CONTACT_EMAIL}`}
               className="font-black text-[#4A3333] no-underline hover:underline"
             >
-              {info.contact.email}
+              {CONTACT_EMAIL}
             </a>
           </p>
         </div>

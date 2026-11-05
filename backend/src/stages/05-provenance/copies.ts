@@ -60,6 +60,30 @@ export function voteGroupsForSources(
 const MAX_VOTERS = 9;
 
 /**
+ * Как источник относится к истории, для подсчёта сторон. По адресу: у этапа 04 id копий и источников разные.
+ * context — страница о событии, из которого тезис мог вырасти, или случайное упоминание: сам тезис она не проверяет.
+ */
+export function voteRolesForSources(
+  tree: ProvenanceTree,
+  copies: SourceCopy[],
+  sources: FoundSource[],
+): Record<SourceId, "context" | "debunk"> {
+  const relationByUrl = new Map<string, TreeNode["relation"]>();
+  const urlById = new Map(copies.map((c) => [c.id, canonicalUrl(c.url)]));
+  for (const node of tree.nodes) {
+    const url = urlById.get(node.id);
+    if (url) relationByUrl.set(url, node.relation);
+  }
+  const roles: Record<SourceId, "context" | "debunk"> = {};
+  for (const source of sources) {
+    const relation = relationByUrl.get(canonicalUrl(source.url));
+    if (relation === "source_event" || relation === "mentions") roles[source.id] = "context";
+    if (relation === "debunks") roles[source.id] = "debunk";
+  }
+  return roles;
+}
+
+/**
  * Голоса из дерева. Этап 04 отбирает источники на разнообразие, поэтому в них могут не попасть публикации,
  * которые прямо сообщают утверждение. От каждой независимой ветки дерева голосует её самая ранняя публикация:
  * перепечатки и так считаются одним голосом, поэтому запрос к LLM растёт на ветки, а не на копии.

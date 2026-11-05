@@ -1,10 +1,10 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Check, LoaderCircle } from "lucide-react";
 import { formatTimecode, isPendingCheck, type VideoReport } from "@news/contracts";
-import { plural } from "./filters";
 import { Blob, type ProgressMood } from "./CornerEmojis";
 import { materialKind as reportMaterialKind, type MaterialKind } from "./material";
 import { clearBlobReturn, markBlobReturn, takeCrowdLaunch } from "../../lib/history-ui";
+import { useSiteText, type SiteDictionary } from "../../i18n/site";
 
 /** Что проверяем. «link» — ссылка не на видеоплатформу, пока бэкенд не сказал, статья это или видео */
 export type ProgressKind = MaterialKind | "link";
@@ -44,20 +44,6 @@ function materialKind(report: VideoReport | null, kindHint?: ProgressKind): Prog
   return kindHint ?? (report ? reportMaterialKind(report.video) : "text");
 }
 
-const TITLES: Record<ProgressKind, string> = {
-  video: "Анализируем видео…",
-  text: "Анализируем текст…",
-  article: "Анализируем статью…",
-  link: "Анализируем ссылку…",
-};
-
-const INPUT_TITLES: Record<ProgressKind, string> = {
-  video: "Субтитры",
-  text: "Текст",
-  article: "Статья",
-  link: "Страница",
-};
-
 const STAGE_BAR_COLORS = ["#0AA6C2", "#FFC20E", "#6E1EF0", "#1DA57A"];
 
 /**
@@ -68,8 +54,9 @@ function buildSteps(
   report: VideoReport | null,
   displayStage: number,
   stageProgress: number,
-  kindHint?: ProgressKind,
-  firstPartSize?: number,
+  kindHint: ProgressKind | undefined,
+  firstPartSize: number | undefined,
+  t: SiteDictionary,
 ): Step[] {
   const kind = materialKind(report, kindHint);
   const claims = report?.factChecks ?? [];
@@ -84,62 +71,62 @@ function buildSteps(
 
   // 1. Входной материал (Текст / Субтитры / Статья)
   const inputDone = displayStage > 0;
-  const inputTitle = INPUT_TITLES[kind];
+  const inputTitle = t.progress.inputTitles[kind];
   const inputDetail = inputDone
     ? kind === "video" && report?.processedUntil
       ? formatTimecode(report.processedUntil)
-      : "Получен"
+      : t.progress.received
     : kind === "text"
-      ? "Читаем…"
+      ? t.progress.reading
       : kind === "video"
         ? report?.processedUntil
           ? `${formatTimecode(report.processedUntil)}…`
-          : "Расшифровываем…"
-        : "Загружаем…";
+          : t.progress.transcribing
+        : t.progress.loading;
 
   // 2. Утверждения
   const claimsDone = displayStage > 1;
   const claimsActive = displayStage === 1;
   const claimsDetail = claimsDone
     ? total > 0
-      ? `Найдено ${total}`
-      : "Пока нет"
+      ? t.progress.found(total)
+      : t.progress.noneYet
     : claimsActive
       ? total > 0
-        ? `Найдено ${total}`
-        : "Ищем…"
-      : "Ждёт текст";
+        ? t.progress.found(total)
+        : t.progress.searching
+      : t.progress.waitingText;
 
   // 3. Источники
   const sourcesDone = displayStage > 2;
   const sourcesActive = displayStage === 2;
   const sourcesDetail = later
-    ? "По ходу просмотра"
+    ? t.progress.whileWatching
     : sourcesDone
       ? found > 0
-        ? `${found} ${plural(found, ["источник", "источника", "источников"])}`
-        : "Готово"
+        ? `${found} ${t.plural(found, t.words.sources)}`
+        : t.progress.done
       : sourcesActive
         ? found > 0
-          ? `${found} ${plural(found, ["источник", "источника", "источников"])}…`
-          : "Ищем…"
-        : "Ждёт утверждения";
+          ? `${found} ${t.plural(found, t.words.sources)}…`
+          : t.progress.searching
+        : t.progress.waitingClaims;
 
   // 4. Дерево и консенсус
   const treeDone = completed;
   const treeActive = displayStage === 3;
   // открываем после первой части: «проверено 3 из 8» — остальные догрузятся в разборе
   const treeDetail = later
-    ? "По ходу просмотра"
+    ? t.progress.whileWatching
     : treeDone
       ? checked < total
-        ? `Проверено ${checked} из ${total}`
-        : `Готово для ${total} ${plural(total, ["утверждения", "утверждений", "утверждений"])}`
+        ? t.progress.checkedOf(checked, total)
+        : t.progress.doneFor(total, t.plural(total, t.words.claimsFor))
       : treeActive
         ? checked > 0
-          ? `Проверено ${checked}…`
-          : "Сверяем позиции…"
-        : "Ждёт источники";
+          ? t.progress.checked(checked)
+          : t.progress.comparing
+        : t.progress.waitingSources;
 
   return [
     {
@@ -149,19 +136,19 @@ function buildSteps(
       progress: displayStage === 0 ? stageProgress : 1,
     },
     {
-      title: "Утверждения",
+      title: t.progress.claims,
       detail: claimsDetail,
       state: claimsDone ? "done" : claimsActive ? "active" : "pending",
       progress: claimsActive ? stageProgress : claimsDone ? 1 : 0,
     },
     {
-      title: "Источники",
+      title: t.progress.sources,
       detail: sourcesDetail,
       state: sourcesDone ? "done" : sourcesActive ? "active" : "pending",
       progress: sourcesActive ? stageProgress : sourcesDone ? 1 : 0,
     },
     {
-      title: "Дерево",
+      title: t.progress.tree,
       detail: treeDetail,
       state: treeDone ? "done" : treeActive ? "active" : "pending",
       progress: treeActive ? stageProgress : 0,
@@ -177,7 +164,8 @@ export function ProgressScreen({
   kindHint,
   firstPartSize,
 }: ProgressScreenProps) {
-  const steps = buildSteps(report, currentStage, stageProgress, kindHint, firstPartSize);
+  const t = useSiteText();
+  const steps = buildSteps(report, currentStage, stageProgress, kindHint, firstPartSize, t);
   const kind = materialKind(report, kindHint);
 
   return (
@@ -185,9 +173,9 @@ export function ProgressScreen({
       <div className="flex w-full max-w-[440px] flex-col items-center">
         <StageFace stage={currentStage} />
         <h1 className="mt-5 text-center text-[24px] font-black tracking-[-0.5px] sm:text-[28px]">
-          {TITLES[kind]}
+          {t.progress.titles[kind]}
         </h1>
-        <p className="mt-1 text-center text-sm font-bold text-[#A27C7A]">Обычно это занимает 1–2 минуты</p>
+        <p className="mt-1 text-center text-sm font-bold text-[#A27C7A]">{t.progress.duration}</p>
 
         <ol className="mt-6 flex w-full list-none flex-col gap-1 p-0">
           {steps.map((s, idx) => (

@@ -65,6 +65,8 @@ export interface SourceSearchOutput {
  */
 export interface SearchReport {
   rounds: number;
+  /** Сколько полных заходов сделал режим DEEP_SEARCH. Нет — один обычный */
+  passes?: number;
   /** Хватило ли данных по всем критериям */
   sufficient: boolean;
   /**

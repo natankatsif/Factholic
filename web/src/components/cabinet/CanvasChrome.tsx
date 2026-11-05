@@ -1,7 +1,7 @@
 /** Панели поверх холста: переключатель вида, счётчики, легенда и масштаб */
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
-import { pluralWord, useCabinetText } from "./dictionary";
+import { useCabinetText } from "./dictionary";
 import {
   CaretDownIcon,
   CheckCircleIcon,
@@ -51,19 +51,19 @@ function CheckStatsRow({ stats, status }: { stats: CheckStats; status: CheckStat
   const publicationForms = status === "done" ? t.canvas.publications : t.canvas.publicationsFound;
   return (
     <div className="flex items-center gap-[18px]">
-      <Stat value={publications} label={pluralWord(publications, publicationForms)} />
-      {links !== undefined && <Stat value={links} label={pluralWord(links, t.canvas.links)} />}
+      <Stat value={publications} label={t.plural(publications, publicationForms)} />
+      {links !== undefined && <Stat value={links} label={t.plural(links, t.canvas.links)} />}
       {confirmedLinks !== undefined && (
-        <Stat value={confirmedLinks} label={pluralWord(confirmedLinks, t.canvas.confirmedLinks)} />
+        <Stat value={confirmedLinks} label={t.plural(confirmedLinks, t.canvas.confirmedLinks)} />
       )}
       {changes !== undefined && (
         <Stat
           value={changes}
-          label={pluralWord(changes, t.canvas.changes)}
+          label={t.plural(changes, t.canvas.changes)}
           valueClassName="text-cabinet-inflated-text"
         />
       )}
-      {traces !== undefined && <Stat value={traces} label={pluralWord(traces, t.canvas.traces)} />}
+      {traces !== undefined && <Stat value={traces} label={t.plural(traces, t.canvas.traces)} />}
       {growth !== undefined && (
         <Stat value={t.canvas.growth(growth)} label={t.canvas.perDay} valueClassName="text-cabinet-new" />
       )}
@@ -103,7 +103,10 @@ export function CanvasToolbar({
           <button
             type="button"
             onClick={onToggleSearch}
-            className={cn("flex items-center gap-1.5 px-3.5 py-[9px] text-[13px] font-extrabold", FLOATING)}
+            className={cn(
+              "flex items-center gap-1.5 whitespace-nowrap px-3.5 py-[9px] text-[13px] font-extrabold",
+              FLOATING,
+            )}
           >
             <CheckCircleIcon className="h-4 w-4 text-cabinet-agree" />
             {t.canvas.searchDone}

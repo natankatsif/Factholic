@@ -221,7 +221,11 @@ export function VerificationScreen({
               isDimmed={() => false}
               sourceText={sourceText ?? report.sourceText}
               viewedClaimIds={viewedClaimIds}
-              pageUrl={report.video?.pageUrl && !report.video.pageUrl.startsWith("text:") ? report.video.pageUrl : undefined}
+              pageUrl={
+                report.video?.pageUrl && !report.video.pageUrl.startsWith("text:")
+                  ? report.video.pageUrl
+                  : undefined
+              }
             />
             <ConsensusBar
               factChecks={factChecks}

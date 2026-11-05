@@ -77,7 +77,7 @@ export const assessStancesReal: Stage<StancesInput, StancesOutput> = async (inpu
   );
 
   const sourceAssessments = alignAssessments(data.sourceAssessments, sources);
-  const votes = countVotes(sourceAssessments, sources, input.voteGroups);
+  const votes = countVotes(sourceAssessments, sources, input.voteGroups, input.voteRoles);
   const status = consensusStatus(votes);
   ctx.log(`08: ${claim.id}: ${status}`, votes);
   if (status === "few_sources") return fixedOutput(input, "few_sources", model, sourceAssessments, votes);
@@ -127,6 +127,7 @@ function countVotes(
   assessments: SourceAssessment[],
   sources: FoundSource[],
   voteGroups: Record<SourceId, string> | undefined,
+  voteRoles: StancesInput["voteRoles"] = {},
 ): Votes {
   const reliability = new Map(sources.map((s) => [s.id, clamp01(s.domainReliability)]));
   const byId = new Map(sources.map((s) => [s.id, s]));
@@ -136,6 +137,8 @@ function countVotes(
   >();
   for (const a of assessments) {
     if (a.stance === "neutral" || a.relevance < MIN_VOTE_RELEVANCE) continue;
+    const role = voteRoles[a.sourceId];
+    if (role === "context" || (role === "debunk" && a.stance === "supports")) continue;
     const key = voteGroups && Object.hasOwn(voteGroups, a.sourceId) ? voteGroups[a.sourceId] : a.sourceId;
     const group = groups.get(key) ?? { sum: 0, weight: 0 };
     group.sum += STANCE_VOTE[a.stance];

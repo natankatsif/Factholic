@@ -408,3 +408,19 @@ test("уточнение: формулировка со смешанными а�
   });
   assert.ok("check" in (await service.requestCheck("Dronele sunt ucrainene")));
 });
+
+test("утверждение сверх лимита не держит проверку в процессе", () => {
+  const { service, runner } = setup();
+  const check = service.startCheck("Текст");
+  const skipped = factCheck("Второе", ["a"], { status: "found" });
+  runner.finish(check.jobId, [factCheck("Первое", ["a"]), skipped]);
+  assert.equal(service.getCheck(check.id).check.status, "done");
+  assert.equal(service.getCheck(check.id).claims.length, 1);
+});
+
+test("проверка в работе не закрывается раньше времени", () => {
+  const { service, runner } = setup();
+  const check = service.startCheck("Текст");
+  runner.finish(check.jobId, [factCheck("Первое", ["a"], { status: "checking" })]);
+  assert.equal(service.getCheck(check.id).check.status, "running");
+});

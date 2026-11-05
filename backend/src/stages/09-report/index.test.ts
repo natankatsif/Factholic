@@ -392,3 +392,61 @@ describe("узел «источник не найден»", () => {
     assert.equal(res.provenance?.nodes.find((n) => n.isPrimary)?.categoryLabel, "самая ранняя из найденных");
   });
 });
+
+describe("09-report: язык отчёта", () => {
+  const checked = (uiLanguage?: string) =>
+    toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: mockSourceSearchOutput.sources,
+      // название первоисточника остаётся как в публикации, поэтому без него
+      stances: { ...mockStancesOutput, consensus: { ...mockStancesOutput.consensus, authority: undefined } },
+      provenance: { tree: mockProvenanceTree, mutations: null, rootDate: mockRootDateOutput },
+      uiLanguage,
+    });
+
+  it("без языка — русский, ro и en — свои подписи, незнакомый язык — английский", () => {
+    assert.equal(checked().provenance?.nodes[0]?.action?.label.includes("Открыть источник"), true);
+    assert.equal(checked("ro").provenance?.nodes[0]?.action?.label, "Deschide sursa ↗");
+    assert.equal(checked("en").provenance?.nodes[0]?.action?.label, "Open source ↗");
+    assert.equal(checked("de").provenance?.nodes[0]?.action?.label, "Open source ↗");
+  });
+
+  it("в ro и en нет кириллицы в подписях, которые пишет этап", () => {
+    for (const language of ["ro", "en"]) {
+      const res = checked(language);
+      const labels = [
+        res.consensusSummary,
+        ...res.flags.flatMap((f) => [f.label]),
+        ...(res.provenance?.nodes ?? []).flatMap((n) => [n.categoryLabel, n.date, n.action?.label]),
+        ...(res.provenance?.edges ?? []).map((e) => e.label),
+        ...(res.provenance?.pathSummary ?? []).map((p) => p.tag),
+      ];
+      assert.deepEqual(
+        labels.filter((text) => text && /\p{Script=Cyrillic}/u.test(text)),
+        [],
+      );
+    }
+  });
+
+  it("детали поиска пишутся только по-русски: на других языках вместо них общая фраза", () => {
+    const res = toFactCheck({
+      kind: "checked",
+      claim: mockClaim,
+      sources: [],
+      stances: { ...mockStancesOutput, consensus: { ...mockStancesOutput.consensus, status: "few_sources" } },
+      provenance: null,
+      search: {
+        rounds: 3,
+        sufficient: false,
+        unconfirmed: ["найден только один независимый источник"],
+        gaps: [],
+      },
+      uiLanguage: "en",
+    });
+    assert.equal(
+      res.consensusSummary,
+      "not enough information: the publications found do not confirm the key details",
+    );
+  });
+});

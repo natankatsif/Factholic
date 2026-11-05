@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { History } from "lucide-react";
 import { HistoryDrawer } from "../history/HistoryDrawer";
 import { setHistoryOpen } from "../../lib/history-ui";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
+import { useSiteText } from "../../i18n/site";
 
 export interface VerificationHeaderProps {
   onGoHome?: () => void;
@@ -18,6 +20,7 @@ export interface VerificationHeaderProps {
  * «История» открывает боковую панель с историей проверок.
  */
 export function VerificationHeader({ onGoHome, currentJobId }: VerificationHeaderProps) {
+  const t = useSiteText();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   // чудик в углу текста улетает к панели истории, пока она открыта
   useEffect(() => {
@@ -36,7 +39,7 @@ export function VerificationHeader({ onGoHome, currentJobId }: VerificationHeade
           type="button"
           onClick={onGoHome}
           data-pencil-name="Logo"
-          title="На главную"
+          title={t.common.toHome}
           className="text-2xl sm:text-3xl lg:text-[32px] leading-normal box-border text-[#4A3333] font-black tracking-[-1px] text-left whitespace-nowrap bg-transparent border-none p-0 cursor-pointer hover:opacity-90 transition-opacity"
         >
           factholic
@@ -50,15 +53,17 @@ export function VerificationHeader({ onGoHome, currentJobId }: VerificationHeade
             className="flex items-center gap-2 cursor-pointer border-none bg-transparent p-0 text-sm sm:text-base lg:text-[17px] font-bold text-[#A27C7A] hover:text-[#4A3333] transition-colors"
           >
             <History className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
-            <span>История</span>
+            <span>{t.common.history}</span>
           </button>
+
+          <LanguageSwitcher label={t.nav.language} />
 
           {/* User Profile Avatar */}
           <div
-            title="Профиль"
+            title={t.nav.profile}
             className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[#0AA6C2] text-[15px] font-black text-white shadow-xs cursor-default select-none"
           >
-            Н
+            {t.nav.profileInitial}
           </div>
         </div>
       </header>

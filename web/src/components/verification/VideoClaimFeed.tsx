@@ -8,8 +8,8 @@ import { SourcesCard } from "./AnalysisCard";
 import { AssistantChat } from "./AssistantChat";
 import { FlagList, StatusPill, summaryLine, uniqueFlags } from "./claim-status";
 import { cleanQuote } from "./ClaimTextPanel";
-import { plural } from "./filters";
 import { hasProvenanceTree } from "./material";
+import { useSiteText } from "../../i18n/site";
 
 export interface VideoClaimFeedProps {
   jobId: JobId;
@@ -53,6 +53,7 @@ export function VideoClaimFeed({
   onOpenTree,
   onActiveClaimChange,
 }: VideoClaimFeedProps) {
+  const t = useSiteText();
   const [synced, setSynced] = useState(true);
   /** Раскрытое кликом; null — раскрыто текущее в видео, "" — свёрнуто всё */
   const [pinnedId, setPinnedId] = useState<string | null>(null);
@@ -153,23 +154,24 @@ export function VideoClaimFeed({
             className="-ml-1 flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-[22px] font-black leading-tight text-[#4A3333]"
           >
             <ChevronLeft className="h-6 w-6" />
-            Разбор
+            {t.feed.title}
           </button>
         ) : (
-          <h2 className="m-0 text-[22px] font-black leading-tight text-[#4A3333]">Разбор</h2>
+          <h2 className="m-0 text-[22px] font-black leading-tight text-[#4A3333]">{t.feed.title}</h2>
         )}
         <p className="m-0 mt-1 text-[13px] font-semibold text-[#A27C7A]">
-          {factChecks.length} {plural(factChecks.length, ["утверждение", "утверждения", "утверждений"])} ·{" "}
-          {totalSources} {plural(totalSources, ["источник", "источника", "источников"])}
+          {factChecks.length} {t.plural(factChecks.length, t.words.claims)} · {totalSources}{" "}
+          {t.plural(totalSources, t.words.sources)}
         </p>
         {analyzedUntil !== undefined && (
           <p className="m-0 mt-2 flex items-center gap-2 text-[12px] font-bold text-[#1660D6]">
             <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-[#1660D6] border-t-transparent" />
             {analyzedUntil > 0
-              ? `Анализ идёт: разобрано до ${formatTimecode(analyzedUntil)}${
-                  durationSec ? ` из ${formatTimecode(durationSec)}` : ""
-                }`
-              : "Анализ идёт"}
+              ? t.feed.analyzedUntil(
+                  formatTimecode(analyzedUntil),
+                  durationSec ? formatTimecode(durationSec) : undefined,
+                )
+              : t.feed.analyzing}
           </p>
         )}
       </div>
@@ -207,7 +209,7 @@ export function VideoClaimFeed({
             >
               {factChecks.length === 0 && (
                 <p className="px-3 py-10 text-center text-[13px] font-semibold text-[#A27C7A]">
-                  Утверждения появятся здесь по ходу анализа
+                  {t.feed.claimsWillAppear}
                 </p>
               )}
               <div ref={listRef} className="flex flex-col gap-1">
@@ -243,7 +245,7 @@ export function VideoClaimFeed({
                 className="absolute bottom-3 left-1/2 flex -translate-x-1/2 cursor-pointer items-center gap-2 whitespace-nowrap rounded-full border-none bg-[#1660D6] px-4 py-2.5 text-[13px] font-extrabold text-white shadow-[0px_8px_20px_rgba(22,96,214,0.28)] transition-colors hover:bg-[#0F4FB5]"
               >
                 <RadioTower className="h-4 w-4" />
-                Синхронизировать с видео
+                {t.feed.syncWithVideo}
               </button>
             )}
           </div>
@@ -267,12 +269,13 @@ const ClaimRow = React.forwardRef<
     onOpenTree: () => void;
   }
 >(function ClaimRow({ factCheck: fc, open, onToggle, onSeek, onOpenTree }, ref) {
+  const t = useSiteText();
   const [showSources, setShowSources] = useState(false);
   const flags = uniqueFlags(fc);
   const tree = hasProvenanceTree(fc.provenance);
   const flagged = fc.status === "done" && flags.length > 0;
   // у раскрытого с серьёзными флагами пояснение заменяют сами флаги; мягкие идут под пояснением
-  const summary = open && fc.consensus === "flagged" && flagged ? null : summaryLine(fc);
+  const summary = open && fc.consensus === "flagged" && flagged ? null : summaryLine(fc, t);
 
   return (
     <article
@@ -284,7 +287,7 @@ const ClaimRow = React.forwardRef<
       <button
         type="button"
         onClick={onSeek}
-        title="Смотреть с этого момента"
+        title={t.feed.watchFromHere}
         className="h-fit cursor-pointer border-none bg-transparent p-0 pt-[3px] text-left text-[13px] font-extrabold tabular-nums text-[#A27C7A] transition-colors hover:text-[#1660D6]"
       >
         {formatTimecode(fc.range.start)}
@@ -319,7 +322,7 @@ const ClaimRow = React.forwardRef<
                     onClick={onOpenTree}
                     className="flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-[13px] font-extrabold text-[#4A3333] hover:underline"
                   >
-                    Откуда пошло — дерево источников
+                    {t.feed.treeLink}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -329,7 +332,7 @@ const ClaimRow = React.forwardRef<
                     onClick={() => setShowSources(!showSources)}
                     className="flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-[13px] font-bold text-[#A27C7A] hover:text-[#4A3333]"
                   >
-                    {fc.sources.length} {plural(fc.sources.length, ["источник", "источника", "источников"])}
+                    {fc.sources.length} {t.plural(fc.sources.length, t.words.sources)}
                     <ChevronDown
                       className={`h-3.5 w-3.5 transition-transform ${showSources ? "rotate-180" : ""}`}
                     />
@@ -353,6 +356,7 @@ const ClaimRow = React.forwardRef<
 
 /** Вопрос ассистенту по разбору: отправка открывает чат по раскрытому утверждению */
 function AskBar({ disabled, onAsk }: { disabled: boolean; onAsk: (q: string) => void }) {
+  const t = useSiteText();
   const [text, setText] = useState("");
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -367,13 +371,13 @@ function AskBar({ disabled, onAsk }: { disabled: boolean; onAsk: (q: string) => 
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={disabled}
-          placeholder="Спросите про любое утверждение…"
+          placeholder={t.feed.askAny}
           className="min-w-0 flex-1 border-none bg-transparent text-[14px] font-semibold text-[#4A3333] outline-none placeholder:text-[#A27C7A]"
         />
         <button
           type="submit"
           disabled={disabled || !text.trim()}
-          title="Спросить"
+          title={t.feed.ask}
           className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-[#4A3333] text-white transition-colors hover:bg-[#362424] disabled:cursor-default disabled:opacity-60"
         >
           <ArrowUp className="h-[18px] w-[18px]" />

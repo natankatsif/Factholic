@@ -1,6 +1,8 @@
 import React from "react";
 import { Link2, type LucideIcon } from "lucide-react";
 import { youtubeVideoId } from "../../lib/youtube";
+import type { SiteDictionary } from "../../i18n/site";
+import { useSiteText } from "../../i18n/site";
 
 export type PlatformId = "youtube" | "shorts" | "link" | "tiktok" | "facebook" | "x";
 
@@ -14,10 +16,6 @@ export interface LinkPlatform {
   lucide?: LucideIcon;
   /** Шарик-маскот blob.png вместо векторной иконки */
   isBlob?: boolean;
-  /** Ошибка, если ссылка не подходит: «Это не похоже на ссылку TikTok» */
-  invalidText?: string;
-  /** Подсказка в поле ссылки */
-  placeholder: string;
   /** Ссылка подходит этой платформе */
   matches: (link: string) => boolean;
   /** Ещё в разработке: проверку не запускаем, чудик из толпы говорит, что скоро */
@@ -37,7 +35,6 @@ function hostOf(link: string): string {
 export const PLATFORMS: LinkPlatform[] = [
   {
     id: "youtube",
-    placeholder: "Вставь ссылку на видео YouTube…",
     matches: (link) => youtubeVideoId(link) !== null,
     name: "YouTube",
     color: "#E2353F",
@@ -45,7 +42,6 @@ export const PLATFORMS: LinkPlatform[] = [
   },
   {
     id: "shorts",
-    placeholder: "Вставь ссылку на YouTube Shorts…",
     matches: (link) => youtubeVideoId(link) !== null,
     name: "Shorts",
     color: "#E0368A",
@@ -54,16 +50,13 @@ export const PLATFORMS: LinkPlatform[] = [
   {
     // статья с новостного сайта (point.md, newsmaker.md, …): бэкенд читает её текст и дату публикации
     id: "link",
-    placeholder: "Вставь ссылку на новость или статью…",
     matches: (link) => !/\s/.test(link.trim()) && /\.[a-z]{2,}$/i.test(hostOf(link)),
-    name: "Ссылка",
+    name: "",
     color: "#1660D6",
     lucide: Link2,
-    invalidText: "Это не похоже на ссылку на страницу",
   },
   {
     id: "tiktok",
-    placeholder: "Вставь ссылку на видео TikTok…",
     matches: (link) => /(^|\.)tiktok\.com$/.test(hostOf(link)),
     soon: true,
     name: "TikTok",
@@ -72,7 +65,6 @@ export const PLATFORMS: LinkPlatform[] = [
   },
   {
     id: "facebook",
-    placeholder: "Вставь ссылку на пост или видео Facebook…",
     matches: (link) => /(^|\.)(facebook\.com|fb\.watch)$/.test(hostOf(link)),
     soon: true,
     name: "Facebook",
@@ -81,7 +73,6 @@ export const PLATFORMS: LinkPlatform[] = [
   },
   {
     id: "x",
-    placeholder: "Вставь ссылку на пост в X…",
     matches: (link) => /^(x|twitter)\.com$/.test(hostOf(link)),
     soon: true,
     name: "X",
@@ -91,6 +82,11 @@ export const PLATFORMS: LinkPlatform[] = [
 ];
 
 /** Платформа ссылки: Shorts отличаем от обычного YouTube по пути /shorts/ */
+/** Название на плашке: у обычной ссылки оно зависит от языка */
+export function platformName(platform: LinkPlatform, t: SiteDictionary): string {
+  return platform.id === "link" ? t.input.linkName : platform.name;
+}
+
 export function platformOfLink(link: string): LinkPlatform | null {
   if (youtubeVideoId(link)) {
     return PLATFORMS.find((p) => p.id === (/\/shorts\//i.test(link) ? "shorts" : "youtube")) ?? null;
@@ -132,6 +128,7 @@ export interface SupportedPlatformsProps {
 }
 
 export function SupportedPlatforms({ active, onSelect }: SupportedPlatformsProps) {
+  const t = useSiteText();
   return (
     <div
       data-pencil-name="Platforms"
@@ -141,7 +138,7 @@ export function SupportedPlatforms({ active, onSelect }: SupportedPlatformsProps
         data-pencil-name="Works With"
         className="mr-0.5 whitespace-nowrap text-xs font-bold leading-normal text-[#A27C7A] sm:mr-1 sm:text-sm xl:text-[15px]"
       >
-        Попробуй с
+        {t.input.tryWith}
       </span>
 
       {PLATFORMS.map((p) => {
@@ -152,7 +149,7 @@ export function SupportedPlatforms({ active, onSelect }: SupportedPlatformsProps
             type="button"
             data-pencil-name={p.name}
             aria-pressed={isActive}
-            title={isActive ? "Вернуться к тексту" : `Проверить ссылку ${p.name}`}
+            title={isActive ? t.input.backToText : t.input.checkLink(platformName(p, t))}
             onClick={() => onSelect(isActive ? null : p.id)}
             className={`flex w-fit cursor-pointer items-center gap-[6px] rounded-[100px] border-none bg-[#FBF8F7] px-3 py-1 transition-all duration-200 sm:p-[7px_14px_7px_10px] ${
               isActive

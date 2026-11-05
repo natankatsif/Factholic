@@ -4,6 +4,7 @@ import { BookIcon, ChevronDownIcon } from "lucide-react";
 import React, { type ComponentProps } from "react";
 import { cn } from "../../lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
+import { useSiteText } from "../../i18n/site";
 
 export type SourcesProps = ComponentProps<typeof Collapsible>;
 
@@ -13,6 +14,11 @@ export const Sources = ({ className, ...props }: SourcesProps) => (
 
 export type SourcesTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
   count: number;
+};
+
+const SourcesCount = ({ count }: { count: number }) => {
+  const t = useSiteText();
+  return <p className="m-0">{t.chat.sources(count)}</p>;
 };
 
 export const SourcesTrigger = ({ className, count, children, ...props }: SourcesTriggerProps) => (
@@ -25,7 +31,7 @@ export const SourcesTrigger = ({ className, count, children, ...props }: Sources
   >
     {children ?? (
       <>
-        <p className="m-0">Источников: {count}</p>
+        <SourcesCount count={count} />
         <ChevronDownIcon className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
       </>
     )}

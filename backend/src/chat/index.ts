@@ -16,8 +16,9 @@ import {
   type UIMessage,
 } from "ai";
 import { z } from "zod";
-import type { VideoReport } from "@news/contracts";
+import type { LanguageCode, VideoReport } from "@news/contracts";
 import { config } from "../config.ts";
+import { messagesFor } from "../messages.ts";
 import { buildInstructions } from "./prompt.ts";
 import { search } from "./search.ts";
 
@@ -44,6 +45,7 @@ export async function handleChat(
   res: ServerResponse,
   report: VideoReport,
   body: ChatRequestBody,
+  uiLanguage: LanguageCode,
 ): Promise<void> {
   const log = (msg: string, data?: unknown) => console.log(`[${report.jobId}] chat: ${msg}`, data ?? "");
 
@@ -82,7 +84,7 @@ export async function handleChat(
 
   const result = streamText({
     model: openai(config.providers.llm.model),
-    instructions: buildInstructions(report, body.claimId, today),
+    instructions: buildInstructions(report, body.claimId, today, uiLanguage),
     messages: await convertToModelMessages(messages),
     tools,
     stopWhen: isStepCount(MAX_STEPS),
@@ -100,7 +102,7 @@ export async function handleChat(
       originalMessages: messages,
       onError: (error) => {
         log("ошибка потока", error);
-        return "Не удалось получить ответ, попробуйте ещё раз";
+        return messagesFor(uiLanguage).chatFailed;
       },
     }),
   });

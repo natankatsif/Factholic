@@ -5,6 +5,7 @@ import React, { useCallback, type ComponentProps } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
+import { useSiteText } from "../../i18n/site";
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
@@ -27,6 +28,7 @@ export const ConversationContent = ({ className, ...props }: ConversationContent
 export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
 
 export const ConversationScrollButton = ({ className, ...props }: ConversationScrollButtonProps) => {
+  const t = useSiteText();
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
 
   const handleScrollToBottom = useCallback(() => {
@@ -41,7 +43,7 @@ export const ConversationScrollButton = ({ className, ...props }: ConversationSc
         size="icon-sm"
         type="button"
         variant="outline"
-        title="Вниз"
+        title={t.chat.scrollDown}
         {...props}
       >
         <ArrowDownIcon className="size-4" />

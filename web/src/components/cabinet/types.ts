@@ -122,6 +122,7 @@ export interface UnlinkedPublication {
   outlet: string;
   color: string;
   date: string;
+  url?: string;
 }
 
 export interface AlertPublication {

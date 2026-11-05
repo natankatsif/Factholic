@@ -4,6 +4,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ClaimConsensus } from "@news/contracts";
 import { clearBlobReturn, markBlobReturn, peekBlobReturn, useHistoryOpen } from "../../lib/history-ui";
+import { useSiteText } from "../../i18n/site";
 
 /**
  * Настроение чудика — позиция источников по выбранному утверждению; "checking" — ещё проверяется;
@@ -376,6 +377,7 @@ function historySpot(): { left: number; top: number } {
 
 /** Сам чудик: лицо перетекает между эмоциями, глаза следят за мышкой, моргает, реагирует на клик */
 export function Blob({ mood, size = SIZE }: { mood: BlobMood; size?: number }) {
+  const t = useSiteText();
   const blobRef = useRef<HTMLDivElement>(null);
   const eyesRef = useRef<SVGGElement>(null);
   const mouthRef = useRef<SVGGElement>(null);
@@ -509,7 +511,7 @@ export function Blob({ mood, size = SIZE }: { mood: BlobMood; size?: number }) {
       onPointerDown={handlePoke}
       role="button"
       tabIndex={-1}
-      aria-label="Интерактивный персонаж"
+      aria-label={t.text.blob}
       data-mood={mood}
       className="relative select-none pointer-events-auto cursor-pointer transition-transform duration-200 hover:scale-[1.04] active:scale-[0.96]"
       style={{

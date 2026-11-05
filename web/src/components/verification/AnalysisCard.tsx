@@ -35,8 +35,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AssistantChat } from "./AssistantChat";
-import { plural } from "./filters";
-import { MATERIAL_LABEL, hasProvenanceTree, publicationNodes, type MaterialKind } from "./material";
+import { ROOT_SUMMARY } from "./claim-status";
+import { hasProvenanceTree, publicationNodes, type MaterialKind } from "./material";
+import { LOCALE_TAGS, type Locale } from "../../i18n/locale";
+import { useSiteText } from "../../i18n/site";
 
 export interface AnalysisCardProps {
   /** Для чата по разбору: один чат на утверждение этой проверки */
@@ -60,28 +62,29 @@ export function AnalysisCard({
   suggestedQuestions,
   material = "video",
 }: AnalysisCardProps) {
+  const t = useSiteText();
   return (
     <aside className="flex min-h-0 flex-col overflow-hidden rounded-[28px] bg-[#FBF8F7]">
       {/* Заголовок, счётчики, фильтры */}
       <div className="shrink-0 px-6 pt-6 [@media(max-height:780px)]:pt-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-[22px] font-black leading-tight text-[#4A3333]">Разбор</h2>
+            <h2 className="text-[22px] font-black leading-tight text-[#4A3333]">{t.analysis.title}</h2>
             <div className="mt-1 flex gap-4 text-[13px] font-semibold text-[#A27C7A]">
               <span>
                 <b className="mr-1 text-[15px] font-black text-[#4A3333]">{totalClaims}</b>
-                {plural(totalClaims, ["утверждение", "утверждения", "утверждений"])}
+                {t.plural(totalClaims, t.words.claims)}
               </span>
               <span>
                 <b className="mr-1 text-[15px] font-black text-[#4A3333]">{totalSources}</b>
-                {plural(totalSources, ["источник", "источника", "источников"])}
+                {t.plural(totalSources, t.words.sources)}
               </span>
             </div>
           </div>
           {/* TODO(frontend): скачать отчёт и меню действий */}
           <div className="flex gap-2">
-            <RoundButton icon={Download} title="Скачать отчёт" />
-            <RoundButton icon={Ellipsis} title="Ещё" />
+            <RoundButton icon={Download} title={t.analysis.download} />
+            <RoundButton icon={Ellipsis} title={t.analysis.more} />
           </div>
         </div>
       </div>
@@ -104,7 +107,7 @@ export function AnalysisCard({
           }
         />
       ) : (
-        <p className="p-6 text-sm font-semibold text-[#A27C7A]">Нет утверждений под этот фильтр</p>
+        <p className="p-6 text-sm font-semibold text-[#A27C7A]">{t.analysis.noneForFilter}</p>
       )}
     </aside>
   );
@@ -121,6 +124,7 @@ export function ClaimDetails({
   material: MaterialKind;
   onOpenProvenanceTree: () => void;
 }) {
+  const t = useSiteText();
   // без связей дерева нет (публикаций не нашлось или они только на ту же тему) — показываем источники поиска
   const tree = hasProvenanceTree(factCheck.provenance) ? factCheck.provenance : undefined;
   // как в шапке «Разбор»: найденные источники, а не узлы дерева (в нём ещё и сам материал)
@@ -168,7 +172,7 @@ export function ClaimDetails({
       {(sourcesCount > 0 || tree) && (
         <div className="flex items-center justify-between gap-3 px-1 pt-1">
           <span className="text-[13px] font-extrabold text-[#4A3333]">
-            {sourcesCount} {plural(sourcesCount, ["источник", "источника", "источников"])}
+            {sourcesCount} {t.plural(sourcesCount, t.words.sources)}
           </span>
           {tree && (
             <button
@@ -177,7 +181,7 @@ export function ClaimDetails({
               className="flex cursor-pointer items-center gap-2 rounded-full border-none bg-[#4A3333] px-4 py-2.5 text-[13px] font-extrabold text-white transition-colors hover:bg-[#362424]"
             >
               <GitFork className="h-4 w-4" />
-              Открыть дерево источников
+              {t.analysis.openTree}
               <ArrowRight className="h-4 w-4" />
             </button>
           )}
@@ -192,6 +196,7 @@ export function ClaimDetails({
  * (принцип «только по найденным публикациям»: мало источников — так и говорим, а не догадываемся).
  */
 function NothingFoundCard({ factCheck }: { factCheck: FactCheck }) {
+  const t = useSiteText();
   // бэкенд объясняет, чего не хватило: «Недостаточно информации: нет данных о …»
   const reason = factCheck.consensus === "unverifiable" ? factCheck.keyFinding?.subtitle : undefined;
   return (
@@ -200,14 +205,11 @@ function NothingFoundCard({ factCheck }: { factCheck: FactCheck }) {
         <SearchX className="h-[18px] w-[18px] text-[#A27C7A]" />
       </span>
       <div className="flex min-w-0 flex-col gap-1.5">
-        <span className="text-[14px] font-black text-[#4A3333]">Публикаций об этом не нашли</span>
+        <span className="text-[14px] font-black text-[#4A3333]">{t.status.noPublications}</span>
         <span className="text-[13px] font-semibold leading-snug text-[#A27C7A]">
-          {reason ??
-            "Искали в новостях на румынском, русском и английском. Так бывает, если о событии не писали или в утверждении другие детали — дата, место, цифры."}
+          {reason ?? t.analysis.noPublicationsHint}
         </span>
-        <span className="text-[12px] font-bold leading-snug text-[#4A3333]">
-          Это не опровержение: сторон нет, потому что не нашлось, кого сравнить.
-        </span>
+        <span className="text-[12px] font-bold leading-snug text-[#4A3333]">{t.analysis.notRefutation}</span>
       </div>
     </div>
   );
@@ -215,15 +217,16 @@ function NothingFoundCard({ factCheck }: { factCheck: FactCheck }) {
 
 /** Проверка упала (поиск или LLM): говорим, что не смогли, а не «ничего не нашли» */
 function FailedCard({ factCheck }: { factCheck: FactCheck }) {
+  const t = useSiteText();
   return (
     <div className="flex items-start gap-3 rounded-[18px] bg-[#FBF8F7] p-4">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF1C9]">
         <TriangleAlert className="h-[18px] w-[18px] text-[#E0A800]" />
       </span>
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-[14px] font-black text-[#4A3333]">Не получилось проверить</span>
+        <span className="text-[14px] font-black text-[#4A3333]">{t.analysis.failedTitle}</span>
         <span className="text-[13px] font-semibold leading-snug text-[#A27C7A]">
-          {factCheck.error || "Поиск источников не ответил. Попробуй открыть проверку ещё раз чуть позже."}
+          {factCheck.error || t.analysis.failedHint}
         </span>
       </div>
     </div>
@@ -262,36 +265,34 @@ function FlagRow({ flag, onClick }: { flag: ClaimFlag; onClick?: () => void }) {
   );
 }
 
-export const CONSENSUS_STYLE: Record<
-  ClaimConsensus,
-  { title: string; color: string; icon: LucideIcon; bg: string }
-> = {
-  converge: { title: "В основном подтверждают", color: "#1DA57A", icon: Smile, bg: "#DDF3EA" },
-  split: { title: "Разделились", color: "#FFC20E", icon: Meh, bg: "#FFF1C9" },
-  against: { title: "В основном возражают", color: "#E2353F", icon: Frown, bg: "#FCDFE1" },
-  flagged: { title: "С флагами", color: "#FF7A12", icon: Flag, bg: "#FFE1C7" },
-  unverifiable: { title: "Мало источников", color: "#A27C7A", icon: Meh, bg: "#EEE8E6" },
+export const CONSENSUS_STYLE: Record<ClaimConsensus, { color: string; icon: LucideIcon; bg: string }> = {
+  converge: { color: "#1DA57A", icon: Smile, bg: "#DDF3EA" },
+  split: { color: "#FFC20E", icon: Meh, bg: "#FFF1C9" },
+  against: { color: "#E2353F", icon: Frown, bg: "#FCDFE1" },
+  flagged: { color: "#FF7A12", icon: Flag, bg: "#FFE1C7" },
+  unverifiable: { color: "#A27C7A", icon: Meh, bg: "#EEE8E6" },
 };
 
 function CheckingRow() {
+  const t = useSiteText();
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-[#FFF4D1] p-2.5 pr-4">
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FFC20E]">
         <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
       </span>
       <span className="min-w-0 text-[13px] text-[#4A3333]">
-        <b className="font-black">Проверяем утверждение…</b>
-        <span className="ml-1.5 font-semibold text-[#A27C7A]">ищем подтверждения и опровержения</span>
+        <b className="font-black">{t.analysis.checkingTitle}</b>
+        <span className="ml-1.5 font-semibold text-[#A27C7A]">{t.analysis.checkingHint}</span>
       </span>
     </div>
   );
 }
 
 /** Три стороны в одном порядке везде: сначала подтверждающие, потом возражающие, потом «частично» */
-const SIDES: { key: keyof ClaimSides; stance: SourceStance; label: string; color: string; bg: string }[] = [
-  { key: "for", stance: "supports", label: "Подтверждают", color: "#1DA57A", bg: "#DDF3EA" },
-  { key: "against", stance: "refutes", label: "Возражают", color: "#E2353F", bg: "#FCDFE1" },
-  { key: "mixed", stance: "mixed", label: "Частично", color: "#E0A800", bg: "#FFF1C9" },
+const SIDES: { key: keyof ClaimSides; stance: SourceStance; color: string; bg: string }[] = [
+  { key: "for", stance: "supports", color: "#1DA57A", bg: "#DDF3EA" },
+  { key: "against", stance: "refutes", color: "#E2353F", bg: "#FCDFE1" },
+  { key: "mixed", stance: "mixed", color: "#E0A800", bg: "#FFF1C9" },
 ];
 
 /**
@@ -299,6 +300,7 @@ const SIDES: { key: keyof ClaimSides; stance: SourceStance; label: string; color
  * Старый отчёт без sides — считаем по публикациям и честно подписываем, что перепечатки не учтены.
  */
 function SidesCard({ factCheck }: { factCheck: FactCheck }) {
+  const t = useSiteText();
   const byGroups = Boolean(factCheck.sides);
   const sides: ClaimSides = factCheck.sides ?? {
     for: factCheck.sources.filter((s) => s.stance === "supports").length,
@@ -306,17 +308,16 @@ function SidesCard({ factCheck }: { factCheck: FactCheck }) {
     mixed: factCheck.sources.filter((s) => s.stance === "mixed").length,
   };
   const total = sides.for + sides.against + sides.mixed;
-  const st = CONSENSUS_STYLE[factCheck.consensus] ?? CONSENSUS_STYLE.unverifiable;
+  const consensus = factCheck.consensus in CONSENSUS_STYLE ? factCheck.consensus : "unverifiable";
+  const st = CONSENSUS_STYLE[consensus];
   // «Недостаточно информации: …», «подтверждает первоисточник: ООН» — пояснение к счёту
   const note =
     factCheck.keyFinding?.subtitle && factCheck.consensus === "unverifiable"
       ? `${factCheck.keyFinding.title}: ${factCheck.keyFinding.subtitle}`
-      : factCheck.consensusSummary?.includes("первоисточник")
+      : factCheck.consensusSummary && ROOT_SUMMARY.test(factCheck.consensusSummary)
         ? factCheck.consensusSummary
         : undefined;
-  const unit: [string, string, string] = byGroups
-    ? ["независимый источник", "независимых источника", "независимых источников"]
-    : ["публикация", "публикации", "публикаций"];
+  const unit = byGroups ? t.words.independentSources : t.words.publications;
 
   // публикации есть, но ни одна не подтверждает и не опровергает — нулевые счётчики ничего не добавят
   if (total === 0) {
@@ -324,8 +325,7 @@ function SidesCard({ factCheck }: { factCheck: FactCheck }) {
       <div className="flex items-start gap-2 rounded-[18px] bg-[#FBF8F7] p-3.5 text-[13px] font-semibold leading-snug text-[#A27C7A]">
         <Info className="mt-[2px] h-4 w-4 shrink-0" />
         <span>
-          <b className="font-black text-[#4A3333]">Сторон нет.</b> Публикации на эту тему нашли, но ни одна
-          прямо не подтверждает и не опровергает утверждение.
+          <b className="font-black text-[#4A3333]">{t.analysis.noSidesTitle}</b> {t.analysis.noSidesText}
           {note && <span className="mt-1 block text-[#4A3333]">{note}</span>}
         </span>
       </div>
@@ -335,14 +335,14 @@ function SidesCard({ factCheck }: { factCheck: FactCheck }) {
   return (
     <div className="flex flex-col gap-3 rounded-[18px] bg-[#FBF8F7] p-3.5">
       <div className="flex items-center justify-between gap-3 px-0.5">
-        <span className="text-[13px] font-extrabold text-[#4A3333]">Что говорят источники</span>
+        <span className="text-[13px] font-extrabold text-[#4A3333]">{t.analysis.whatSourcesSay}</span>
         {total >= 2 && (
           <span
             className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold"
             style={{ backgroundColor: st.bg, color: "#4A3333" }}
           >
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: st.color }} />
-            {st.title}
+            {t.analysis.consensus[consensus]}
           </span>
         )}
       </div>
@@ -363,7 +363,7 @@ function SidesCard({ factCheck }: { factCheck: FactCheck }) {
                 {n}
               </span>
               <span className={`mt-1 text-[11px] font-extrabold ${n ? "text-[#4A3333]" : "text-[#A27C7A]"}`}>
-                {side.label}
+                {t.analysis.sides[side.key]}
               </span>
             </div>
           );
@@ -385,11 +385,9 @@ function SidesCard({ factCheck }: { factCheck: FactCheck }) {
         <Info className="mt-[1px] h-3.5 w-3.5 shrink-0" />
         <span>
           {total === 1
-            ? `Нашли только ${byGroups ? "один независимый источник" : "одну публикацию"} с позицией — делать вывод рано`
-            : `${total} ${plural(total, unit)}${
-                byGroups
-                  ? " · перепечатки одной новости считаются одним голосом"
-                  : " · перепечатки не объединены"
+            ? t.analysis.tooEarly(byGroups ? t.analysis.oneIndependent : t.analysis.onePublication)
+            : `${total} ${t.plural(total, unit)}${
+                byGroups ? t.analysis.reprintsOneVote : t.analysis.reprintsNotMerged
               }`}
           {note && <span className="block text-[#4A3333]">{note}</span>}
         </span>
@@ -421,6 +419,7 @@ function PathCard({
   roles: Map<string, ProvenanceNodeRole>;
   material: MaterialKind;
 }) {
+  const t = useSiteText();
   const roleOf = (s: ProvenancePathStep, i: number): ProvenanceNodeRole =>
     roles.get(s.name) ??
     (i === 0
@@ -434,18 +433,18 @@ function PathCard({
   return (
     <div className="rounded-[18px] bg-[#FBF8F7] px-3 pb-3.5 pt-3.5 [@media(max-height:780px)]:pb-2.5 [@media(max-height:780px)]:pt-2.5">
       <div className="flex items-center justify-between px-1">
-        <span className="text-[13px] font-extrabold text-[#4A3333]">Путь утверждения</span>
+        <span className="text-[13px] font-extrabold text-[#4A3333]">{t.analysis.claimPath}</span>
         <span className="flex items-center gap-3 text-[11px] font-semibold text-[#A27C7A]">
           {/* разрыв — только если он есть: первоисточник найден, но как дошло дальше — неизвестно */}
           {steps.some((s) => s.linked === false) && (
             <span className="flex items-center gap-1.5">
               <span className="w-3.5 border-t-2 border-dashed border-[#C9B8B6]" />
-              связь не установлена
+              {t.analysis.linkUnknown}
             </span>
           )}
           <span className="flex items-center gap-1.5">
             <span className="h-[3px] w-3.5 rounded-full bg-[#FF7A12]" />
-            искажение
+            {t.analysis.distortion}
           </span>
         </span>
       </div>
@@ -456,7 +455,7 @@ function PathCard({
           const st = ROLE_STYLE[role];
           const isTarget = role === "target";
           const Icon = isTarget ? MATERIAL_ICON[material] : st.icon;
-          const name = isTarget ? MATERIAL_LABEL[material] : s.name;
+          const name = isTarget ? t.text.material[material] : s.name;
           const tagColor = role === "primary" ? "#6E1EF0" : s.isDistortion ? "#FF7A12" : "#A27C7A";
           return (
             <div key={s.name + i} className="relative flex min-w-0 flex-col items-center px-0.5 text-center">
@@ -464,7 +463,7 @@ function PathCard({
                 (s.linked === false ? (
                   // разрыв: первоисточник раньше, но связь с этим шагом не установлена — пунктир, не линия
                   <span
-                    title="Связь не установлена: первоисточник найден, но как утверждение дошло дальше — неизвестно"
+                    title={t.analysis.linkUnknownHint}
                     className="absolute right-[calc(50%+25px)] top-[16px] w-[calc(100%-50px)] border-t-2 border-dashed border-[#C9B8B6]"
                   />
                 ) : (
@@ -502,21 +501,24 @@ const SOURCES_PER_SIDE = 3;
 
 /** Публикации по сторонам: подтверждают / возражают / частично / просто упоминают */
 export function SourcesCard({ factCheck }: { factCheck: FactCheck }) {
+  const t = useSiteText();
   if (!factCheck.sources.length) {
     return (
       <div className="rounded-[18px] bg-[#FBF8F7] p-4 text-[13px] font-semibold text-[#A27C7A]">
-        {isPendingCheck(factCheck)
-          ? "Ищем источники в поисковиках и проверяем позиции…"
-          : "Публикаций по этому утверждению не нашли"}
+        {isPendingCheck(factCheck) ? t.analysis.searchingSources : t.analysis.noPublicationsForClaim}
       </div>
     );
   }
   const groups = [
-    ...SIDES.map((side) => ({ ...side, sources: factCheck.sources.filter((s) => s.stance === side.stance) })),
+    ...SIDES.map((side) => ({
+      ...side,
+      label: t.analysis.sides[side.key],
+      sources: factCheck.sources.filter((s) => s.stance === side.stance),
+    })),
     {
       key: "neutral",
       stance: "neutral" as const,
-      label: "Упоминают без позиции",
+      label: t.analysis.mentionWithoutStance,
       color: "#A27C7A",
       sources: factCheck.sources.filter((s) => s.stance === "neutral"),
     },
@@ -549,6 +551,7 @@ function SourceGroup({
   stance: SourceStance;
   sources: FactCheck["sources"];
 }) {
+  const t = useSiteText();
   const [open, setOpen] = useState(false);
   const visible = open ? sources : sources.slice(0, SOURCES_PER_SIDE);
   return (
@@ -557,12 +560,12 @@ function SourceGroup({
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
         {label}
         <span className="font-bold text-[#A27C7A]">
-          · {sources.length} {plural(sources.length, ["публикация", "публикации", "публикаций"])}
+          · {sources.length} {t.plural(sources.length, t.words.publications)}
         </span>
       </span>
       {sources.length === 0 ? (
         <span className="pl-[18px] text-[12px] font-semibold text-[#C9B8B6]">
-          {stance === "supports" ? "подтверждающих публикаций не нашли" : "возражающих публикаций не нашли"}
+          {stance === "supports" ? t.analysis.noSupporting : t.analysis.noObjecting}
         </span>
       ) : (
         visible.map((src) => (
@@ -575,9 +578,9 @@ function SourceGroup({
           >
             <span className="flex items-center gap-1.5">
               <span className="truncate text-[13px] font-extrabold text-[#4A3333]">{src.publisher}</span>
-              {formatSourceDate(src.publishedAt) && (
+              {formatSourceDate(src.publishedAt, t.locale) && (
                 <span className="shrink-0 text-[11px] font-bold text-[#A27C7A]">
-                  {formatSourceDate(src.publishedAt)}
+                  {formatSourceDate(src.publishedAt, t.locale)}
                 </span>
               )}
               <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-[#C9B8B6]" />
@@ -592,16 +595,16 @@ function SourceGroup({
           onClick={() => setOpen(!open)}
           className="ml-[18px] w-fit cursor-pointer border-none bg-transparent p-0 text-[12px] font-extrabold text-[#1660D6] hover:underline"
         >
-          {open ? "Свернуть" : `Ещё ${sources.length - SOURCES_PER_SIDE}`}
+          {open ? t.common.collapse : t.common.more(sources.length - SOURCES_PER_SIDE)}
         </button>
       )}
     </div>
   );
 }
 
-function formatSourceDate(raw: string | undefined): string {
+function formatSourceDate(raw: string | undefined, locale: Locale): string {
   const t = raw ? Date.parse(raw) : NaN;
-  return Number.isNaN(t) ? "" : new Date(t).toLocaleDateString("ru-RU");
+  return Number.isNaN(t) ? "" : new Date(t).toLocaleDateString(LOCALE_TAGS[locale]);
 }
 
 // ---------------------------------------------------------------------------

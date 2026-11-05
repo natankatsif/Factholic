@@ -461,3 +461,32 @@ describe("assessStancesReal: один официальный первоисто�
     assert.equal(c.authority, undefined);
   });
 });
+
+describe("роли источников при подсчёте", () => {
+  it("событие за тезисом не голосует, а разбор не бывает голосом «за»", async () => {
+    const sources = ["s1", "s2", "s3"].map((id): FoundSource => ({ ...input.sources[0], id }));
+    respond = () =>
+      llmStances({
+        sourceAssessments: sources.map((s) => ({ sourceId: s.id, stance: "supports", relevance: 0.9 })),
+      });
+    const out = await assessStancesReal(
+      { ...input, sources, voteRoles: { s1: "context", s2: "context", s3: "debunk" } },
+      ctx,
+    );
+    assert.equal(out.consensus.status, "few_sources");
+    assert.equal(out.consensus.groupsFor, 0);
+  });
+
+  it("разбор голосует против", async () => {
+    const sources = ["s1", "s2"].map((id): FoundSource => ({ ...input.sources[0], id }));
+    respond = () =>
+      llmStances({
+        sourceAssessments: sources.map((s) => ({ sourceId: s.id, stance: "refutes", relevance: 0.9 })),
+      });
+    const out = await assessStancesReal(
+      { ...input, sources, voteRoles: { s1: "debunk", s2: "debunk" } },
+      ctx,
+    );
+    assert.equal(out.consensus.groupsAgainst, 2);
+  });
+});

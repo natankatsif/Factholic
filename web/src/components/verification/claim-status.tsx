@@ -5,25 +5,26 @@
 import React from "react";
 import type { ClaimConsensus, FactCheck } from "@news/contracts";
 import { Flag, History, TrendingUp, type LucideIcon } from "lucide-react";
-import { plural } from "./filters";
+import { useSiteText, type SiteDictionary } from "../../i18n/site";
 
 /** Плашка позиции: не вывод «правда/ложь», а что говорят источники */
-const PILL: Record<ClaimConsensus, { label: string; dot: string; bg: string }> = {
-  converge: { label: "Подтверждают", dot: "#1DA57A", bg: "#DDF3EA" },
-  split: { label: "Источники спорят", dot: "#FFC20E", bg: "#FFF1C9" },
-  against: { label: "Говорят обратное", dot: "#E2353F", bg: "#FCDFE1" },
-  flagged: { label: "С флагами", dot: "#6E1EF0", bg: "#E8DCFD" },
-  unverifiable: { label: "Мало данных", dot: "#A27C7A", bg: "#EEE8E6" },
+const PILL: Record<ClaimConsensus, { dot: string; bg: string }> = {
+  converge: { dot: "#1DA57A", bg: "#DDF3EA" },
+  split: { dot: "#FFC20E", bg: "#FFF1C9" },
+  against: { dot: "#E2353F", bg: "#FCDFE1" },
+  flagged: { dot: "#6E1EF0", bg: "#E8DCFD" },
+  unverifiable: { dot: "#A27C7A", bg: "#EEE8E6" },
 };
 
 export function StatusPill({ factCheck: fc }: { factCheck: FactCheck }) {
+  const t = useSiteText();
   const base =
     "inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[12px] font-extrabold";
   if (fc.status === "found") {
     return (
       <span className={`${base} border border-dashed border-[#C9B8B6] bg-transparent text-[#8C7471]`}>
         <span className="h-1.5 w-1.5 rounded-full bg-[#C9B8B6]" />
-        Не проверено
+        {t.status.notChecked}
       </span>
     );
   }
@@ -31,20 +32,21 @@ export function StatusPill({ factCheck: fc }: { factCheck: FactCheck }) {
     return (
       <span className={`${base} bg-[#EEE8E6] text-[#8C7471]`}>
         <span className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-[#A27C7A] border-t-transparent" />
-        Проверяем…
+        {t.status.checking}
       </span>
     );
   }
   if (fc.status === "failed") {
-    return <span className={`${base} bg-[#EEE8E6] text-[#8C7471]`}>Не удалось проверить</span>;
+    return <span className={`${base} bg-[#EEE8E6] text-[#8C7471]`}>{t.status.failed}</span>;
   }
   // фиолетовая плашка — только серьёзные флаги (consensus "flagged"); мягкие («убрана ссылка») — внутри строки
   const major = uniqueFlags(fc).filter(isMajorFlag);
   if (fc.consensus === "flagged" && major.length > 0) {
-    return <span className={`${base} bg-[#E8DCFD] text-[#4A3333]`}>{flagsLabel(major)}</span>;
+    return <span className={`${base} bg-[#E8DCFD] text-[#4A3333]`}>{flagsLabel(major, t)}</span>;
   }
-  const st = PILL[fc.consensus] ?? PILL.unverifiable;
-  const share = supportShare(fc);
+  const consensus = fc.consensus in PILL ? fc.consensus : "unverifiable";
+  const st = PILL[consensus];
+  const share = supportShare(fc, t);
   return (
     <span
       className={`${base} text-[#4A3333]`}
@@ -52,8 +54,8 @@ export function StatusPill({ factCheck: fc }: { factCheck: FactCheck }) {
       title={share ? share.title : undefined}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: st.dot }} />
-      {st.label}
-      {share && <span className="font-black tabular-nums">· {share.percent}% за</span>}
+      {t.status.pill[consensus]}
+      {share && <span className="font-black tabular-nums">· {t.status.percentFor(share.percent)}</span>}
     </span>
   );
 }
@@ -66,7 +68,7 @@ const MIN_POSITIONS_FOR_SHARE = 2;
  * Считается по независимым группам (перепечатки одной новости — один голос), «частично» — полголоса.
  * Старый отчёт без sides — по публикациям.
  */
-function supportShare(fc: FactCheck): { percent: number; title: string } | null {
+function supportShare(fc: FactCheck, t: SiteDictionary): { percent: number; title: string } | null {
   const sides = fc.sides ?? {
     for: fc.sources.filter((s) => s.stance === "supports").length,
     against: fc.sources.filter((s) => s.stance === "refutes").length,
@@ -75,12 +77,10 @@ function supportShare(fc: FactCheck): { percent: number; title: string } | null 
   const total = sides.for + sides.against + sides.mixed;
   if (total < MIN_POSITIONS_FOR_SHARE) return null;
   const percent = Math.round(((sides.for + sides.mixed / 2) / total) * 100);
-  const unit = fc.sides
-    ? plural(total, ["независимого источника", "независимых источников", "независимых источников"])
-    : plural(total, ["публикации", "публикаций", "публикаций"]);
-  const parts = [`за — ${sides.for}`, `против — ${sides.against}`];
-  if (sides.mixed) parts.push(`частично — ${sides.mixed} (полголоса)`);
-  return { percent, title: `Из ${total} ${unit} с позицией: ${parts.join(", ")}` };
+  const unit = t.plural(total, fc.sides ? t.words.independentSourcesOf : t.words.publicationsOf);
+  const parts = [t.status.shareFor(sides.for), t.status.shareAgainst(sides.against)];
+  if (sides.mixed) parts.push(t.status.shareMixed(sides.mixed));
+  return { percent, title: t.status.shareTitle(total, unit, parts.join(", ")) };
 }
 
 export const FLAG_ICON: Record<FactCheck["flags"][number]["type"], { icon: LucideIcon; color: string }> = {
@@ -100,20 +100,26 @@ export function uniqueFlags(fc: FactCheck): ClaimFlag[] {
   );
 }
 
+/** Подпись серьёзного искажения на всех языках отчёта (backend/src/stages/09-report/texts.ts) */
+const DISTORTION_LABELS = new Set(["Искажение", "Denaturare", "Distortion"]);
+
 /** Серьёзный флаг — как в этапе 09: старое за новое, цифры в разы, сдвиг места / времени / цифр */
 function isMajorFlag(f: ClaimFlag): boolean {
-  return f.type === "outdated" || f.type === "exaggerated" || f.label === "Искажение";
+  return f.type === "outdated" || f.type === "exaggerated" || DISTORTION_LABELS.has(f.label);
 }
 
+/** Итог «подтверждает / опровергает первоисточник» из этапа 09: на любом языке отчёта */
+export const ROOT_SUMMARY = /первоисточник|sursa primară|primary source/i;
+
 /** «Старая новость, цифры раздуты» — не больше двух */
-function flagsLabel(flags: ClaimFlag[]): string {
+function flagsLabel(flags: ClaimFlag[], t: SiteDictionary): string {
   const parts = [
     ...new Set(
       flags.map((f) =>
         f.type === "outdated"
-          ? "старая новость"
+          ? t.status.flagOld
           : f.type === "exaggerated"
-            ? "цифры раздуты"
+            ? t.status.flagInflated
             : f.label.toLowerCase(),
       ),
     ),
@@ -123,12 +129,12 @@ function flagsLabel(flags: ClaimFlag[]): string {
 }
 
 /** Флаг одной фразой: «Было 2 пострадавших, стало 200», «Событию 3,5 года — в видео подано как недавнее» */
-export function flagText(f: ClaimFlag, fc: FactCheck): string {
+export function flagText(f: ClaimFlag, fc: FactCheck, t: SiteDictionary): string {
   if (f.type === "outdated" && fc.keyFinding?.subtitle) {
     return `${fc.keyFinding.title} — ${fc.keyFinding.subtitle}`;
   }
   const [before, after] = f.detail.split(" → ");
-  if (f.type === "exaggerated" && before && after) return `Было ${before}, стало ${after}`;
+  if (f.type === "exaggerated" && before && after) return t.status.wasBecame(before, after);
   return `${f.label}: ${f.detail}`;
 }
 
@@ -136,34 +142,34 @@ export function flagText(f: ClaimFlag, fc: FactCheck): string {
  * Пояснение в одну строку — по найденному, без вывода: кто подтверждает, кто возражает,
  * или почему сказать нечего.
  */
-export function summaryLine(fc: FactCheck): string | null {
-  if (fc.status === "found") return "Проверим, когда видео подойдёт · нажмите, чтобы проверить сейчас";
-  if (fc.status === "checking") return "Ищем источники и позиции…";
+export function summaryLine(fc: FactCheck, t: SiteDictionary): string | null {
+  if (fc.status === "found") return t.status.summaryFound;
+  if (fc.status === "checking") return t.status.summaryChecking;
   if (fc.status === "failed") return fc.error ?? null;
   if (fc.keyFinding?.subtitle && fc.consensus === "unverifiable") {
     return `${fc.keyFinding.title}: ${fc.keyFinding.subtitle}`;
   }
-  if (fc.consensusSummary?.includes("первоисточник")) return capitalize(fc.consensusSummary);
+  if (fc.consensusSummary && ROOT_SUMMARY.test(fc.consensusSummary)) return capitalize(fc.consensusSummary);
 
   const names = (stance: FactCheck["sources"][number]["stance"]) => [
     ...new Set(fc.sources.filter((s) => s.stance === stance).map((s) => s.publisher)),
   ];
   const pro = names("supports");
   const contra = names("refutes");
-  if (pro.length && contra.length) return `За: ${list(pro, 2)} · против: ${list(contra, 2)}`;
+  if (pro.length && contra.length) return t.status.summarySides(list(pro, 2, t), list(contra, 2, t));
   // глагол уже на плашке — здесь только кто именно
-  if (contra.length) return `Источники: ${list(contra, 3)}`;
-  if (pro.length) return `Источники: ${list(pro, 3)}`;
+  if (contra.length) return t.status.summarySources(list(contra, 3, t));
+  if (pro.length) return t.status.summarySources(list(pro, 3, t));
   if (fc.sources.length) {
-    return `Писали ${list([...new Set(fc.sources.map((s) => s.publisher))], 2)}, без явной позиции`;
+    return t.status.summaryNoStance(list([...new Set(fc.sources.map((s) => s.publisher))], 2, t));
   }
-  return "Публикаций об этом не нашли";
+  return t.status.noPublications;
 }
 
 /** «DW, Reuters и ещё 2» */
-function list(items: string[], max: number): string {
+function list(items: string[], max: number, t: SiteDictionary): string {
   if (items.length <= max) return items.join(", ");
-  return `${items.slice(0, max).join(", ")} и ещё ${items.length - max}`;
+  return t.status.listMore(items.slice(0, max).join(", "), items.length - max);
 }
 
 function capitalize(s: string): string {
@@ -172,6 +178,7 @@ function capitalize(s: string): string {
 
 /** Флаги списком: иконка и фраза («Было 2 пострадавших, стало 200») */
 export function FlagList({ factCheck: fc, className = "" }: { factCheck: FactCheck; className?: string }) {
+  const t = useSiteText();
   const flags = uniqueFlags(fc);
   if (fc.status !== "done" || flags.length === 0) return null;
   return (
@@ -185,7 +192,7 @@ export function FlagList({ factCheck: fc, className = "" }: { factCheck: FactChe
             className="flex items-start gap-2 text-[13px] font-semibold leading-snug"
           >
             <Icon className="mt-[2px] h-3.5 w-3.5 shrink-0" style={{ color: st.color }} />
-            {flagText(f, fc)}
+            {flagText(f, fc, t)}
           </li>
         );
       })}

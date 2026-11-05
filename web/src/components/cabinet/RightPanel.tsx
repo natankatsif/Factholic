@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "../../lib/utils";
-import { pluralWord, useCabinetText } from "./dictionary";
+import { useCabinetText } from "./dictionary";
 import {
   BellIcon,
   EyeIcon,
@@ -428,7 +428,7 @@ function SavedRow({ time, count }: { time: string; count: number }) {
       title={t.feed.savedTitle}
       time={time}
     >
-      <div className={TEXT}>{t.feed.savedText(count, pluralWord(count, t.canvas.publications))}</div>
+      <div className={TEXT}>{t.feed.savedText(count, t.plural(count, t.canvas.publications))}</div>
     </FeedRow>
   );
 }
@@ -445,7 +445,7 @@ function FewSourcesRow({ time, count }: { time: string; count: number }) {
       title={t.feed.fewSourcesTitle}
       time={time}
     >
-      <div className={TEXT}>{t.feed.fewSourcesText(count, pluralWord(count, t.canvas.publications))}</div>
+      <div className={TEXT}>{t.feed.fewSourcesText(count, t.plural(count, t.canvas.publications))}</div>
     </FeedRow>
   );
 }

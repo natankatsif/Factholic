@@ -1,4 +1,4 @@
-import type { FactCheck } from "@news/contracts";
+import type { FactCheck, LanguageCode } from "@news/contracts";
 import type { Claim } from "../03-claim-extraction/types.ts";
 import type { FoundSource, SearchReport } from "../04-source-search/types.ts";
 import type { ProvenanceTree } from "../05-provenance/types.ts";
@@ -22,7 +22,12 @@ export interface ProvenanceResult {
  * checked — после этапов 05–08
  * failed  — 04 или 08 упали
  */
-export type ReportInput =
+export type ReportInput = ReportContent & {
+  /** Язык подписей отчёта (StartAnalysisRequest.uiLanguage); не задан — русский */
+  uiLanguage?: LanguageCode;
+};
+
+type ReportContent =
   | { kind: "found"; claim: Claim }
   | { kind: "pending"; claim: Claim }
   | {

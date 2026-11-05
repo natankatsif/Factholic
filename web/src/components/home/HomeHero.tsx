@@ -5,12 +5,13 @@ import { useCrowdSay, clearCrowdSay, markCrowdSay } from "../../lib/history-ui";
 import { Navbar } from "./Navbar";
 import { HeroHeadline } from "./HeroHeadline";
 import { LinkInputCard } from "./LinkInputCard";
-import { SupportedPlatforms, platformOfLink, type PlatformId } from "./SupportedPlatforms";
+import { SupportedPlatforms, platformName, platformOfLink, type PlatformId } from "./SupportedPlatforms";
 import { HowItWorks } from "./HowItWorks";
 import { EmojiCrowd } from "./EmojiCrowd";
 import { HistoryDrawer } from "../history/HistoryDrawer";
 import { UserCheck } from "lucide-react";
 import { AudienceModal, type Audience } from "./AudienceModal";
+import { useSiteText } from "../../i18n/site";
 
 export interface HomeHeroProps {
   onCheck: (urlOrText: string, isUrl: boolean) => void;
@@ -22,6 +23,7 @@ export interface HomeHeroProps {
  * Откалибрована по общей дизайн-системе factholic.
  */
 export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
+  const t = useSiteText();
   const [isTyping, setIsTyping] = useState(false);
   const [hasText, setHasText] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -45,7 +47,7 @@ export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
     const platform = isUrl ? platformOfLink(urlOrText) : null;
     if (platform?.soon) {
       markCrowdSay({
-        message: `${platform.name} пока в разработке 🛠 Скоро научусь и его — а пока вставь текст поста или ссылку на YouTube`,
+        message: t.home.platformInDevelopment(platformName(platform, t)),
         input: urlOrText,
         isUrl: true,
       });
@@ -137,17 +139,14 @@ export function HomeHero({ onCheck, isLoading }: HomeHeroProps) {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#E6F7FA] text-[#0AA6C2]">
               <UserCheck className="h-6 w-6" />
             </div>
-            <h3 className="mt-4 text-xl font-black">Личный кабинет</h3>
-            <p className="mt-2 text-xs font-semibold text-[#A27C7A]">
-              Все ваши проверки сохраняются автоматически в истории браузера. Авторизация через email и
-              Telegram станет доступна в ближайшем обновлении!
-            </p>
+            <h3 className="mt-4 text-xl font-black">{t.home.cabinetTitle}</h3>
+            <p className="mt-2 text-xs font-semibold text-[#A27C7A]">{t.home.cabinetText}</p>
             <button
               type="button"
               onClick={() => setIsLoginOpen(false)}
               className="mt-5 w-full cursor-pointer rounded-full bg-[#4A3333] py-2.5 text-xs font-black text-white hover:bg-[#362424] transition-colors"
             >
-              Понятно
+              {t.home.gotIt}
             </button>
           </div>
         </div>

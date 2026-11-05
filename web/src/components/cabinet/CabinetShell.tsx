@@ -10,7 +10,8 @@ import { NarrativeDialog, SuggestionDialog } from "./Dialogs";
 import { POPOVER_PANEL, usePopover } from "./Popover";
 import { Bone } from "./Skeletons";
 import { cn } from "../../lib/utils";
-import { pluralWord, useCabinetText } from "./dictionary";
+import { useCabinetText } from "./dictionary";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 import {
   ArrowRightIcon,
   BellIcon,
@@ -151,7 +152,7 @@ function RunningList({ checks }: { checks: RunningCheck[] }) {
   return (
     <div className="absolute left-0 top-[50px] z-40 flex w-[400px] flex-col gap-3.5 rounded-3xl bg-card p-[18px] shadow-[0_10px_30px_#4A333333] outline outline-2 -outline-offset-1 outline-border">
       <div className="w-full text-[16px] font-black">
-        {t.running.title(checks.length, pluralWord(checks.length, t.running.checks))}
+        {t.running.title(checks.length, t.plural(checks.length, t.running.checks))}
       </div>
       {checks.map((check) => (
         <div key={check.id} className="flex w-full flex-col items-start gap-1.5">
@@ -363,6 +364,7 @@ function TopBar({
           <PlusIcon className="h-4 w-4" />
           {t.topBar.newCheck}
         </Link>
+        <LanguageSwitcher label={t.topBar.language} />
         <AlertsMenu alerts={session?.alerts ?? []} unread={session?.unreadAlerts ?? 0} />
         {loading && (
           <>
@@ -485,7 +487,7 @@ function LeftMenu({
           <div className="w-full text-[13px] font-bold leading-[17px]">
             {t.suggestion.text(
               suggestion.claims.length,
-              pluralWord(suggestion.claims.length, t.suggestion.questions),
+              t.plural(suggestion.claims.length, t.suggestion.questions),
               suggestion.topic,
             )}
           </div>

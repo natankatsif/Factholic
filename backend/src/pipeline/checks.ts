@@ -25,6 +25,7 @@ import {
   buildProvenanceTree,
   copiesForTree,
   voteGroupsForSources,
+  voteRolesForSources,
   votersFromTree,
   type ProvenanceTree,
 } from "../stages/05-provenance/index.ts";
@@ -33,6 +34,7 @@ import { checkRootDate } from "../stages/07-root-date/index.ts";
 import { assessStances } from "../stages/08-stances/index.ts";
 import { toFactCheck, type ProvenanceResult } from "../stages/09-report/index.ts";
 import type { StageContext } from "./context.ts";
+import { messagesFor } from "../messages.ts";
 import { allow } from "./guard.ts";
 import { CheckScheduler } from "./scheduler.ts";
 
@@ -89,7 +91,11 @@ export class ClaimChecker {
   add(claims: Claim[], segments: TranscriptSegment[]): void {
     this.segments = segments;
     this.claims.push(...claims);
-    for (const claim of claims) this.update(toFactCheck({ kind: "found", claim }), "claim.detected");
+    for (const claim of claims)
+      this.update(
+        toFactCheck({ kind: "found", claim, uiLanguage: this.p.request.uiLanguage }),
+        "claim.detected",
+      );
     this.scheduler.add(claims);
   }
 
@@ -169,13 +175,16 @@ export class ClaimChecker {
   private async check(claim: Claim): Promise<void> {
     const { ctx, signal, request, video } = this.p;
     // лимит на человека и дневной бюджет: не потратили — «не удалось» с причиной, по клику перепроверится
-    const denied = allow("check", this.p.ownerIp);
+    const denied = allow("check", this.p.ownerIp, request.uiLanguage);
     if (denied) {
       ctx.log(`${claim.id}: не проверяем — ${denied}`);
-      this.update(toFactCheck({ kind: "failed", claim, error: denied }), "claim.checked");
+      this.update(
+        toFactCheck({ kind: "failed", claim, error: denied, uiLanguage: request.uiLanguage }),
+        "claim.checked",
+      );
       return;
     }
-    this.update(toFactCheck({ kind: "pending", claim }), "claim.detected");
+    this.update(toFactCheck({ kind: "pending", claim, uiLanguage: request.uiLanguage }), "claim.detected");
     let fc: FactCheck;
     try {
       this.progress(claim, "source_search");
@@ -228,6 +237,7 @@ export class ClaimChecker {
             surroundingText: surroundingText(claim, this.segments),
             uiLanguage: request.uiLanguage,
             voteGroups: tree ? voteGroupsForSources(tree, treeCopies, sources) : undefined,
+            voteRoles: tree ? voteRolesForSources(tree, treeCopies, sources) : undefined,
           },
           ctx,
         ).finally(() => (t08 = Date.now() - t05)),
@@ -235,7 +245,15 @@ export class ClaimChecker {
       const provenance: ProvenanceResult | null = tree
         ? { tree, mutations, rootDate: checkRootDate({ claim, tree, videoPublishedAt: video.publishedAt }) }
         : null;
-      fc = toFactCheck({ kind: "checked", claim, sources, stances, provenance, search });
+      fc = toFactCheck({
+        kind: "checked",
+        claim,
+        sources,
+        stances,
+        provenance,
+        search,
+        uiLanguage: request.uiLanguage,
+      });
       ctx.log(
         `⏱ ${claim.id}: 04 поиск ${sec(t04 - t0)}, 05 дерево ${sec(t05 - t04)}, ` +
           `06 мутации ${sec(t06)} ‖ 08 стороны ${sec(t08)}, всего ${sec(Date.now() - t0)}`,
@@ -243,7 +261,12 @@ export class ClaimChecker {
     } catch (err) {
       if (signal.aborted) return;
       ctx.log("claim failed", err);
-      fc = toFactCheck({ kind: "failed", claim, error: "Не удалось проверить тезис" });
+      fc = toFactCheck({
+        kind: "failed",
+        claim,
+        error: messagesFor(request.uiLanguage).claimCheckFailed,
+        uiLanguage: request.uiLanguage,
+      });
     }
     this.update(fc, "claim.checked");
   }

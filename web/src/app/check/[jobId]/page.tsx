@@ -11,6 +11,7 @@ import { deleteJob, listJobs, subscribeJob, type JobSubscription } from "../../.
 import { markCrowdSay } from "../../../lib/history-ui";
 import { getNonFactualMessage } from "../../../lib/claim-precheck";
 import { detectPlatform } from "../../../lib/platform-detector";
+import { useSiteText } from "../../../i18n/site";
 import { reportYoutubeId } from "../../../lib/youtube";
 
 /** Минимальное время шага, над которым бэкенд правда работает: персонаж успевает сменить эмоцию */
@@ -175,6 +176,7 @@ function BlankScreen() {
 
 /** Страница одной проверки: /check/<jobId>. Дерево источников — /check/<jobId>?view=tree */
 function CheckPage() {
+  const t = useSiteText();
   const { jobId } = useParams<{ jobId: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -251,7 +253,7 @@ function CheckPage() {
       jobId,
       (updatedReport: VideoReport, event?: ServerEvent) => {
         if (updatedReport.status === "failed") {
-          setError("Проверка завершилась с ошибкой на сервере.");
+          setError(t.jobs.serverFailed);
           return;
         }
         const now = Date.now();
@@ -292,7 +294,7 @@ function CheckPage() {
     const isUrl = record?.isUrl ?? Boolean(pageUrl && !pageUrl.startsWith("text:"));
     const rawInput = (isUrl ? pageUrl : (report.sourceText ?? record?.input)) ?? "";
     markCrowdSay({
-      message: report.emptyNotice || getNonFactualMessage(rawInput, isUrl),
+      message: report.emptyNotice || getNonFactualMessage(rawInput, isUrl, t.precheck),
       input: rawInput,
       isUrl,
     });
@@ -381,13 +383,13 @@ function CheckPage() {
   if (error) {
     return (
       <div className="flex min-h-[100svh] flex-col items-center justify-center gap-4 bg-[#F1EBE9] px-6 text-center text-[#4A3333]">
-        <span className="text-2xl font-black">Не удалось загрузить проверку</span>
+        <span className="text-2xl font-black">{t.jobs.loadTitle}</span>
         <span className="max-w-[420px] text-sm font-semibold text-[#A27C7A]">{error}</span>
         <Link
           href="/"
           className="rounded-full bg-[#4A3333] px-5 py-2.5 text-sm font-extrabold text-white no-underline hover:bg-[#362424]"
         >
-          Новая проверка
+          {t.common.newCheck}
         </Link>
       </div>
     );

@@ -2,16 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Clock,
-  ExternalLink,
-  History,
-  Sparkles,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Clock, ExternalLink, History, Sparkles, Trash2, X } from "lucide-react";
 import { clearJobs, deleteJob, listJobs, type JobRecord } from "../../lib/jobs";
 import { detectPlatform, formatTimeAgo } from "../../lib/platform-detector";
+import { useSiteText } from "../../i18n/site";
 
 export interface HistoryDrawerProps {
   isOpen: boolean;
@@ -20,6 +14,7 @@ export interface HistoryDrawerProps {
 }
 
 export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerProps) {
+  const t = useSiteText();
   const router = useRouter();
   const [jobs, setJobs] = useState<JobRecord[]>([]);
 
@@ -67,7 +62,7 @@ export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerPr
   };
 
   const handleClearAll = () => {
-    if (window.confirm("Очистить всю историю проверок?")) {
+    if (window.confirm(t.historyPanel.clearConfirm)) {
       clearJobs();
       reloadJobs();
     }
@@ -92,16 +87,14 @@ export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerPr
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black tracking-[-0.5px]">История проверок</h3>
+                <h3 className="text-lg font-black tracking-[-0.5px]">{t.historyPanel.title}</h3>
                 {jobs.length > 0 && (
                   <span className="rounded-full bg-[#F1EBE9] px-2.5 py-0.5 text-xs font-black text-[#A27C7A]">
                     {jobs.length}
                   </span>
                 )}
               </div>
-              <p className="text-xs font-semibold text-[#A27C7A]">
-                Сохранённые разборы в этом браузере
-              </p>
+              <p className="text-xs font-semibold text-[#A27C7A]">{t.historyPanel.subtitle}</p>
             </div>
           </div>
 
@@ -110,10 +103,10 @@ export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerPr
               <button
                 type="button"
                 onClick={handleClearAll}
-                title="Очистить историю"
+                title={t.historyPanel.clearTitle}
                 className="cursor-pointer rounded-full border-none bg-transparent p-2 text-xs font-bold text-[#A27C7A] hover:bg-[#F1EBE9] hover:text-[#E2353F] transition-colors"
               >
-                Очистить
+                {t.historyPanel.clear}
               </button>
             )}
             <button
@@ -133,10 +126,8 @@ export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerPr
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F1EBE9] text-[#A27C7A]">
                 <Clock className="h-8 w-8" />
               </div>
-              <h4 className="text-base font-black">История пуста</h4>
-              <p className="max-w-[280px] text-xs font-semibold text-[#A27C7A]">
-                Здесь будут появляться проверенные вами ссылки на видео, посты из соцсетей или тексты.
-              </p>
+              <h4 className="text-base font-black">{t.historyPanel.emptyTitle}</h4>
+              <p className="max-w-[280px] text-xs font-semibold text-[#A27C7A]">{t.historyPanel.emptyText}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -145,16 +136,16 @@ export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerPr
                 }}
                 className="mt-3 cursor-pointer rounded-full bg-[#4A3333] px-5 py-2.5 text-xs font-black text-white hover:bg-[#362424] transition-colors"
               >
-                Начать проверку
+                {t.historyPanel.start}
               </button>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               {jobs.map((job) => {
                 const isCurrent = job.jobId === currentJobId;
-                const platform = detectPlatform(job.input, job.isUrl, job.report?.video);
+                const platform = detectPlatform(job.input, job.isUrl, job.report?.video, t.platform);
                 const claimsCount = job.report?.factChecks?.length ?? 0;
-                const timeAgo = formatTimeAgo(job.createdAt);
+                const timeAgo = formatTimeAgo(job.createdAt, t);
 
                 // Title: use video title if non-empty, otherwise job input snippet
                 const displayTitle =
@@ -190,7 +181,7 @@ export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerPr
 
                         {isCurrent && (
                           <span className="rounded-full bg-[#1DA57A] px-2 py-0.5 text-[10px] font-extrabold text-white">
-                            Текущая
+                            {t.historyPanel.current}
                           </span>
                         )}
                       </div>
@@ -204,7 +195,7 @@ export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerPr
                         <button
                           type="button"
                           onClick={(e) => handleDeleteItem(e, job.jobId)}
-                          title="Удалить из истории"
+                          title={t.historyPanel.remove}
                           className="flex h-7 w-7 items-center justify-center rounded-full text-[#A27C7A] opacity-0 transition-opacity hover:bg-[#FDE3E5] hover:text-[#E2353F] group-hover:opacity-100"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -223,31 +214,31 @@ export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerPr
                         <div className="flex items-center gap-2">
                           {claimsCount > 0 ? (
                             <span className="font-extrabold text-[#4A3333]">
-                              {claimsCount} {claimsCount === 1 ? "тезис" : claimsCount < 5 ? "тезиса" : "тезисов"}
+                              {claimsCount} {t.plural(claimsCount, t.words.historyClaims)}
                             </span>
                           ) : (
-                            <span>Анализ завершён</span>
+                            <span>{t.historyPanel.done}</span>
                           )}
 
                           {job.report.summary?.consensusBreakdown && (
                             <span className="rounded-md bg-[#F1EBE9] px-1.5 py-0.5 text-[11px] font-bold text-[#4A3333]">
                               {job.report.summary.consensusBreakdown.against > 0
-                                ? "Есть опровержения"
+                                ? t.historyPanel.hasRefutations
                                 : job.report.summary.consensusBreakdown.converge > 0
-                                  ? "Сходятся"
-                                  : "Разделились"}
+                                  ? t.historyPanel.converge
+                                  : t.historyPanel.split}
                             </span>
                           )}
                         </div>
                       ) : (
                         <span className="flex items-center gap-1 text-[#0AA6C2]">
                           <span className="h-2 w-2 rounded-full bg-[#0AA6C2] animate-pulse" />
-                          В процессе проверки
+                          {t.historyPanel.inProgress}
                         </span>
                       )}
 
                       <div className="flex items-center gap-1 text-[11px] font-bold text-[#A27C7A] opacity-0 transition-opacity group-hover:opacity-100 group-hover:text-[#4A3333]">
-                        <span>Открыть</span>
+                        <span>{t.historyPanel.open}</span>
                         <ExternalLink className="h-3 w-3" />
                       </div>
                     </div>
@@ -269,7 +260,7 @@ export function HistoryDrawer({ isOpen, onClose, currentJobId }: HistoryDrawerPr
             className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#4A3333] py-3 text-sm font-black text-white hover:bg-[#362424] transition-all active:scale-[0.99] shadow-xs"
           >
             <Sparkles className="h-4 w-4" />
-            <span>Новая проверка</span>
+            <span>{t.common.newCheck}</span>
           </button>
         </div>
       </div>

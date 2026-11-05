@@ -12,9 +12,8 @@ import { Source, Sources, SourcesContent, SourcesTrigger } from "../ai-elements/
 import { Suggestion, Suggestions } from "../ai-elements/suggestion";
 import { Tool, ToolContent, ToolHeader } from "../ai-elements/tool";
 import { chatFor, type ChatMessage, type WebSearchResult } from "../../lib/chat";
-import { plural } from "./filters";
-
-const DEFAULT_QUESTIONS = ["Кто первоисточник?", "Что исказили?", "Когда это было?", "Есть свежие новости?"];
+import { LOCALE_TAGS, type Locale } from "../../i18n/locale";
+import { useSiteText, type SiteDictionary } from "../../i18n/site";
 
 export interface AssistantChatProps {
   jobId: JobId;
@@ -29,11 +28,12 @@ export interface AssistantChatProps {
  * Ответы — с бэкенда (AI SDK): по данным разбора, а чего в нём нет — модель ищет в интернете (webSearch).
  */
 export function AssistantChat({ jobId, claimId, intro, suggestedQuestions }: AssistantChatProps) {
+  const t = useSiteText();
   const { messages, sendMessage, status, stop, error, regenerate, clearError } = useChat<ChatMessage>({
     chat: chatFor(jobId, claimId),
   });
   const busy = status === "submitted" || status === "streaming";
-  const questions = suggestedQuestions?.length ? suggestedQuestions : DEFAULT_QUESTIONS;
+  const questions = suggestedQuestions?.length ? suggestedQuestions : t.chat.questions;
   const asked = new Set(messages.filter((m) => m.role === "user").map(textOf));
 
   // Карточку показываем с начала; к низу прокручиваем, только когда пошёл диалог
@@ -81,7 +81,7 @@ export function AssistantChat({ jobId, claimId, intro, suggestedQuestions }: Ass
           </Suggestions>
         )}
         <PromptInput onSubmit={({ text }) => ask(text)}>
-          <PromptInputTextarea placeholder="Спросите про это утверждение…" />
+          <PromptInputTextarea placeholder={t.chat.placeholder} />
           <PromptInputSubmit status={status} onStop={() => void stop()} className="self-end" />
         </PromptInput>
       </div>
@@ -143,21 +143,22 @@ function WebSearch({
   query: string | undefined;
   results: WebSearchResult[] | undefined;
 }) {
+  const t = useSiteText();
   return (
     <Tool>
       <ToolHeader
         state={state}
         icon={<Globe className="size-4 shrink-0 text-[#4AA5C3]" />}
-        title={query ? `Ищем: «${query}»` : "Ищем в интернете…"}
+        title={query ? t.chat.searchingFor(query) : t.chat.searchingWeb}
       />
       <ToolContent>
         {state === "output-error" ? (
-          <p className="m-0 text-xs font-semibold text-[#E2353F]">Поиск не удался</p>
+          <p className="m-0 text-xs font-semibold text-[#E2353F]">{t.chat.searchFailed}</p>
         ) : results ? (
           <Sources defaultOpen>
             <SourcesTrigger count={results.length}>
               <span className="text-xs">
-                Нашли {results.length} {plural(results.length, ["публикацию", "публикации", "публикаций"])}
+                {t.chat.foundCount(results.length, t.plural(results.length, t.words.publicationsFound))}
               </span>
             </SourcesTrigger>
             <SourcesContent>
@@ -168,7 +169,7 @@ function WebSearch({
                     <span className="block truncate text-xs font-extrabold">{r.title}</span>
                     <span className="block truncate text-[11px] font-semibold text-muted-foreground">
                       {hostname(r.url)}
-                      {formatDate(r.publishedAt) && ` · ${formatDate(r.publishedAt)}`}
+                      {formatDate(r.publishedAt, t.locale) && ` · ${formatDate(r.publishedAt, t.locale)}`}
                     </span>
                   </span>
                 </Source>
@@ -176,7 +177,9 @@ function WebSearch({
             </SourcesContent>
           </Sources>
         ) : (
-          <p className="m-0 animate-pulse text-xs font-semibold text-muted-foreground">Ищем публикации…</p>
+          <p className="m-0 animate-pulse text-xs font-semibold text-muted-foreground">
+            {t.chat.searchingPublications}
+          </p>
         )}
       </ToolContent>
     </Tool>
@@ -184,41 +187,41 @@ function WebSearch({
 }
 
 function Thinking() {
+  const t = useSiteText();
   return (
     <div className="flex items-center gap-2 text-[13px] font-bold text-muted-foreground">
       <Sparkles className="h-4 w-4 animate-pulse text-[#8B5CF6]" />
-      Думаем над ответом…
+      {t.chat.thinking}
     </div>
   );
 }
 
 function ChatError({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  const t = useSiteText();
   return (
     <div className="flex items-center justify-between gap-3 rounded-[16px] bg-[#FCDFE1] px-3 py-2.5 text-[13px] font-semibold text-[#4A3333]">
-      <span className="min-w-0">{errorText(error)}</span>
+      <span className="min-w-0">{errorText(error, t)}</span>
       <button
         type="button"
         onClick={onRetry}
         className="flex shrink-0 cursor-pointer items-center gap-1 rounded-full border-none bg-white/70 px-3 py-1 text-xs font-extrabold text-[#4A3333] hover:bg-white"
       >
         <RotateCcw className="h-3.5 w-3.5" />
-        Ещё раз
+        {t.chat.retry}
       </button>
     </div>
   );
 }
 
 /** Бэкенд отвечает { error: "…" } — показываем текст, а не JSON */
-function errorText(error: Error): string {
+function errorText(error: Error, t: SiteDictionary): string {
   try {
     const parsed = JSON.parse(error.message) as { error?: string };
     if (parsed.error) return parsed.error;
   } catch {
     // не JSON
   }
-  return error.message.includes("fetch")
-    ? "Нет связи с сервером. Чат работает, когда сайт подключён к бэкенду."
-    : error.message || "Не удалось получить ответ";
+  return error.message.includes("fetch") ? t.chat.noBackend : error.message || t.chat.failed;
 }
 
 function hostname(url: string): string {
@@ -229,7 +232,7 @@ function hostname(url: string): string {
   }
 }
 
-function formatDate(raw: string | undefined): string {
+function formatDate(raw: string | undefined, locale: Locale): string {
   const t = raw ? Date.parse(raw) : NaN;
-  return Number.isNaN(t) ? "" : new Date(t).toLocaleDateString("ru-RU");
+  return Number.isNaN(t) ? "" : new Date(t).toLocaleDateString(LOCALE_TAGS[locale]);
 }

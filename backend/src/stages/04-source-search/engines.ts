@@ -95,7 +95,8 @@ export async function tavilySearch(q: PlannedQuery, signal: AbortSignal): Promis
       search_depth: "advanced",
       topic: q.freshness === "month" ? "news" : "general",
       ...(q.freshness !== "any" && { time_range: q.freshness }),
-      max_results: 6,
+      // цена запроса от числа результатов не зависит
+      max_results: 20,
       chunks_per_source: 3,
       include_raw_content: "text",
       exclude_domains: EXCLUDE_DOMAINS,

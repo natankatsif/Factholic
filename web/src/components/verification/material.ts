@@ -1,4 +1,5 @@
 import type { ProvenanceNode, ProvenanceTree, VideoInfo } from "@news/contracts";
+import type { SiteDictionary } from "../../i18n/site";
 
 /** Что проверяем: видео, вставленный текст или статья по ссылке */
 export type MaterialKind = "video" | "text" | "article";
@@ -11,27 +12,23 @@ export function materialKind(video: VideoInfo | undefined): MaterialKind {
   return "article";
 }
 
-/** Подпись узла проверяемого материала в цепочке (бэкенд всегда называет его «Это видео») */
-export const MATERIAL_LABEL: Record<MaterialKind, string> = {
-  video: "Это видео",
-  text: "Этот текст",
-  article: "Эта статья",
-};
-
 /**
- * Узел самого материала в дереве: бэкенд всегда отдаёт «Это видео» с плашкой «СМИ» и ссылкой на фрагмент.
+ * Узел самого материала в дереве: бэкенд всегда отдаёт «Это видео» по-русски, с плашкой «СМИ» и ссылкой на фрагмент: подпись ставим здесь.
  * Для текста ссылки нет (pageUrl — заглушка "text:…"), для статьи — ссылка на страницу.
  */
-export function materialNode(node: ProvenanceNode, kind: MaterialKind): ProvenanceNode {
+export function materialNode(node: ProvenanceNode, kind: MaterialKind, t: SiteDictionary): ProvenanceNode {
   if (node.role !== "target") return node;
-  if (kind === "video") return { ...node, categoryLabel: undefined };
+  const name = t.text.material[kind];
+  const shortCode = name.slice(0, 2).toUpperCase();
+  if (kind === "video") return { ...node, name, shortCode, categoryLabel: undefined };
   const url = kind === "article" && node.url?.startsWith("http") ? node.url : undefined;
   return {
     ...node,
-    name: MATERIAL_LABEL[kind],
+    name,
+    shortCode,
     categoryLabel: undefined,
     url,
-    action: url ? { type: "open_source", label: "Открыть статью", url } : undefined,
+    action: url ? { type: "open_source", label: t.text.openArticle, url } : undefined,
   };
 }
 

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { FileText, Lightbulb } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import { INPUT_EXAMPLES, LINK_HINT, type InputExample } from "./examples";
-import { PLATFORMS, PlatformIcon, platformOfLink, type PlatformId } from "./SupportedPlatforms";
+import { inputExamples, type InputExample } from "./examples";
+import { PLATFORMS, PlatformIcon, platformName, platformOfLink, type PlatformId } from "./SupportedPlatforms";
+import { useSiteText } from "../../i18n/site";
 
 export interface LinkInputCardProps {
   onCheck: (urlOrText: string, isUrl: boolean) => void;
@@ -23,6 +24,7 @@ export function LinkInputCard({
   onPlatformChange,
   prefill,
 }: LinkInputCardProps) {
+  const t = useSiteText();
   const platform = PLATFORMS.find((p) => p.id === platformId) ?? null;
   const isLink = platform !== null;
   const [inputValue, setInputValue] = useState("");
@@ -168,7 +170,9 @@ export function LinkInputCard({
       const link = linkValue.trim();
       if (!link) return;
       if (!platform.matches(link)) {
-        setLinkError(platform.invalidText ?? `Это не похоже на ссылку ${platform.name}`);
+        setLinkError(
+          platform.id === "link" ? t.input.notAPageLink : t.input.notALink(platformName(platform, t)),
+        );
         return;
       }
       onCheck(link, true);
@@ -199,7 +203,7 @@ export function LinkInputCard({
       {isLoading ? (
         <span className="flex items-center gap-2 text-white font-extrabold text-xs sm:text-sm xl:text-[16px]">
           <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          Проверяем…
+          {t.input.checking}
         </span>
       ) : (
         <>
@@ -207,7 +211,7 @@ export function LinkInputCard({
             data-pencil-name="Label"
             className="text-xs sm:text-sm xl:text-[16px] leading-normal box-border text-[#FFFFFF] font-extrabold text-left whitespace-nowrap"
           >
-            Проверить
+            {t.input.check}
           </span>
           <svg
             data-pencil-name="Arrow"
@@ -253,7 +257,7 @@ export function LinkInputCard({
               onChange={handleLinkChange}
               onFocus={handleFocus}
               onBlur={handleBlur}
-              placeholder={platform.placeholder}
+              placeholder={t.input.placeholders[platform.id]}
               className="min-w-0 flex-1 border-none bg-transparent text-[15px] font-semibold text-[#4A3333] placeholder-[#A27C7A] outline-none sm:text-[17px] xl:text-[19px]"
             />
             {submitButton}
@@ -279,7 +283,7 @@ export function LinkInputCard({
                 onKeyDown={handleKeyDown}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
-                placeholder="Вставь текст поста или сообщения, которое хочешь проверить…"
+                placeholder={t.input.textPlaceholder}
                 data-pencil-name="Placeholder"
                 className="text-[15px] sm:text-[17px] xl:text-[19px] leading-relaxed box-border flex-1 text-[#4A3333] placeholder-[#A27C7A] font-semibold text-left bg-transparent border-none outline-none resize-none min-w-0 min-h-[46px] sm:min-h-[50px] xl:min-h-[54px] max-h-[220px] overflow-y-auto"
               />
@@ -312,9 +316,11 @@ function ExamplesTooltip({
   className?: string;
   children: React.ReactNode;
 }) {
+  const t = useSiteText();
   const [open, setOpen] = useState(false);
-  const examples: InputExample[] = INPUT_EXAMPLES[platformId ?? "text"];
-  const hint = platformId ? LINK_HINT[platformId] : undefined;
+  const examples: InputExample[] = inputExamples(t)[platformId ?? "text"];
+  const hints: Partial<Record<PlatformId, string>> = t.input.linkHints;
+  const hint = platformId ? hints[platformId] : undefined;
   const isText = platformId === null;
 
   return (
@@ -331,7 +337,7 @@ function ExamplesTooltip({
               e.preventDefault();
               setOpen(true);
             }}
-            aria-label="Примеры для проверки"
+            aria-label={t.input.examplesLabel}
             className={`group/tt relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent transition-colors hover:bg-[#F1EBE9] data-[state=delayed-open]:bg-[#F1EBE9] data-[state=instant-open]:bg-[#F1EBE9] ${className}`}
           >
             {children}
@@ -346,11 +352,11 @@ function ExamplesTooltip({
           <div className="px-2.5 pb-1.5 pt-1.5 text-[11px] font-extrabold uppercase tracking-wider text-white/55">
             {examples.length
               ? isText
-                ? "Попробуй готовый текст"
+                ? t.input.tryText
                 : platformId === "link"
-                  ? "Попробуй свежую новость"
-                  : "Попробуй готовое видео"
-              : "Где взять ссылку"}
+                  ? t.input.tryNews
+                  : t.input.tryVideo
+              : t.input.whereToGetLink}
           </div>
           {examples.length ? (
             <ul className="m-0 flex list-none flex-col p-0">

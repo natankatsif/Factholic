@@ -14,10 +14,10 @@ import {
 } from "../lib/jobs";
 import { markCrowdLaunch, markCrowdSay } from "../lib/history-ui";
 import { getNonFactualMessage } from "../lib/claim-precheck";
-
-const NO_CONNECTION = "Не достучался до сервера проверки 📡 Проверь интернет и попробуй ещё раз";
+import { useSiteText } from "../i18n/site";
 
 export default function HomePage() {
+  const t = useSiteText();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const activeSubRef = useRef<JobSubscription | null>(null);
@@ -84,7 +84,7 @@ export default function HomePage() {
           cleanup();
           deleteJob(jobId);
           markCrowdSay({
-            message: notice || getNonFactualMessage(input, false),
+            message: notice || getNonFactualMessage(input, false, t.precheck),
             input,
             isUrl: false,
           });
@@ -121,7 +121,7 @@ export default function HomePage() {
               finished = true;
               cleanup();
               deleteJob(jobId);
-              showError(input, isUrl, "Проверка сломалась на сервере 😕 Попробуй ещё раз");
+              showError(input, isUrl, t.home.serverFailed);
               resolve();
             }
           },
@@ -143,7 +143,7 @@ export default function HomePage() {
 
   // Ошибку не глотаем молча (на телефоне иначе кнопка секунду крутится — и тишина): бирюзовый говорит,
   // что случилось, введённое остаётся в поле
-  const showError = (input: string, isUrl: boolean, message = NO_CONNECTION) => {
+  const showError = (input: string, isUrl: boolean, message = t.home.noConnection) => {
     setIsLoading(false);
     markCrowdSay({ message, input, isUrl });
   };

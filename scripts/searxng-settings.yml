@@ -1,0 +1,18 @@
+# Настройки локального SearXNG. Слушает только этот компьютер
+use_default_settings: true
+server:
+  secret_key: "__SECRET__"
+  limiter: false
+  public_instance: false
+  bind_address: "127.0.0.1"
+  port: 8899
+search:
+  formats: [html, json]
+  safe_search: 0
+valkey:
+  url: false
+engines:
+  - name: bing
+    disabled: false
+  - name: yandex
+    disabled: false

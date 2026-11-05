@@ -206,8 +206,15 @@ export class JobStore {
   }
 }
 
-/** Текст — по хешу содержимого; YouTube: по id видео (ссылки ?v=…&t=… и youtu.be/… дают один ключ); остальное — по URL страницы */
+/**
+ * Текст — по хешу содержимого; YouTube: по id видео (ссылки ?v=…&t=… и youtu.be/… дают один ключ); остальное — по URL страницы.
+ * Язык отчёта входит в ключ: подписи и итоги уже написаны на нём, отчёт на другом языке — другая задача.
+ */
 export function videoKeyOf(request: StartAnalysisRequest): string {
+  return `${materialKeyOf(request)}|${request.uiLanguage}`;
+}
+
+function materialKeyOf(request: StartAnalysisRequest): string {
   // вставленный текст: ключ по содержимому (у всех текстов может быть одинаковый pageUrl-заглушка)
   if (request.text?.trim()) return `text:${createHash("sha256").update(request.text.trim()).digest("hex")}`;
   if (request.imageDataUrl) return `image:${createHash("sha256").update(request.imageDataUrl).digest("hex")}`;

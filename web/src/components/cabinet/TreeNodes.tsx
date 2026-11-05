@@ -1,4 +1,5 @@
 /** Узлы холста: один вид на все экраны, отличия только в данных и выделении */
+import { useState } from "react";
 import { cn } from "../../lib/utils";
 import { useCabinetText } from "./dictionary";
 import { BrokenLinkIcon, CalendarIcon, HistoryIcon, QuestionIcon, QuotesIcon, SearchIcon } from "./icons";
@@ -151,6 +152,8 @@ export function PlaceholderCard() {
 
 export function UnlinkedCard({ items }: { items: UnlinkedPublication[] }) {
   const t = useCabinetText();
+  const [expanded, setExpanded] = useState(false);
+  const visibleItems = expanded ? items : items.slice(0, 2);
   return (
     <div className="flex w-[190px] flex-col items-start gap-2.5 rounded-[20px] bg-canvas p-3.5 outline outline-2 -outline-offset-1 outline-border">
       <div className="flex w-full flex-col gap-0.5">
@@ -159,15 +162,50 @@ export function UnlinkedCard({ items }: { items: UnlinkedPublication[] }) {
           {t.node.unlinkedHint}
         </div>
       </div>
-      {items.map((item) => (
-        <div key={item.id} className="flex items-center gap-2">
-          <Avatar name={item.outlet} color={item.color} size={24} textClassName="text-[11px]" />
-          <div className="flex min-w-0 flex-col">
-            <div className="text-[13px] font-black">{item.outlet}</div>
-            <div className="whitespace-nowrap text-[12px] font-bold text-cabinet-ink-mid">{item.date}</div>
+      {visibleItems.map((item) => {
+        const content = (
+          <>
+            <Avatar name={item.outlet} color={item.color} size={24} textClassName="text-[11px]" />
+            <div className="flex min-w-0 flex-col text-left">
+              <div
+                className={cn(
+                  "text-[13px] font-black",
+                  item.url && "underline decoration-border underline-offset-2",
+                )}
+              >
+                {item.outlet}
+              </div>
+              <div className="whitespace-nowrap text-[12px] font-bold text-cabinet-ink-mid">{item.date}</div>
+            </div>
+          </>
+        );
+        return item.url ? (
+          <a
+            key={item.id}
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onPointerDown={(event) => event.stopPropagation()}
+            className="flex w-full items-center gap-2 rounded-md hover:opacity-75"
+          >
+            {content}
+          </a>
+        ) : (
+          <div key={item.id} className="flex items-center gap-2">
+            {content}
           </div>
-        </div>
-      ))}
+        );
+      })}
+      {items.length > 2 && (
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => setExpanded((value) => !value)}
+          className="w-full text-left text-[12px] font-extrabold text-primary hover:underline"
+        >
+          {expanded ? t.search.collapse : t.node.moreItems(items.length - 2)}
+        </button>
+      )}
     </div>
   );
 }
