@@ -81,7 +81,7 @@ export interface SearchReport {
 
 /** Зацепка на первоисточник и что с ней стало. Это задача поиска, а не вывод об истине */
 export interface Trace {
-  kind: "link" | "citation" | "older" | "phrase";
+  kind: "link" | "citation" | "older" | "phrase" | "anchor";
   /** Адрес, название источника или язык */
   target: string;
   /** found — нашли публикацию; not_found — проверили, пусто; out_of_budget — не успели */

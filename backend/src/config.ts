@@ -88,10 +88,27 @@ export const config = {
     dailyChecks: positiveInt("DAILY_CHECKS_LIMIT", 600),
     dailyChat: positiveInt("DAILY_CHAT_LIMIT", 500),
   },
+  /**
+   * Кабинет организаций (backend/src/org). Входа в аккаунт пока нет, поэтому API включается только явно.
+   * Плановое слежение тратит деньги на каждую проверку: отдельный переключатель.
+   */
+  cabinet: {
+    api: oneOf<"on" | "off">("CABINET_API", ["on", "off"], "off") === "on",
+    scheduler: oneOf<"on" | "off">("WATCH_SCHEDULER", ["on", "off"], "off") === "on",
+    dbPath: env.CABINET_DB_PATH || "tmp/cabinet.sqlite",
+    /** Заглушки до появления входа и организаций */
+    organizationName: env.CABINET_ORG_NAME || "Организация",
+    memberName: env.CABINET_MEMBER_NAME || "Сотрудник",
+    checksPerMonth: positiveInt("CABINET_CHECKS_PER_MONTH", 100),
+    watches: positiveInt("CABINET_WATCHES", 20),
+  },
   /** Изменения, которые ещё сравниваются с прежним поведением (backend/src/pipeline/eval) */
   experiments: {
-    /** Поиск по следам (этап 04) и дерево с типами связей (этап 05). off — прежнее поведение */
-    traceSearch: oneOf<"on" | "off">("TRACE_SEARCH", ["on", "off"], "off") === "on",
+    /**
+     * Поиск по следам (этап 04) и дерево с типами связей (этап 05). off — прежнее поведение.
+     * Отдельно от языка запроса эффект не измерен: нужны прогоны одного текста в обоих режимах
+     */
+    traceSearch: oneOf<"on" | "off">("TRACE_SEARCH", ["on", "off"], "on") === "on",
   },
   /** Настройки провайдеров для real-реализаций. Пустая строка = не задано. */
   providers: {

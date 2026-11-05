@@ -196,6 +196,11 @@ export const MOCK_CLAIM_SCENARIOS: Array<{ pattern: RegExp; claim: MockClaimTemp
 const MAX_UNKNOWN_CLAIMS = 3;
 const MIN_UNKNOWN_WORDS = 4;
 
+/** Мнения, вопросы и восклицания не извлекаются: в факте есть число или имя собственное не в начале фразы */
+function looksLikeFact(text: string): boolean {
+  return !text.trim().endsWith("?") && (/\d/.test(text) || /\s\p{Lu}/u.test(text));
+}
+
 // ===================== MOCK-РЕАЛИЗАЦИЯ (STAGE_CLAIM_EXTRACTION=mock) =====================
 
 /**
@@ -218,6 +223,7 @@ export const extractClaimsMock: Stage<ClaimExtractionInput, ClaimExtractionOutpu
   if (!claims.length && !input.previousClaims.length) {
     const sentences = input.segments
       .filter((s) => s.text.split(/\s+/).length >= MIN_UNKNOWN_WORDS)
+      .filter((s) => looksLikeFact(s.text))
       .slice(0, MAX_UNKNOWN_CLAIMS);
     for (const s of sentences) {
       const quote = s.text.replace(/[.!?…]+$/, "");

@@ -4,7 +4,7 @@
  *   2. tsc — только по юнитам, которых касаются застейдженные файлы (scripts/units.mjs)
  */
 export default {
-  "*.{ts,mjs,js}": ["eslint --fix --max-warnings=0", "prettier --write"],
+  "*.{ts,mjs,js}": ["eslint --fix --max-warnings=0 --no-warn-ignored", "prettier --write"],
   "*.{json,md,html,css}": "prettier --write",
   "*": () => "node scripts/check.mjs --staged",
 };

@@ -1,0 +1,70 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@news/web"],
+      "port": 3000
+    },
+    {
+      "name": "cabinet-api-mock",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "CABINET_API=on",
+        "CABINET_DB_PATH=tmp/cabinet-e2e.sqlite",
+        "CABINET_ORG_NAME=Центр коммуникаций",
+        "CABINET_MEMBER_NAME=Ирина К.",
+        "STAGES_DEFAULT=mock",
+        "STAGE_INGEST=mock",
+        "STAGE_TRANSCRIPTION=mock",
+        "STAGE_CLAIM_EXTRACTION=mock",
+        "STAGE_SOURCE_SEARCH=mock",
+        "STAGE_PROVENANCE=mock",
+        "STAGE_MUTATIONS=mock",
+        "STAGE_STANCES=mock",
+        "npm",
+        "run",
+        "dev",
+        "-w",
+        "@news/backend"
+      ],
+      "port": 8787
+    },
+    {
+      "name": "cabinet-web-api",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd web && WEB_DATA_SOURCE=backend WEB_BACKEND_URL=http://localhost:8787 npx next dev -p 3010"
+      ],
+      "port": 3010
+    },
+    {
+      "name": "cabinet-api-real",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "TRACE_SEARCH=on",
+        "CABINET_API=on",
+        "CABINET_DB_PATH=tmp/cabinet-real.sqlite",
+        "CABINET_ORG_NAME=Центр коммуникаций",
+        "CABINET_MEMBER_NAME=Ирина К.",
+        "MAX_CLAIMS_PER_CHUNK=1",
+        "MAX_CLAIMS_PER_JOB=1",
+        "STAGE_INGEST=real",
+        "STAGE_TRANSCRIPTION=real",
+        "STAGE_CLAIM_EXTRACTION=real",
+        "STAGE_SOURCE_SEARCH=real",
+        "STAGE_PROVENANCE=real",
+        "STAGE_MUTATIONS=real",
+        "STAGE_STANCES=real",
+        "npm",
+        "run",
+        "dev",
+        "-w",
+        "@news/backend"
+      ],
+      "port": 8787
+    }
+  ]
+}

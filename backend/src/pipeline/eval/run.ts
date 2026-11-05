@@ -16,11 +16,39 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { FactCheck, ServerEvent, StartAnalysisRequest } from "@news/contracts";
+import { searchCredits } from "../../stages/04-source-search/engines.ts";
 import type { ClaimChecker } from "../checks.ts";
+import type { LlmUsage } from "../context.ts";
 import { runPipeline } from "../orchestrator.ts";
 import { CASES, type PipelineCase } from "./cases.ts";
 
 const CASE_TIMEOUT_MS = 8 * 60_000;
+
+/**
+ * Цены за миллион токенов, ввод, кэш, вывод. gpt-4.1-mini — страница модели OpenAI. gpt-6-luna — сторонние прайсы
+ * (eesel.ai, anotherwrapper.com), на странице OpenAI не проверено. text-embedding-3-small — цена по памяти.
+ * Кредит Tavily — оплата по факту.
+ */
+const PRICES: Array<[prefix: string, input: number, cached: number, output: number]> = [
+  ["gpt-6-luna", 0.1, 0.01, 0.5],
+  ["gpt-4.1-mini", 0.4, 0.1, 1.6],
+  ["text-embedding-3-small", 0.02, 0.02, 0],
+];
+const TAVILY_CREDIT_USD = 0.008;
+
+export function usageCost(u: LlmUsage): number {
+  const price = PRICES.find(([prefix]) => u.model.startsWith(prefix));
+  if (!price) return 0;
+  const [, input, cached, output] = price;
+  return ((u.input - u.cached) * input + u.cached * cached + u.output * output) / 1_000_000;
+}
+
+interface CostByStage {
+  calls: number;
+  input: number;
+  output: number;
+  usd: number;
+}
 const OUT_ROOT = fileURLToPath(new URL("../../../../tmp/eval/", import.meta.url));
 
 export interface CaseScore {
@@ -68,9 +96,9 @@ async function main(): Promise<number> {
   await Promise.all(
     Array.from({ length: Math.min(args.parallel, queue.length) }, async () => {
       for (let c = queue.shift(); c; c = queue.shift()) {
-        const { score, report } = await runCase(c);
+        const { score, report, cost } = await runCase(c);
         scores.push(score);
-        writeFileSync(`${dir}${c.id}.json`, JSON.stringify({ case: c, score, report }, null, 2));
+        writeFileSync(`${dir}${c.id}.json`, JSON.stringify({ case: c, score, report, cost }, null, 2));
         console.error(`готово: ${c.id} ${score.consensus ?? score.error ?? ""} (${score.seconds} с)`);
       }
     }),
@@ -83,8 +111,23 @@ async function main(): Promise<number> {
   return 0;
 }
 
-async function runCase(c: PipelineCase): Promise<{ score: CaseScore; report: FactCheck[] }> {
+async function runCase(c: PipelineCase): Promise<{ score: CaseScore; report: FactCheck[]; cost: object }> {
   const started = Date.now();
+  const creditsBefore = searchCredits.count;
+  const stages: Record<string, CostByStage> = {};
+  const models: Record<string, CostByStage> = {};
+  const onUsage = (u: LlmUsage) => {
+    for (const [table, key] of [
+      [stages, u.stage],
+      [models, u.model],
+    ] as const) {
+      const row = (table[key] ??= { calls: 0, input: 0, output: 0, usd: 0 });
+      row.calls++;
+      row.input += u.input;
+      row.output += u.output;
+      row.usd += usageCost(u);
+    }
+  };
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), CASE_TIMEOUT_MS);
   const jobId = `eval_${c.id}_${randomUUID().slice(0, 6)}`;
@@ -102,7 +145,14 @@ async function runCase(c: PipelineCase): Promise<{ score: CaseScore; report: Fac
     if (e.type === "job.failed") failure = e.error.message;
   };
   try {
-    await runPipeline({ jobId, request, emit, signal: abort.signal, onChecker: (x) => (checker = x) });
+    await runPipeline({
+      jobId,
+      request,
+      emit,
+      signal: abort.signal,
+      onChecker: (x) => (checker = x),
+      onUsage,
+    });
     await checker?.whenIdle();
   } catch (err) {
     failure = err instanceof Error ? err.message : String(err);
@@ -110,7 +160,10 @@ async function runCase(c: PipelineCase): Promise<{ score: CaseScore; report: Fac
     clearTimeout(timer);
   }
   const report = checker?.factChecks() ?? [];
-  return { report, score: scoreCase(c, report, Math.round((Date.now() - started) / 1000), failure) };
+  const credits = searchCredits.count - creditsBefore;
+  const llmUsd = Object.values(stages).reduce((sum, row) => sum + row.usd, 0);
+  const cost = { stages, models, credits, llmUsd, searchUsd: credits * TAVILY_CREDIT_USD };
+  return { report, cost, score: scoreCase(c, report, Math.round((Date.now() - started) / 1000), failure) };
 }
 
 /** Главное утверждение материала: больше всего слов из эталона */

@@ -14,8 +14,17 @@ import type { ISODateString, LanguageCode } from "@news/contracts";
 import { config } from "../../config.ts";
 import type { StageContext } from "../../pipeline/context.ts";
 import type { Claim } from "../03-claim-extraction/types.ts";
+import {
+  claimCountry,
+  mentionsAnchor,
+  normalizeTerm,
+  pickAnchors,
+  searchSites,
+  type Anchor,
+  type AnchorPage,
+} from "./anchors.ts";
 import { normalizeHost } from "./domains.ts";
-import { limited, tavilyPost, throttle, type Candidate } from "./engines.ts";
+import { limited, searchCredits, tavilyPost, throttle, type Candidate } from "./engines.ts";
 import type { PlannedQuery } from "./queries.ts";
 import { forEachPage, htmlToMarkdown, openPage } from "./pages.ts";
 import { filterSameEvent } from "./same-event.ts";
@@ -41,6 +50,8 @@ import type { SourceCopy, Trace, TraceReport } from "./types.ts";
 
 const MAX_COPY_QUERIES = 3;
 const MAX_COPIES = 25;
+/** Сколько страниц видит фильтр «та же история»: лимит MAX_COPIES действует уже после него */
+const MAX_POOL = 40;
 /** Сколько страниц без даты докачиваем, чтобы найти дату в разметке (каждая — отдельный запрос) */
 const MAX_PAGE_DATE_FETCHES = 8;
 const PAGE_TIMEOUT_MS = 8_000;
@@ -69,10 +80,14 @@ export function findCopiesWithTraces(
   planned: PlannedQuery[],
   ctx: StageContext,
   traceMode = config.experiments.traceSearch,
+  /** Страницы основного поиска: из них тоже берём зацепки */
+  sourcePages: Promise<Enriched[]> = Promise.resolve([]),
 ): Promise<CopiesResult> {
+  const country = claimCountry(claim);
+  const regional = planned.map((q) => (country ? { ...q, country } : q));
   return traceMode
-    ? traceCopies(claim, planned, ctx)
-    : findCopies(claim, planned, ctx).then((copies) => ({ copies }));
+    ? traceCopies(claim, regional, ctx, sourcePages)
+    : findCopies(claim, regional, ctx).then((copies) => ({ copies }));
 }
 
 export async function findCopies(
@@ -187,8 +202,8 @@ async function tavilyCopies(
       // markdown, а не text: в нём сохраняются ссылки — по ним видно, кто у кого взял
       include_raw_content: "markdown",
       max_results: 10,
-      // фокус проекта — молдавское инфопространство: поднимаем местные сайты для ro/ru
-      ...(q.language === "ro" || q.language === "ru" ? { country: "moldova" } : {}),
+      // страна из утверждения: поднимаем местные сайты для ro/ru, остальные остаются в выдаче
+      ...(q.country && (q.language === "ro" || q.language === "ru") ? { country: q.country } : {}),
       ...dates,
       // профили и страницы людей совпадают по именам, а публикациями не являются
       exclude_domains: claimStems ? [...EXCLUDE_DOMAINS, "linkedin.com"] : EXCLUDE_DOMAINS,
@@ -286,6 +301,12 @@ function isFrontPage(url: string): boolean {
 
 // ---------- поиск по следам ----------
 
+/** Разборы называют настоящее событие и его участников: это лучшие страницы для зацепок. По одному на язык */
+export function debunkQueries(planned: PlannedQuery[]): PlannedQuery[] {
+  const seen = new Set<LanguageCode>();
+  return planned.filter((q) => q.intent === "refute" && !seen.has(q.language) && seen.add(q.language));
+}
+
 /** Запросы первого круга: сначала по одному на язык, чтобы ни один язык не выпал из поиска */
 export function queriesByLanguage(planned: PlannedQuery[], max: number): PlannedQuery[] {
   const events = planned.filter((q) => q.intent !== "refute");
@@ -340,6 +361,7 @@ function pageTitle(markdown: string, url: string): string {
 async function tavilyExtract(urls: string[], stems: string[], signal: AbortSignal): Promise<CopyHit[]> {
   if (!urls.length) return [];
   await throttle();
+  searchCredits.count += Math.ceil(urls.length / 5);
   const res = await fetch("https://api.tavily.com/extract", {
     method: "POST",
     headers: {
@@ -377,9 +399,72 @@ async function tavilyExtract(urls: string[], stems: string[], signal: AbortSigna
  * Поиск по следам: первый круг по одному запросу на язык, потом до MAX_TRACE_ROUNDS кругов добора.
  * Останавливаемся, когда открытых следов нет, а не когда «всё выяснили»: см. traces.ts.
  */
-async function traceCopies(claim: Claim, planned: PlannedQuery[], ctx: StageContext): Promise<CopiesResult> {
+/** Страницы для выписывания зацепок: сначала самые близкие к утверждению, разборы и источники вперемешку */
+function anchorPages(copies: SourceCopy[], matches: Map<string, number>, sources: Enriched[]): AnchorPage[] {
+  const fromCopies = copies.map((c) => ({
+    id: c.url,
+    title: c.title,
+    excerpt: c.excerpt,
+    text: c.fullText ?? c.excerpt,
+    language: c.language,
+    match: matches.get(c.url) ?? 0,
+  }));
+  const known = new Set(copies.map((c) => c.url));
+  const fromSources = sources
+    .filter((e) => !known.has(e.candidate.url))
+    .map((e) => ({
+      id: e.candidate.url,
+      title: e.candidate.title,
+      excerpt: e.excerpt,
+      text: e.candidate.text,
+      language: e.language,
+      match: e.match,
+    }));
+  return [...fromCopies, ...fromSources]
+    .sort((a, b) => b.match - a.match)
+    .map((page, i): AnchorPage => ({ ...page, id: `p${i + 1}` }));
+}
+
+/** По зацепке спрашиваем поисковик и сами сайты. Страница без зацепки — случайная выдача */
+async function searchAnchor(
+  anchor: Anchor,
+  claim: Claim,
+  main: PlannedQuery,
+  stems: string[],
+  ctx: StageContext,
+): Promise<CopyHit[]> {
+  const place = claim.entities.find((e) => !mentionsAnchor(anchor.term, e)) ?? "";
+  const query: PlannedQuery = {
+    ...main,
+    text: `${anchor.term} ${place}`.trim(),
+    language: anchor.language,
+    intent: "context",
+  };
+  const [engine, sites] = await Promise.all([
+    limited(() => tavilyCopies(query, {}, ctx.signal, stems)).catch((err: unknown) => {
+      ctx.log("04 anchors: запрос упал", String(err));
+      return [] as CopyHit[];
+    }),
+    searchSites(anchor, main.country, ctx),
+  ]);
+  const direct = sites.map((candidate): CopyHit => ({ candidate, links: [], earliest: false }));
+  return [...engine, ...direct]
+    .filter((h) => mentionsAnchor(`${h.candidate.title}\n${h.candidate.text}`, anchor.term))
+    .map((h) => ({ ...h, traced: true }));
+}
+
+async function traceCopies(
+  claim: Claim,
+  planned: PlannedQuery[],
+  ctx: StageContext,
+  sourcePages: Promise<Enriched[]>,
+): Promise<CopiesResult> {
   const queries = queriesByLanguage(planned, MAX_COPY_QUERIES + 1);
-  const firstRound = [...queries, ...extraQueries(claim, queries)];
+  const firstRound = [...queries, ...debunkQueries(planned), ...extraQueries(claim, queries)];
+  ctx.log(
+    `04 traces: ${claim.id}: страна ${queries[0]?.country ?? "не задана"}, запросы`,
+    firstRound.map((q) => `${q.language}/${q.intent}: ${q.text}`),
+  );
   if (!queries.length) return { copies: [], traces: { rounds: 0, stopped: "exhausted", traces: [] } };
   const stems = keywordStems(claim.normalized, claim.quote, ...claim.entities);
   const languages = [...new Set(queries.map((q) => q.language))];
@@ -388,6 +473,7 @@ async function traceCopies(claim: Claim, planned: PlannedQuery[], ctx: StageCont
   const triedLinks = new Set<string>();
   const triedCitations = new Set<string>();
   const triedPhrases = new Set<string>();
+  const triedAnchors = new Set<string>();
   const searchedBefore = new Map<LanguageCode, string>();
 
   const first = await Promise.allSettled(
@@ -409,7 +495,12 @@ async function traceCopies(claim: Claim, planned: PlannedQuery[], ctx: StageCont
     const oldest = oldestDate(focused);
     const older = openLanguages(languages, oldest, searchedBefore);
     const phrases = quotedPhrases(focused, triedPhrases);
-    if (!links.length && !citations.length && !older.length && !phrases.length) break;
+    const sources = await sourcePages;
+    const anchors =
+      rounds < MAX_TRACE_ROUNDS
+        ? await pickAnchors(claim, anchorPages(focused, matches, sources), triedAnchors, ctx)
+        : [];
+    if (!links.length && !citations.length && !older.length && !phrases.length && !anchors.length) break;
     if (rounds === MAX_TRACE_ROUNDS) {
       stopped = "budget";
       log.push(
@@ -428,13 +519,19 @@ async function traceCopies(claim: Claim, planned: PlannedQuery[], ctx: StageCont
     for (const name of pickedCitations) triedCitations.add(name.toLowerCase());
     const pickedPhrases = phrases.slice(0, MAX_PHRASES_PER_ROUND);
     for (const phrase of pickedPhrases) triedPhrases.add(phrase.toLowerCase());
+    for (const anchor of anchors) triedAnchors.add(normalizeTerm(anchor.term));
+    if (anchors.length)
+      ctx.log(
+        `04 anchors: ${claim.id}: зацепки`,
+        anchors.map((a) => a.term),
+      );
     if (oldest) for (const language of older) searchedBefore.set(language, oldest);
 
     const before = oldest
       ? new Date(new Date(oldest).getTime() - 86_400_000).toISOString().slice(0, 10)
       : undefined;
     const main = queries[0]!;
-    const [fromLinks, fromCitations, fromOlder, fromPhrases] = await Promise.all([
+    const [fromLinks, fromCitations, fromOlder, fromPhrases, fromAnchors] = await Promise.all([
       limited(() => tavilyExtract(pickedLinks, stems, ctx.signal)).catch((err: unknown) => {
         ctx.log("04 traces: ссылки не открылись", String(err));
         return [] as CopyHit[];
@@ -470,6 +567,11 @@ async function traceCopies(claim: Claim, planned: PlannedQuery[], ctx: StageCont
             .catch(() => ({ phrase, found: [] as CopyHit[] })),
         ),
       ),
+      Promise.all(
+        anchors.map((anchor) =>
+          searchAnchor(anchor, claim, main, stems, ctx).then((found) => ({ anchor, found })),
+        ),
+      ),
     ]);
 
     const opened = new Set(fromLinks.map((h) => canonicalLink(h.candidate.url)));
@@ -489,23 +591,32 @@ async function traceCopies(claim: Claim, planned: PlannedQuery[], ctx: StageCont
     for (const { language, found } of fromOlder) {
       log.push({ kind: "older", target: language, status: found.length ? "found" : "not_found" });
     }
+    for (const { anchor, found } of fromAnchors) {
+      log.push({ kind: "anchor", target: anchor.term, status: found.length ? "found" : "not_found" });
+    }
     hitsFound.push(
       ...fromLinks,
       ...fromCitations.flatMap((c) => c.found),
       ...fromOlder.flatMap((o) => o.found),
       ...fromPhrases.flatMap((p) => p.found),
+      ...fromAnchors.flatMap((a) => a.found),
     );
     ({ copies, matches } = await assembleCopies(hitsFound, stems, ctx));
   }
 
   copies.forEach((c, i) => (c.id = `k${i + 1}`));
-  const kept = await filterSameEvent(claim, copies, ctx, true);
+  const story = await filterSameEvent(claim, copies, ctx, true);
+  // порядок копий — по весу, поэтому лимит режет самые слабые из тех, что прошли фильтр
+  const kept = story.slice(0, MAX_COPIES);
+  if (kept.length < story.length)
+    ctx.log(`04 traces: ${claim.id}: лимит отрезал ${story.length - kept.length}`);
   kept.sort((a, b) => (a.publishedAt ?? "9999").localeCompare(b.publishedAt ?? "9999"));
   kept.forEach((c, i) => (c.id = `${claim.id}_c${i + 1}`));
   const found = log.filter((t) => t.status === "found").length;
   ctx.log(
     `04 traces: ${claim.id}: кругов ${rounds}, остановка ${stopped}, следов ${log.length}, ` +
-      `дали результат ${found}, копий ${kept.length}, самая ранняя ${kept[0]?.publishedAt ?? "—"}`,
+      `дали результат ${found}, до фильтра ${copies.length}, копий ${kept.length}, ` +
+      `самая ранняя ${kept[0]?.publishedAt ?? "—"}`,
   );
   return { copies: kept, traces: { rounds, stopped, traces: log } };
 }
@@ -558,7 +669,7 @@ async function assembleCopies(
     });
 
   const retrievedAt = new Date().toISOString();
-  const picked = protectEarly(relevant, MAX_COPIES).map(({ e }) => {
+  const picked = protectEarly(relevant, MAX_POOL).map(({ e }) => {
     const hit = byUrl.get(e.candidate.url);
     const copy: SourceCopy = {
       ...toCopy(e, hit, retrievedAt),

@@ -17,12 +17,23 @@ export class PipelineError extends Error {
   }
 }
 
+/** Токены одного вызова модели: считаем цену проверки */
+export interface LlmUsage {
+  stage: string;
+  model: string;
+  input: number;
+  cached: number;
+  output: number;
+}
+
 /** Передаётся вторым аргументом в каждый этап. */
 export interface StageContext {
   jobId: JobId;
   /** Срабатывает, когда пользователь закрыл вкладку / отменил — прерывай запросы к API */
   signal: AbortSignal;
   log: (msg: string, data?: unknown) => void;
+  /** Учёт токенов: задаёт тот, кому нужна цена, например eval */
+  usage?: (usage: LlmUsage) => void;
 }
 
 /** Сигнатура любого этапа: чистая функция вход -> выход. */

@@ -58,6 +58,14 @@ export async function askJson<S extends z.ZodType>(
     { signal: ctx.signal, ...(params.timeoutMs ? { timeout: params.timeoutMs } : {}) },
   );
 
+  ctx.usage?.({
+    stage: "05",
+    model: res.model,
+    input: res.usage?.input_tokens ?? 0,
+    cached: res.usage?.input_tokens_details?.cached_tokens ?? 0,
+    output: res.usage?.output_tokens ?? 0,
+  });
+
   if (res.status === "incomplete")
     throw new Error(`Ответ LLM неполный: ${res.incomplete_details?.reason ?? "причина неизвестна"}`);
   for (const item of res.output) {
@@ -81,6 +89,14 @@ export async function embed(texts: string[], ctx: StageContext): Promise<number[
     { model: config.providers.llm.embeddingModel, input: texts },
     { signal: ctx.signal },
   );
+
+  ctx.usage?.({
+    stage: "05",
+    model: res.model,
+    input: res.usage?.total_tokens ?? 0,
+    cached: 0,
+    output: 0,
+  });
 
   const vectors = new Array<number[] | undefined>(texts.length);
   for (const item of res.data) {

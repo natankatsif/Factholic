@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Кабинет — Компоненты</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      tailwind = { config: { corePlugins: { preflight: false } } };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito%3Awght%40200..1000&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      ::before,
+      ::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body style="background-color: #fbf8f7">
+    <div
+      data-pencil-id="z9YTg"
+      data-pencil-name="Кабинет — Компоненты"
+      class="box-border w-[3000px] h-[1040px] bg-[#FBF8F7] rounded-[28px] relative"
+    >
+      <div
+        data-pencil-id="M0Haz1"
+        data-pencil-name="Title"
+        class="text-[22px]/[normal] box-border absolute left-[32px] top-[24px] text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-black text-left [white-space:nowrap] [z-index:0]"
+      >
+        Кабинет структур — компоненты
+      </div>
+      <div
+        data-pencil-id="x2jO59"
+        data-pencil-name="Top Bar"
+        class="box-border w-[1440px] h-[73px] absolute left-[32px] top-[70px] flex flex-row gap-0 p-[0px_24px] justify-between items-center bg-[#F1EBE9] [border-width:0px_0px_2px_0px] [border-style:solid] [border-color:#E3D9D6] [margin:0px_0px_-1px_0px] [z-index:1]"
+      >
+        <div
+          data-pencil-id="XvPzQ"
+          data-pencil-name="Brand"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[10px] justify-start items-center"
+        >
+          <div
+            data-pencil-id="Sl2H3"
+            data-pencil-name="Menu Button"
+            class="box-border w-[40px] shrink-0 h-[40px] flex flex-row gap-0 justify-center items-center bg-[#FBF8F7] [outline:2px_solid_#E3D9D6] [outline-offset:-1px] rounded-[20px]"
+          >
+            <svg
+              data-pencil-id="drtwt"
+              data-pencil-name="Icon"
+              data-icon-name="sidebar-simple"
+              data-icon-set="phosphor"
+              viewBox="0 0 14 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              class="box-border w-[20px] shrink-0 h-[20px]"
+            >
+              <path
+                d="M11.8125 2.1875l-9.625 0q-0.38281 0-0.62891 0.24609-0.24609 0.24609-0.24609 0.62891l0 7.875q0 0.38281 0.24609 0.62891 0.24609 0.24609 0.62891 0.24609l9.625 0q0.38281 0 0.62891-0.24609 0.24609-0.24609 0.24609-0.62891l0-7.875q0-0.38281-0.24609-0.62891-0.24609-0.24609-0.62891-0.24609z m-9.625 0.875l2.1875 0 0 7.875-2.1875 0 0-7.875z m9.625 7.875l-6.5625 0 0-7.875 6.5625 0 0 7.875z"
+                fill="#4A3333"
+              ></path>
+            </svg>
+          </div>
+          <div
+            data-pencil-id="MODMO"
+            data-pencil-name="Logo"
+            class="text-[26px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-black text-left [white-space:nowrap]"
+          >
+            factholic
+          </div>
+          <div
+            data-pencil-id="dQsZg"
+            data-pencil-name="Cabinet Tag"
+            class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 p-[4px_10px] justify-start items-start bg-[#4A3333] rounded-[100px]"
+          >
+            <div
+              data-pencil-id="y1bajQ"
+              data-pencil-name="Label"
+              class="text-[12px]/[normal] box-border text-[#FFFFFF] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              Кабинет
+            </div>
+          </div>
+        </div>
+        <div
+          data-pencil-id="c8dR0"
+          data-pencil-name="Account"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[14px] justify-end items-center"
+        >
+          <div
+            data-pencil-id="Cu5AF"
+            data-pencil-name="Nav Questions"
+            class="text-[15px]/[normal] box-border text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+          >
+            Вопросы
+          </div>
+          <div
+            data-pencil-id="K62hCb"
+            data-pencil-name="Nav Watches"
+            class="text-[15px]/[normal] box-border text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+          >
+            Слежения
+          </div>
+          <div
+            data-pencil-id="W3n4LY"
+            data-pencil-name="New Check Button"
+            class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[6px] p-[0px_16px] justify-start items-center bg-[#4A3333] rounded-[100px]"
+          >
+            <svg
+              data-pencil-id="H6mQDv"
+              data-pencil-name="Plus"
+              data-icon-name="plus"
+              data-icon-set="lucide"
+              viewBox="0 0 13.99993896484375 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              class="box-border w-[16px] shrink-0 h-[16px]"
+            >
+              <path
+                d="M6.90088 2.35156q-0.0957 0.01367-0.17432 0.05127-0.0752 0.03418-0.15381 0.12647-0.0752 0.08887-0.11279 0.16748-0.03418 0.0752-0.03418 0.32812l0 3.40088-3.66748 0-0.08545 0.04102q-0.22217 0.11279-0.30078 0.33838-0.0752 0.22217 0.00684 0.43408 0.05811 0.0957 0.14013 0.18115 0.08545 0.08203 0.16748 0.11963 0.08545 0.03418 0.33838 0.03418l3.40088 0 0 3.40088q0 0.25293 0.03418 0.33838 0.0376 0.08203 0.11963 0.16748 0.08545 0.08203 0.18799 0.1333 0.10596 0.04785 0.23242 0.04785 0.12646 0 0.229-0.04785 0.10596-0.05127 0.18799-0.1333 0.08545-0.08545 0.11963-0.16748 0.0376-0.08545 0.0376-0.33838l0-3.40088 3.40088 0q0.25293 0 0.33496-0.03418 0.08545-0.0376 0.16748-0.11963 0.08545-0.08545 0.1333-0.18799 0.05127-0.10596 0.05127-0.23242 0-0.12646-0.04102-0.23926-0.09912-0.19482-0.29394-0.29394l-0.08545-0.04102-3.66748 0 0-3.38721q0-0.2666-0.02734-0.32128-0.07178-0.19824-0.25293-0.30079-0.18115-0.10596-0.39307-0.06494z"
+                fill="#FFFFFF"
+              ></path>
+            </svg>
+            <div
+              data-pencil-id="C2sDSn"
+              data-pencil-name="Label"
+              class="text-[14px]/[normal] box-border text-[#FFFFFF] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              Новая проверка
+            </div>
+          </div>
+          <div
+            data-pencil-id="UbLYh"
+            data-pencil-name="Bell"
+            class="box-border w-[40px] shrink-0 h-[40px] flex flex-row gap-0 justify-center items-center bg-[#FBF8F7] rounded-[20px]"
+          >
+            <svg
+              data-pencil-id="okmJ2"
+              data-pencil-name="Icon"
+              data-icon-name="bell"
+              data-icon-set="phosphor"
+              viewBox="0 0 14 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              class="box-border w-[20px] shrink-0 h-[20px]"
+            >
+              <path
+                d="M12.08594 9.625q-0.71094-1.25781-0.71094-3.5l0-0.38281q0-1.20313-0.60156-2.21485-0.60156-1.01172-1.58594-1.61328-0.98438-0.60156-2.13281-0.60156l-0.05469 0q-0.875 0-1.66797 0.32813-0.79297 0.32813-1.42187 0.95703-0.62891 0.62891-0.95704 1.42187-0.32813 0.79297-0.32812 1.66797l0 0.4375q0 2.24219-0.71094 3.5-0.10938 0.21875-0.10937 0.4375 0 0.21875 0.10937 0.4375 0.10938 0.21875 0.32813 0.32813 0.21875 0.10938 0.4375 0.10937l2.13281 0q0 0.92969 0.62891 1.55859 0.62891 0.62891 1.55859 0.62891 0.92969 0 1.55859-0.62891 0.62891-0.62891 0.62891-1.55859l2.13281 0q0.21875 0 0.4375-0.10937 0.21875-0.10938 0.32813-0.32813 0.10937-0.21875 0.10937-0.4375 0-0.21875-0.10937-0.4375z m-5.08594 2.625q-0.54688 0-0.92969-0.38281-0.38281-0.38281-0.38281-0.92969l2.625 0q0 0.54688-0.38281 0.92969-0.38281 0.38281-0.92969 0.38281z m-4.32031-2.1875q0.82031-1.42188 0.82031-3.9375l0-0.4375q0-0.71094 0.27344-1.33984 0.27344-0.62891 0.76562-1.1211 0.49219-0.49219 1.1211-0.76562 0.62891-0.27344 1.33984-0.27344l0.05469 0q0.92969 0 1.72265 0.49219 0.79297 0.49219 1.25782 1.28515 0.46484 0.79297 0.46484 1.77735l0 0.38281q0 2.51563 0.82031 3.9375l-8.64062 0z"
+                fill="#4A3333"
+              ></path>
+            </svg>
+          </div>
+          <div
+            data-pencil-id="dNkp3"
+            data-pencil-name="Organization"
+            class="box-border w-fit shrink-0 h-fit flex flex-col gap-0 justify-start items-end"
+          >
+            <div
+              data-pencil-id="Og5SE"
+              data-pencil-name="Org Name"
+              class="text-[14px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-black text-left [white-space:nowrap]"
+            >
+              Центр коммуникаций
+            </div>
+            <div
+              data-pencil-id="cOh0I"
+              data-pencil-name="Member"
+              class="text-[12px]/[normal] box-border text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+            >
+              Ирина К. · сотрудник
+            </div>
+          </div>
+          <div
+            data-pencil-id="G8TF8y"
+            data-pencil-name="Avatar"
+            class="box-border w-[38px] shrink-0 h-[38px] flex flex-row gap-0 justify-center items-center bg-[#FFC20E] rounded-[19px]"
+          >
+            <div
+              data-pencil-id="er9kG"
+              data-pencil-name="Initial"
+              class="text-[16px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-black text-left [white-space:nowrap]"
+            >
+              И
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        data-pencil-id="xvFHX"
+        data-pencil-name="Публикация"
+        class="box-border w-[190px] h-fit absolute left-[32px] top-[190px] flex flex-col gap-[6px] p-[14px] justify-start items-start bg-[#FBF8F7] [outline:2px_solid_#E3D9D6] [outline-offset:-1px] rounded-[20px] [z-index:2]"
+      >
+        <div
+          data-pencil-id="W0c6V"
+          data-pencil-name="Head"
+          class="box-border w-full h-fit shrink-0 flex flex-row gap-0 justify-between items-center"
+        >
+          <div
+            data-pencil-id="pyQBD"
+            data-pencil-name="Logo"
+            class="box-border w-[28px] shrink-0 h-[28px] flex flex-row gap-0 justify-center items-center bg-[#1660D6] rounded-[14px]"
+          >
+            <div
+              data-pencil-id="G1K7b"
+              data-pencil-name="Initial"
+              class="text-[13px]/[normal] box-border text-[#FFFFFF] font-[Nunito,system-ui,sans-serif] font-black text-left [white-space:nowrap]"
+            >
+              Н
+            </div>
+          </div>
+          <div
+            data-pencil-id="AQvK7"
+            data-pencil-name="Type Tag"
+            class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 p-[3px_9px] justify-start items-start bg-[#1660D61A] rounded-[100px]"
+          >
+            <div
+              data-pencil-id="AXWVy"
+              data-pencil-name="Type Label"
+              class="text-[12px]/[normal] box-border text-[#1660D6] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              СМИ · ru
+            </div>
+          </div>
+        </div>
+        <div
+          data-pencil-id="sdoLZ"
+          data-pencil-name="Source Name"
+          class="text-[15px]/[normal] box-border w-full text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-black text-left"
+        >
+          Новости MD
+        </div>
+        <div
+          data-pencil-id="FBxIj"
+          data-pencil-name="Date"
+          class="box-border w-fit h-fit shrink-0 flex flex-row gap-[5px] justify-start items-center"
+        >
+          <svg
+            data-pencil-id="GweGD"
+            data-pencil-name="Icon"
+            data-icon-name="calendar-blank"
+            data-icon-set="phosphor"
+            viewBox="0 0 14 14"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            class="box-border w-[13px] shrink-0 h-[13px]"
+          >
+            <path
+              d="M11.375 1.75l-1.3125 0 0-0.4375q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 0.4375-4.375 0 0-0.4375q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 0.4375-1.3125 0q-0.38281 0-0.62891 0.24609-0.24609 0.24609-0.24609 0.62891l0 8.75q0 0.38281 0.24609 0.62891 0.24609 0.24609 0.62891 0.24609l8.75 0q0.38281 0 0.62891-0.24609 0.24609-0.24609 0.24609-0.62891l0-8.75q0-0.38281-0.24609-0.62891-0.24609-0.24609-0.62891-0.24609z m-7.4375 0.875l0 0.4375q0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-0.4375 4.375 0 0 0.4375q0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-0.4375 1.3125 0 0 1.75-8.75 0 0-1.75 1.3125 0z m7.4375 8.75l-8.75 0 0-6.125 8.75 0 0 6.125z"
+              fill="#7A5C5A"
+            ></path>
+          </svg>
+          <div
+            data-pencil-id="Li1og"
+            data-pencil-name="Date Text"
+            class="text-[12px]/[normal] box-border text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+          >
+            14 марта 2023
+          </div>
+        </div>
+        <div
+          data-pencil-id="hVFlK"
+          data-pencil-name="Quote"
+          class="text-[13px]/[17px] box-border w-full text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-bold text-left"
+        >
+          «Пожар на складе рядом с ТЦ, 2 пострадавших»
+        </div>
+        <div
+          data-pencil-id="xZoq2"
+          data-pencil-name="Foot"
+          class="box-border w-fit h-fit shrink-0 flex flex-col gap-[4px] justify-start items-start"
+        >
+          <div
+            data-pencil-id="jzCc4"
+            data-pencil-name="Position Pill"
+            class="box-border w-fit h-fit shrink-0 flex flex-row gap-0 p-[3px_9px] justify-start items-start bg-[#FFF1C4] rounded-[100px]"
+          >
+            <div
+              data-pencil-id="BYlKl"
+              data-pencil-name="Position Label"
+              class="text-[12px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+            >
+              частично
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        data-pencil-id="O3TeA"
+        data-pencil-name="Проверяемый текст"
+        class="box-border w-[190px] h-fit absolute left-[250px] top-[190px] flex flex-col gap-[8px] p-[14px] justify-start items-start bg-[#4A3333] rounded-[20px] [z-index:3]"
+      >
+        <div
+          data-pencil-id="szTWk"
+          data-pencil-name="Kicker"
+          class="box-border w-fit h-fit shrink-0 flex flex-row gap-[6px] justify-start items-center"
+        >
+          <svg
+            data-pencil-id="Swfwn"
+            data-pencil-name="Icon"
+            data-icon-name="quotes"
+            data-icon-set="phosphor"
+            viewBox="0 0 14 14"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            class="box-border w-[14px] shrink-0 h-[14px]"
+          >
+            <path
+              d="M5.46875 3.0625l-3.28125 0q-0.38281 0-0.62891 0.24609-0.24609 0.24609-0.24609 0.62891l0 3.5q0 0.38281 0.24609 0.62891 0.24609 0.24609 0.62891 0.24609l3.28125 0 0 0.4375q0 0.71094-0.51953 1.23047-0.51953 0.51953-1.23047 0.51953-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 1.09375 0 1.85938-0.76563 0.76563-0.76563 0.76562-1.85937l0-4.8125q0-0.38281-0.24609-0.62891-0.24609-0.24609-0.62891-0.24609z m0 4.375l-3.28125 0 0-3.5 3.28125 0 0 3.5z m6.34375-4.375l-3.28125 0q-0.38281 0-0.62891 0.24609-0.24609 0.24609-0.24609 0.62891l0 3.5q0 0.38281 0.24609 0.62891 0.24609 0.24609 0.62891 0.24609l3.28125 0 0 0.4375q0 0.71094-0.51953 1.23047-0.51953 0.51953-1.23047 0.51953-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 1.09375 0 1.85938-0.76563 0.76563-0.76563 0.76562-1.85937l0-4.8125q0-0.38281-0.24609-0.62891-0.24609-0.24609-0.62891-0.24609z m0 4.375l-3.28125 0 0-3.5 3.28125 0 0 3.5z"
+              fill="#FFC20E"
+            ></path>
+          </svg>
+          <div
+            data-pencil-id="a0FRL"
+            data-pencil-name="Kicker Text"
+            class="text-[12px]/[normal] box-border text-[#FFC20E] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+          >
+            Проверяемый текст
+          </div>
+        </div>
+        <div
+          data-pencil-id="I4cgq"
+          data-pencil-name="Quote"
+          class="text-[14px]/[18px] box-border w-full text-[#FFFFFF] font-[Nunito,system-ui,sans-serif] font-extrabold text-left"
+        >
+          «Вчера сгорел торговый центр, 200 пострадавших»
+        </div>
+      </div>
+      <div
+        data-pencil-id="hT5Ho"
+        data-pencil-name="Источник не найден"
+        class="box-border w-[190px] h-fit absolute left-[468px] top-[190px] flex flex-col gap-[4px] p-[14px] justify-start items-start [outline:2px_solid_#A27C7A] [outline-offset:-1px] rounded-[20px] [z-index:4]"
+      >
+        <div
+          data-pencil-id="FqFPr"
+          data-pencil-name="Kicker"
+          class="box-border w-fit h-fit shrink-0 flex flex-row gap-[6px] justify-start items-center"
+        >
+          <svg
+            data-pencil-id="cIk05"
+            data-pencil-name="Icon"
+            data-icon-name="link-break"
+            data-icon-set="phosphor"
+            viewBox="0 0 14 14"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            class="box-border w-[14px] shrink-0 h-[14px]"
+          >
+            <path
+              d="M4.8125 3.9375l0-1.3125q0-0.16406 0.13672-0.30078 0.13672-0.13672 0.30078-0.13672 0.16406 0 0.30078 0.13672 0.13672 0.13672 0.13672 0.30078l0 1.3125q0 0.16406-0.13672 0.30078-0.13672 0.13672-0.30078 0.13672-0.16406 0-0.30078-0.13672-0.13672-0.13672-0.13672-0.30078z m3.9375 5.6875q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 1.3125q0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-1.3125q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-6.125-3.9375l1.3125 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672l-1.3125 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672z m8.75 2.625l-1.3125 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672l1.3125 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-4.70313 1.47656l-0.60156 0.65625q-0.54688 0.4375-1.23047 0.4375-0.68359 0-1.20312-0.51953-0.51953-0.51953-0.51953-1.20312 0-0.68359 0.4375-1.23047l0.65625-0.60157q0.10938-0.10938 0.10937-0.30078 0-0.19141-0.13672-0.32812-0.13672-0.13672-0.30078-0.13672-0.16406 0-0.32812 0.16406l-0.60157 0.60156q-0.76563 0.76563-0.76562 1.85938 0 1.09375 0.76562 1.85937 0.76563 0.76563 1.85938 0.76563 1.09375 0 1.85937-0.76563l0.60157-0.60156q0.16406-0.16406 0.16406-0.32812 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.32812-0.13672-0.19141 0-0.30079 0.10937z m3.77344-6.23437q0.49219 0.54688 0.49219 1.25781 0 0.71094-0.49219 1.25781l-0.65625 0.60156q-0.10938 0.10938-0.10937 0.30079 0 0.19141 0.13672 0.32812 0.13672 0.13672 0.30078 0.13672 0.16406 0 0.32812-0.16406l0.60156-0.60157q0.76563-0.76563 0.76563-1.85937 0-1.09375-0.76563-1.85938-0.76563-0.76563-1.85937-0.76562-1.09375 0-1.85938 0.76562l-0.60156 0.60157q-0.16406 0.16406-0.16406 0.32812 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.32812 0.13672 0.19141 0 0.30078-0.10937l0.60157-0.65625q0.54688-0.49219 1.25781-0.49219 0.71094 0 1.25781 0.49219z"
+              fill="#7A5C5A"
+            ></path>
+          </svg>
+          <div
+            data-pencil-id="T02Kxi"
+            data-pencil-name="Kicker Text"
+            class="text-[12px]/[normal] box-border text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+          >
+            Источник не найден
+          </div>
+        </div>
+        <div
+          data-pencil-id="rt0rg"
+          data-pencil-name="Source Name"
+          class="text-[14px]/[normal] box-border w-full text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-black text-left"
+        >
+          «Очевидцы» в Telegram
+        </div>
+        <div
+          data-pencil-id="YlFFl"
+          data-pencil-name="Note"
+          class="text-[12px]/[normal] box-border w-full text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-bold text-left"
+        >
+          На него ссылаются, страницы нет
+        </div>
+      </div>
+      <div
+        data-pencil-id="CoWGo"
+        data-pencil-name="Переключатель вида"
+        class="box-border w-fit h-fit absolute left-[690px] top-[190px] flex flex-row gap-[2px] p-[4px] justify-start items-start bg-[#FBF8F7] [outline:2px_solid_#E3D9D6] [outline-offset:-1px] rounded-[100px] [z-index:5]"
+      >
+        <div
+          data-pencil-id="Tozsr"
+          data-pencil-name="Дерево"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[6px_14px] justify-start items-center bg-[#4A3333] rounded-[100px]"
+        >
+          <svg
+            data-pencil-id="BNlGT"
+            data-pencil-name="Icon"
+            data-icon-name="tree-structure"
+            data-icon-set="phosphor"
+            viewBox="0 0 14 14"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            class="box-border w-[15px] shrink-0 h-[15px]"
+          >
+            <path
+              d="M9.1875 6.125l2.625 0q0.38281 0 0.62891-0.24609 0.24609-0.24609 0.24609-0.62891l0-2.625q0-0.38281-0.24609-0.62891-0.24609-0.24609-0.62891-0.24609l-2.625 0q-0.38281 0-0.62891 0.24609-0.24609 0.24609-0.24609 0.62891l0 0.875-0.4375 0q-0.71094 0-1.23047 0.51953-0.51953 0.51953-0.51953 1.23047l0 1.3125-1.3125 0 0-0.65625q0-0.38281-0.24609-0.62891-0.24609-0.24609-0.62891-0.24609l-2.1875 0q-0.38281 0-0.62891 0.24609-0.24609 0.24609-0.24609 0.62891l0 2.1875q0 0.38281 0.24609 0.62891 0.24609 0.24609 0.62891 0.24609l2.1875 0q0.38281 0 0.62891-0.24609 0.24609-0.24609 0.24609-0.62891l0-0.65625 1.3125 0 0 1.3125q0 0.71094 0.51953 1.23047 0.51953 0.51953 1.23047 0.51953l0.4375 0 0 0.875q0 0.38281 0.24609 0.62891 0.24609 0.24609 0.62891 0.24609l2.625 0q0.38281 0 0.62891-0.24609 0.24609-0.24609 0.24609-0.62891l0-2.625q0-0.38281-0.24609-0.62891-0.24609-0.24609-0.62891-0.24609l-2.625 0q-0.38281 0-0.62891 0.24609-0.24609 0.24609-0.24609 0.62891l0 0.875-0.4375 0q-0.38281 0-0.62891-0.24609-0.24609-0.24609-0.24609-0.62891l0-3.5q0-0.38281 0.24609-0.62891 0.24609-0.24609 0.62891-0.24609l0.4375 0 0 0.875q0 0.38281 0.24609 0.62891 0.24609 0.24609 0.62891 0.24609z m-5.25 1.96875l-2.1875 0 0-2.1875 2.1875 0 0 2.1875z m5.25 0.65625l2.625 0 0 2.625-2.625 0 0-2.625z m0-6.125l2.625 0 0 2.625-2.625 0 0-2.625z"
+              fill="#FFFFFF"
+            ></path>
+          </svg>
+          <div
+            data-pencil-id="ibOYp"
+            data-pencil-name="Label"
+            class="text-[13px]/[normal] box-border text-[#FFFFFF] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+          >
+            Дерево
+          </div>
+        </div>
+        <div
+          data-pencil-id="SMZ90"
+          data-pencil-name="Хронология"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[6px_14px] justify-start items-center rounded-[100px]"
+        >
+          <svg
+            data-pencil-id="k39BI"
+            data-pencil-name="Icon"
+            data-icon-name="clock"
+            data-icon-set="phosphor"
+            viewBox="0 0 14 14"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            class="box-border w-[15px] shrink-0 h-[15px]"
+          >
+            <path
+              d="M7 1.3125q-1.53125 0-2.84375 0.76563-1.3125 0.76563-2.07813 2.07812-0.76563 1.3125-0.76562 2.84375 0 1.53125 0.76562 2.84375 0.76563 1.3125 2.07813 2.07813 1.3125 0.76563 2.84375 0.76562 1.53125 0 2.84375-0.76562 1.3125-0.76563 2.07813-2.07813 0.76563-1.3125 0.76562-2.84375 0-1.53125-0.76562-2.84375-0.76563-1.3125-2.07813-2.07813-1.3125-0.76563-2.84375-0.76562z m0 10.5q-1.3125 0-2.40625-0.65625-1.09375-0.65625-1.75-1.75-0.65625-1.09375-0.65625-2.40625 0-1.3125 0.65625-2.40625 0.65625-1.09375 1.75-1.75 1.09375-0.65625 2.40625-0.65625 1.3125 0 2.40625 0.65625 1.09375 0.65625 1.75 1.75 0.65625 1.09375 0.65625 2.40625 0 1.3125-0.65625 2.40625-0.65625 1.09375-1.75 1.75-1.09375 0.65625-2.40625 0.65625z m3.5-4.8125q0 0.16406-0.13672 0.30078-0.13672 0.13672-0.30078 0.13672l-3.0625 0q-0.16406 0-0.30078-0.13672-0.13672-0.13672-0.13672-0.30078l0-3.0625q0-0.16406 0.13672-0.30078 0.13672-0.13672 0.30078-0.13672 0.16406 0 0.30078 0.13672 0.13672 0.13672 0.13672 0.30078l0 2.625 2.625 0q0.16406 0 0.30078 0.13672 0.13672 0.13672 0.13672 0.30078z"
+              fill="#7A5C5A"
+            ></path>
+          </svg>
+          <div
+            data-pencil-id="yoKTs"
+            data-pencil-name="Label"
+            class="text-[13px]/[normal] box-border text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+          >
+            Хронология
+          </div>
+        </div>
+      </div>
+      <div
+        data-pencil-id="YSgpw"
+        data-pencil-name="Масштаб"
+        class="box-border w-fit h-fit absolute left-[690px] top-[250px] flex flex-row gap-[8px] justify-start items-center [z-index:6]"
+      >
+        <div
+          data-pencil-id="BybBy"
+          data-pencil-name="Fit All"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[8px_14px] justify-start items-center bg-[#FBF8F7] [outline:2px_solid_#E3D9D6] [outline-offset:-1px] rounded-[100px]"
+        >
+          <svg
+            data-pencil-id="fgkzR"
+            data-pencil-name="Icon"
+            data-icon-name="corners-out"
+            data-icon-set="phosphor"
+            viewBox="0 0 14 14"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            class="box-border w-[15px] shrink-0 h-[15px]"
+          >
+            <path
+              d="M11.8125 2.625l0 2.1875q0 0.16406-0.13672 0.30078-0.13672 0.13672-0.30078 0.13672-0.16406 0-0.30078-0.13672-0.13672-0.13672-0.13672-0.30078l0-1.75-1.75 0q-0.16406 0-0.30078-0.13672-0.13672-0.13672-0.13672-0.30078 0-0.16406 0.13672-0.30078 0.13672-0.13672 0.30078-0.13672l2.1875 0q0.16406 0 0.30078 0.13672 0.13672 0.13672 0.13672 0.30078z m-7 8.3125l-1.75 0 0-1.75q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 2.1875q0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672l2.1875 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m6.5625-2.1875q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 1.75-1.75 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672l2.1875 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-2.1875q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-6.5625-6.5625l-2.1875 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 2.1875q0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-1.75 1.75 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z"
+              fill="#4A3333"
+            ></path>
+          </svg>
+          <div
+            data-pencil-id="UGVIx"
+            data-pencil-name="Label"
+            class="text-[13px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+          >
+            Показать всё
+          </div>
+        </div>
+        <div
+          data-pencil-id="snPnt"
+          data-pencil-name="Zoom"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[12px] p-[8px_12px] justify-start items-center bg-[#FBF8F7] [outline:2px_solid_#E3D9D6] [outline-offset:-1px] rounded-[100px]"
+        >
+          <svg
+            data-pencil-id="ONzxN"
+            data-pencil-name="Minus"
+            data-icon-name="minus"
+            data-icon-set="lucide"
+            viewBox="0 0 13.99993896484375 14"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            class="box-border w-[15px] shrink-0 h-[15px]"
+          >
+            <path
+              d="M2.73096 6.45313q-0.23926 0.08545-0.34522 0.3247-0.10254 0.23584-0.00683 0.46143 0.05811 0.0957 0.14013 0.18115 0.08545 0.08203 0.18457 0.12647l0.09571 0.02734 8.40136 0 0.09571-0.02734q0.09912-0.04443 0.18115-0.12647 0.08545-0.08545 0.1333-0.18799 0.05127-0.10596 0.05127-0.23242 0-0.12646-0.04102-0.23926-0.09912-0.19482-0.29394-0.29394l-0.08545-0.04102-4.22803 0q-4.22803 0-4.28271 0.02735z"
+              fill="#4A3333"
+            ></path>
+          </svg>
+          <div
+            data-pencil-id="PjJO0"
+            data-pencil-name="Value"
+            class="text-[13px]/[normal] box-border text-[#4A3333] font-[Nunito,system-ui,sans-serif] font-extrabold text-left [white-space:nowrap]"
+          >
+            100%
+          </div>
+          <svg
+            data-pencil-id="pzBNj"
+            data-pencil-name="Plus"
+            data-icon-name="plus"
+            data-icon-set="lucide"
+            viewBox="0 0 13.99993896484375 14"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            class="box-border w-[15px] shrink-0 h-[15px]"
+          >
+            <path
+              d="M6.90088 2.35156q-0.0957 0.01367-0.17432 0.05127-0.0752 0.03418-0.15381 0.12647-0.0752 0.08887-0.11279 0.16748-0.03418 0.0752-0.03418 0.32812l0 3.40088-3.66748 0-0.08545 0.04102q-0.22217 0.11279-0.30078 0.33838-0.0752 0.22217 0.00684 0.43408 0.05811 0.0957 0.14013 0.18115 0.08545 0.08203 0.16748 0.11963 0.08545 0.03418 0.33838 0.03418l3.40088 0 0 3.40088q0 0.25293 0.03418 0.33838 0.0376 0.08203 0.11963 0.16748 0.08545 0.08203 0.18799 0.1333 0.10596 0.04785 0.23242 0.04785 0.12646 0 0.229-0.04785 0.10596-0.05127 0.18799-0.1333 0.08545-0.08545 0.11963-0.16748 0.0376-0.08545 0.0376-0.33838l0-3.40088 3.40088 0q0.25293 0 0.33496-0.03418 0.08545-0.0376 0.16748-0.11963 0.08545-0.08545 0.1333-0.18799 0.05127-0.10596 0.05127-0.23242 0-0.12646-0.04102-0.23926-0.09912-0.19482-0.29394-0.29394l-0.08545-0.04102-3.66748 0 0-3.38721q0-0.2666-0.02734-0.32128-0.07178-0.19824-0.25293-0.30079-0.18115-0.10596-0.39307-0.06494z"
+              fill="#4A3333"
+            ></path>
+          </svg>
+        </div>
+      </div>
+      <div
+        data-pencil-id="p9agZP"
+        data-pencil-name="Как читать"
+        class="box-border w-fit h-fit absolute left-[690px] top-[310px] flex flex-row gap-[16px] p-[8px_16px] justify-start items-center bg-[#FBF8F7] [outline:2px_solid_#E3D9D6] [outline-offset:-1px] rounded-[100px] [z-index:7]"
+      >
+        <div
+          data-pencil-id="buzJm"
+          data-pencil-name="подтверждена"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[7px] justify-start items-center"
+        >
+          <div
+            data-pencil-id="oZs1h"
+            data-pencil-name="Line"
+            class="box-border w-[26px] shrink-0 h-[3px] bg-[#7A5C5A] rounded-[2px]"
+          ></div>
+          <div
+            data-pencil-id="hOkQT"
+            data-pencil-name="Text"
+            class="text-[12px]/[normal] box-border text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+          >
+            подтверждена
+          </div>
+        </div>
+        <div
+          data-pencil-id="HAmX4"
+          data-pencil-name="вероятная"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[7px] justify-start items-center"
+        >
+          <div
+            data-pencil-id="DWD1G"
+            data-pencil-name="Dashes"
+            class="box-border w-fit shrink-0 h-fit flex flex-row gap-[3px] justify-start items-start"
+          >
+            <div
+              data-pencil-id="qW3cu"
+              data-pencil-name="Dash"
+              class="box-border w-[5px] shrink-0 h-[3px] bg-[#7A5C5A] rounded-[2px]"
+            ></div>
+            <div
+              data-pencil-id="l30OC"
+              data-pencil-name="Dash"
+              class="box-border w-[5px] shrink-0 h-[3px] bg-[#7A5C5A] rounded-[2px]"
+            ></div>
+            <div
+              data-pencil-id="RNiIq"
+              data-pencil-name="Dash"
+              class="box-border w-[5px] shrink-0 h-[3px] bg-[#7A5C5A] rounded-[2px]"
+            ></div>
+            <div
+              data-pencil-id="UDIKm"
+              data-pencil-name="Dash"
+              class="box-border w-[5px] shrink-0 h-[3px] bg-[#7A5C5A] rounded-[2px]"
+            ></div>
+          </div>
+          <div
+            data-pencil-id="NN9wJ"
+            data-pencil-name="Text"
+            class="text-[12px]/[normal] box-border text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+          >
+            вероятная
+          </div>
+        </div>
+        <div
+          data-pencil-id="On6In"
+          data-pencil-name="с изменениями"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[7px] justify-start items-center"
+        >
+          <div
+            data-pencil-id="EPy6q"
+            data-pencil-name="Line"
+            class="box-border w-[26px] shrink-0 h-[4px] bg-[#FF7A12] rounded-[2px]"
+          ></div>
+          <div
+            data-pencil-id="r0Uz7"
+            data-pencil-name="Text"
+            class="text-[12px]/[normal] box-border text-[#7A5C5A] font-[Nunito,system-ui,sans-serif] font-bold text-left [white-space:nowrap]"
+          >
+            с изменениями
+          </div>
+        </div>
+      </div>
+      <svg
+        data-pencil-id="Q9acdA"
+        data-pencil-name="Сетка холста"
+        viewBox="0 0 1060 952"
+        preserveAspectRatio="none"
+        xmlns="http://www.w3.org/2000/svg"
+        class="box-border w-[1060px] h-[952px] absolute left-[1500px] top-[60px] overflow-visible [z-index:8]"
+      >
+        <path
+          d="M14 14h2v2h-2zM42 14h2v2h-2zM70 14h2v2h-2zM98 14h2v2h-2zM126 14h2v2h-2zM154 14h2v2h-2zM182 14h2v2h-2zM210 14h2v2h-2zM238 14h2v2h-2zM266 14h2v2h-2zM294 14h2v2h-2zM322 14h2v2h-2zM350 14h2v2h-2zM378 14h2v2h-2zM406 14h2v2h-2zM434 14h2v2h-2zM462 14h2v2h-2zM490 14h2v2h-2zM518 14h2v2h-2zM546 14h2v2h-2zM574 14h2v2h-2zM602 14h2v2h-2zM630 14h2v2h-2zM658 14h2v2h-2zM686 14h2v2h-2zM714 14h2v2h-2zM742 14h2v2h-2zM770 14h2v2h-2zM798 14h2v2h-2zM826 14h2v2h-2zM854 14h2v2h-2zM882 14h2v2h-2zM910 14h2v2h-2zM938 14h2v2h-2zM966 14h2v2h-2zM994 14h2v2h-2zM1022 14h2v2h-2zM1050 14h2v2h-2zM14 42h2v2h-2zM42 42h2v2h-2zM70 42h2v2h-2zM98 42h2v2h-2zM126 42h2v2h-2zM154 42h2v2h-2zM182 42h2v2h-2zM210 42h2v2h-2zM238 42h2v2h-2zM266 42h2v2h-2zM294 42h2v2h-2zM322 42h2v2h-2zM350 42h2v2h-2zM378 42h2v2h-2zM406 42h2v2h-2zM434 42h2v2h-2zM462 42h2v2h-2zM490 42h2v2h-2zM518 42h2v2h-2zM546 42h2v2h-2zM574 42h2v2h-2zM602 42h2v2h-2zM630 42h2v2h-2zM658 42h2v2h-2zM686 42h2v2h-2zM714 42h2v2h-2zM742 42h2v2h-2zM770 42h2v2h-2zM798 42h2v2h-2zM826 42h2v2h-2zM854 42h2v2h-2zM882 42h2v2h-2zM910 42h2v2h-2zM938 42h2v2h-2zM966 42h2v2h-2zM994 42h2v2h-2zM1022 42h2v2h-2zM1050 42h2v2h-2zM14 70h2v2h-2zM42 70h2v2h-2zM70 70h2v2h-2zM98 70h2v2h-2zM126 70h2v2h-2zM154 70h2v2h-2zM182 70h2v2h-2zM210 70h2v2h-2zM238 70h2v2h-2zM266 70h2v2h-2zM294 70h2v2h-2zM322 70h2v2h-2zM350 70h2v2h-2zM378 70h2v2h-2zM406 70h2v2h-2zM434 70h2v2h-2zM462 70h2v2h-2zM490 70h2v2h-2zM518 70h2v2h-2zM546 70h2v2h-2zM574 70h2v2h-2zM602 70h2v2h-2zM630 70h2v2h-2zM658 70h2v2h-2zM686 70h2v2h-2zM714 70h2v2h-2zM742 70h2v2h-2zM770 70h2v2h-2zM798 70h2v2h-2zM826 70h2v2h-2zM854 70h2v2h-2zM882 70h2v2h-2zM910 70h2v2h-2zM938 70h2v2h-2zM966 70h2v2h-2zM994 70h2v2h-2zM1022 70h2v2h-2zM1050 70h2v2h-2zM14 98h2v2h-2zM42 98h2v2h-2zM70 98h2v2h-2zM98 98h2v2h-2zM126 98h2v2h-2zM154 98h2v2h-2zM182 98h2v2h-2zM210 98h2v2h-2zM238 98h2v2h-2zM266 98h2v2h-2zM294 98h2v2h-2zM322 98h2v2h-2zM350 98h2v2h-2zM378 98h2v2h-2zM406 98h2v2h-2zM434 98h2v2h-2zM462 98h2v2h-2zM490 98h2v2h-2zM518 98h2v2h-2zM546 98h2v2h-2zM574 98h2v2h-2zM602 98h2v2h-2zM630 98h2v2h-2zM658 98h2v2h-2zM686 98h2v2h-2zM714 98h2v2h-2zM742 98h2v2h-2zM770 98h2v2h-2zM798 98h2v2h-2zM826 98h2v2h-2zM854 98h2v2h-2zM882 98h2v2h-2zM910 98h2v2h-2zM938 98h2v2h-2zM966 98h2v2h-2zM994 98h2v2h-2zM1022 98h2v2h-2zM1050 98h2v2h-2zM14 126h2v2h-2zM42 126h2v2h-2zM70 126h2v2h-2zM98 126h2v2h-2zM126 126h2v2h-2zM154 126h2v2h-2zM182 126h2v2h-2zM210 126h2v2h-2zM238 126h2v2h-2zM266 126h2v2h-2zM294 126h2v2h-2zM322 126h2v2h-2zM350 126h2v2h-2zM378 126h2v2h-2zM406 126h2v2h-2zM434 126h2v2h-2zM462 126h2v2h-2zM490 126h2v2h-2zM518 126h2v2h-2zM546 126h2v2h-2zM574 126h2v2h-2zM602 126h2v2h-2zM630 126h2v2h-2zM658 126h2v2h-2zM686 126h2v2h-2zM714 126h2v2h-2zM742 126h2v2h-2zM770 126h2v2h-2zM798 126h2v2h-2zM826 126h2v2h-2zM854 126h2v2h-2zM882 126h2v2h-2zM910 126h2v2h-2zM938 126h2v2h-2zM966 126h2v2h-2zM994 126h2v2h-2zM1022 126h2v2h-2zM1050 126h2v2h-2zM14 154h2v2h-2zM42 154h2v2h-2zM70 154h2v2h-2zM98 154h2v2h-2zM126 154h2v2h-2zM154 154h2v2h-2zM182 154h2v2h-2zM210 154h2v2h-2zM238 154h2v2h-2zM266 154h2v2h-2zM294 154h2v2h-2zM322 154h2v2h-2zM350 154h2v2h-2zM378 154h2v2h-2zM406 154h2v2h-2zM434 154h2v2h-2zM462 154h2v2h-2zM490 154h2v2h-2zM518 154h2v2h-2zM546 154h2v2h-2zM574 154h2v2h-2zM602 154h2v2h-2zM630 154h2v2h-2zM658 154h2v2h-2zM686 154h2v2h-2zM714 154h2v2h-2zM742 154h2v2h-2zM770 154h2v2h-2zM798 154h2v2h-2zM826 154h2v2h-2zM854 154h2v2h-2zM882 154h2v2h-2zM910 154h2v2h-2zM938 154h2v2h-2zM966 154h2v2h-2zM994 154h2v2h-2zM1022 154h2v2h-2zM1050 154h2v2h-2zM14 182h2v2h-2zM42 182h2v2h-2zM70 182h2v2h-2zM98 182h2v2h-2zM126 182h2v2h-2zM154 182h2v2h-2zM182 182h2v2h-2zM210 182h2v2h-2zM238 182h2v2h-2zM266 182h2v2h-2zM294 182h2v2h-2zM322 182h2v2h-2zM350 182h2v2h-2zM378 182h2v2h-2zM406 182h2v2h-2zM434 182h2v2h-2zM462 182h2v2h-2zM490 182h2v2h-2zM518 182h2v2h-2zM546 182h2v2h-2zM574 182h2v2h-2zM602 182h2v2h-2zM630 182h2v2h-2zM658 182h2v2h-2zM686 182h2v2h-2zM714 182h2v2h-2zM742 182h2v2h-2zM770 182h2v2h-2zM798 182h2v2h-2zM826 182h2v2h-2zM854 182h2v2h-2zM882 182h2v2h-2zM910 182h2v2h-2zM938 182h2v2h-2zM966 182h2v2h-2zM994 182h2v2h-2zM1022 182h2v2h-2zM1050 182h2v2h-2zM14 210h2v2h-2zM42 210h2v2h-2zM70 210h2v2h-2zM98 210h2v2h-2zM126 210h2v2h-2zM154 210h2v2h-2zM182 210h2v2h-2zM210 210h2v2h-2zM238 210h2v2h-2zM266 210h2v2h-2zM294 210h2v2h-2zM322 210h2v2h-2zM350 210h2v2h-2zM378 210h2v2h-2zM406 210h2v2h-2zM434 210h2v2h-2zM462 210h2v2h-2zM490 210h2v2h-2zM518 210h2v2h-2zM546 210h2v2h-2zM574 210h2v2h-2zM602 210h2v2h-2zM630 210h2v2h-2zM658 210h2v2h-2zM686 210h2v2h-2zM714 210h2v2h-2zM742 210h2v2h-2zM770 210h2v2h-2zM798 210h2v2h-2zM826 210h2v2h-2zM854 210h2v2h-2zM882 210h2v2h-2zM910 210h2v2h-2zM938 210h2v2h-2zM966 210h2v2h-2zM994 210h2v2h-2zM1022 210h2v2h-2zM1050 210h2v2h-2zM14 238h2v2h-2zM42 238h2v2h-2zM70 238h2v2h-2zM98 238h2v2h-2zM126 238h2v2h-2zM154 238h2v2h-2zM182 238h2v2h-2zM210 238h2v2h-2zM238 238h2v2h-2zM266 238h2v2h-2zM294 238h2v2h-2zM322 238h2v2h-2zM350 238h2v2h-2zM378 238h2v2h-2zM406 238h2v2h-2zM434 238h2v2h-2zM462 238h2v2h-2zM490 238h2v2h-2zM518 238h2v2h-2zM546 238h2v2h-2zM574 238h2v2h-2zM602 238h2v2h-2zM630 238h2v2h-2zM658 238h2v2h-2zM686 238h2v2h-2zM714 238h2v2h-2zM742 238h2v2h-2zM770 238h2v2h-2zM798 238h2v2h-2zM826 238h2v2h-2zM854 238h2v2h-2zM882 238h2v2h-2zM910 238h2v2h-2zM938 238h2v2h-2zM966 238h2v2h-2zM994 238h2v2h-2zM1022 238h2v2h-2zM1050 238h2v2h-2zM14 266h2v2h-2zM42 266h2v2h-2zM70 266h2v2h-2zM98 266h2v2h-2zM126 266h2v2h-2zM154 266h2v2h-2zM182 266h2v2h-2zM210 266h2v2h-2zM238 266h2v2h-2zM266 266h2v2h-2zM294 266h2v2h-2zM322 266h2v2h-2zM350 266h2v2h-2zM378 266h2v2h-2zM406 266h2v2h-2zM434 266h2v2h-2zM462 266h2v2h-2zM490 266h2v2h-2zM518 266h2v2h-2zM546 266h2v2h-2zM574 266h2v2h-2zM602 266h2v2h-2zM630 266h2v2h-2zM658 266h2v2h-2zM686 266h2v2h-2zM714 266h2v2h-2zM742 266h2v2h-2zM770 266h2v2h-2zM798 266h2v2h-2zM826 266h2v2h-2zM854 266h2v2h-2zM882 266h2v2h-2zM910 266h2v2h-2zM938 266h2v2h-2zM966 266h2v2h-2zM994 266h2v2h-2zM1022 266h2v2h-2zM1050 266h2v2h-2zM14 294h2v2h-2zM42 294h2v2h-2zM70 294h2v2h-2zM98 294h2v2h-2zM126 294h2v2h-2zM154 294h2v2h-2zM182 294h2v2h-2zM210 294h2v2h-2zM238 294h2v2h-2zM266 294h2v2h-2zM294 294h2v2h-2zM322 294h2v2h-2zM350 294h2v2h-2zM378 294h2v2h-2zM406 294h2v2h-2zM434 294h2v2h-2zM462 294h2v2h-2zM490 294h2v2h-2zM518 294h2v2h-2zM546 294h2v2h-2zM574 294h2v2h-2zM602 294h2v2h-2zM630 294h2v2h-2zM658 294h2v2h-2zM686 294h2v2h-2zM714 294h2v2h-2zM742 294h2v2h-2zM770 294h2v2h-2zM798 294h2v2h-2zM826 294h2v2h-2zM854 294h2v2h-2zM882 294h2v2h-2zM910 294h2v2h-2zM938 294h2v2h-2zM966 294h2v2h-2zM994 294h2v2h-2zM1022 294h2v2h-2zM1050 294h2v2h-2zM14 322h2v2h-2zM42 322h2v2h-2zM70 322h2v2h-2zM98 322h2v2h-2zM126 322h2v2h-2zM154 322h2v2h-2zM182 322h2v2h-2zM210 322h2v2h-2zM238 322h2v2h-2zM266 322h2v2h-2zM294 322h2v2h-2zM322 322h2v2h-2zM350 322h2v2h-2zM378 322h2v2h-2zM406 322h2v2h-2zM434 322h2v2h-2zM462 322h2v2h-2zM490 322h2v2h-2zM518 322h2v2h-2zM546 322h2v2h-2zM574 322h2v2h-2zM602 322h2v2h-2zM630 322h2v2h-2zM658 322h2v2h-2zM686 322h2v2h-2zM714 322h2v2h-2zM742 322h2v2h-2zM770 322h2v2h-2zM798 322h2v2h-2zM826 322h2v2h-2zM854 322h2v2h-2zM882 322h2v2h-2zM910 322h2v2h-2zM938 322h2v2h-2zM966 322h2v2h-2zM994 322h2v2h-2zM1022 322h2v2h-2zM1050 322h2v2h-2zM14 350h2v2h-2zM42 350h2v2h-2zM70 350h2v2h-2zM98 350h2v2h-2zM126 350h2v2h-2zM154 350h2v2h-2zM182 350h2v2h-2zM210 350h2v2h-2zM238 350h2v2h-2zM266 350h2v2h-2zM294 350h2v2h-2zM322 350h2v2h-2zM350 350h2v2h-2zM378 350h2v2h-2zM406 350h2v2h-2zM434 350h2v2h-2zM462 350h2v2h-2zM490 350h2v2h-2zM518 350h2v2h-2zM546 350h2v2h-2zM574 350h2v2h-2zM602 350h2v2h-2zM630 350h2v2h-2zM658 350h2v2h-2zM686 350h2v2h-2zM714 350h2v2h-2zM742 350h2v2h-2zM770 350h2v2h-2zM798 350h2v2h-2zM826 350h2v2h-2zM854 350h2v2h-2zM882 350h2v2h-2zM910 350h2v2h-2zM938 350h2v2h-2zM966 350h2v2h-2zM994 350h2v2h-2zM1022 350h2v2h-2zM1050 350h2v2h-2zM14 378h2v2h-2zM42 378h2v2h-2zM70 378h2v2h-2zM98 378h2v2h-2zM126 378h2v2h-2zM154 378h2v2h-2zM182 378h2v2h-2zM210 378h2v2h-2zM238 378h2v2h-2zM266 378h2v2h-2zM294 378h2v2h-2zM322 378h2v2h-2zM350 378h2v2h-2zM378 378h2v2h-2zM406 378h2v2h-2zM434 378h2v2h-2zM462 378h2v2h-2zM490 378h2v2h-2zM518 378h2v2h-2zM546 378h2v2h-2zM574 378h2v2h-2zM602 378h2v2h-2zM630 378h2v2h-2zM658 378h2v2h-2zM686 378h2v2h-2zM714 378h2v2h-2zM742 378h2v2h-2zM770 378h2v2h-2zM798 378h2v2h-2zM826 378h2v2h-2zM854 378h2v2h-2zM882 378h2v2h-2zM910 378h2v2h-2zM938 378h2v2h-2zM966 378h2v2h-2zM994 378h2v2h-2zM1022 378h2v2h-2zM1050 378h2v2h-2zM14 406h2v2h-2zM42 406h2v2h-2zM70 406h2v2h-2zM98 406h2v2h-2zM126 406h2v2h-2zM154 406h2v2h-2zM182 406h2v2h-2zM210 406h2v2h-2zM238 406h2v2h-2zM266 406h2v2h-2zM294 406h2v2h-2zM322 406h2v2h-2zM350 406h2v2h-2zM378 406h2v2h-2zM406 406h2v2h-2zM434 406h2v2h-2zM462 406h2v2h-2zM490 406h2v2h-2zM518 406h2v2h-2zM546 406h2v2h-2zM574 406h2v2h-2zM602 406h2v2h-2zM630 406h2v2h-2zM658 406h2v2h-2zM686 406h2v2h-2zM714 406h2v2h-2zM742 406h2v2h-2zM770 406h2v2h-2zM798 406h2v2h-2zM826 406h2v2h-2zM854 406h2v2h-2zM882 406h2v2h-2zM910 406h2v2h-2zM938 406h2v2h-2zM966 406h2v2h-2zM994 406h2v2h-2zM1022 406h2v2h-2zM1050 406h2v2h-2zM14 434h2v2h-2zM42 434h2v2h-2zM70 434h2v2h-2zM98 434h2v2h-2zM126 434h2v2h-2zM154 434h2v2h-2zM182 434h2v2h-2zM210 434h2v2h-2zM238 434h2v2h-2zM266 434h2v2h-2zM294 434h2v2h-2zM322 434h2v2h-2zM350 434h2v2h-2zM378 434h2v2h-2zM406 434h2v2h-2zM434 434h2v2h-2zM462 434h2v2h-2zM490 434h2v2h-2zM518 434h2v2h-2zM546 434h2v2h-2zM574 434h2v2h-2zM602 434h2v2h-2zM630 434h2v2h-2zM658 434h2v2h-2zM686 434h2v2h-2zM714 434h2v2h-2zM742 434h2v2h-2zM770 434h2v2h-2zM798 434h2v2h-2zM826 434h2v2h-2zM854 434h2v2h-2zM882 434h2v2h-2zM910 434h2v2h-2zM938 434h2v2h-2zM966 434h2v2h-2zM994 434h2v2h-2zM1022 434h2v2h-2zM1050 434h2v2h-2zM14 462h2v2h-2zM42 462h2v2h-2zM70 462h2v2h-2zM98 462h2v2h-2zM126 462h2v2h-2zM154 462h2v2h-2zM182 462h2v2h-2zM210 462h2v2h-2zM238 462h2v2h-2zM266 462h2v2h-2zM294 462h2v2h-2zM322 462h2v2h-2zM350 462h2v2h-2zM378 462h2v2h-2zM406 462h2v2h-2zM434 462h2v2h-2zM462 462h2v2h-2zM490 462h2v2h-2zM518 462h2v2h-2zM546 462h2v2h-2zM574 462h2v2h-2zM602 462h2v2h-2zM630 462h2v2h-2zM658 462h2v2h-2zM686 462h2v2h-2zM714 462h2v2h-2zM742 462h2v2h-2zM770 462h2v2h-2zM798 462h2v2h-2zM826 462h2v2h-2zM854 462h2v2h-2zM882 462h2v2h-2zM910 462h2v2h-2zM938 462h2v2h-2zM966 462h2v2h-2zM994 462h2v2h-2zM1022 462h2v2h-2zM1050 462h2v2h-2zM14 490h2v2h-2zM42 490h2v2h-2zM70 490h2v2h-2zM98 490h2v2h-2zM126 490h2v2h-2zM154 490h2v2h-2zM182 490h2v2h-2zM210 490h2v2h-2zM238 490h2v2h-2zM266 490h2v2h-2zM294 490h2v2h-2zM322 490h2v2h-2zM350 490h2v2h-2zM378 490h2v2h-2zM406 490h2v2h-2zM434 490h2v2h-2zM462 490h2v2h-2zM490 490h2v2h-2zM518 490h2v2h-2zM546 490h2v2h-2zM574 490h2v2h-2zM602 490h2v2h-2zM630 490h2v2h-2zM658 490h2v2h-2zM686 490h2v2h-2zM714 490h2v2h-2zM742 490h2v2h-2zM770 490h2v2h-2zM798 490h2v2h-2zM826 490h2v2h-2zM854 490h2v2h-2zM882 490h2v2h-2zM910 490h2v2h-2zM938 490h2v2h-2zM966 490h2v2h-2zM994 490h2v2h-2zM1022 490h2v2h-2zM1050 490h2v2h-2zM14 518h2v2h-2zM42 518h2v2h-2zM70 518h2v2h-2zM98 518h2v2h-2zM126 518h2v2h-2zM154 518h2v2h-2zM182 518h2v2h-2zM210 518h2v2h-2zM238 518h2v2h-2zM266 518h2v2h-2zM294 518h2v2h-2zM322 518h2v2h-2zM350 518h2v2h-2zM378 518h2v2h-2zM406 518h2v2h-2zM434 518h2v2h-2zM462 518h2v2h-2zM490 518h2v2h-2zM518 518h2v2h-2zM546 518h2v2h-2zM574 518h2v2h-2zM602 518h2v2h-2zM630 518h2v2h-2zM658 518h2v2h-2zM686 518h2v2h-2zM714 518h2v2h-2zM742 518h2v2h-2zM770 518h2v2h-2zM798 518h2v2h-2zM826 518h2v2h-2zM854 518h2v2h-2zM882 518h2v2h-2zM910 518h2v2h-2zM938 518h2v2h-2zM966 518h2v2h-2zM994 518h2v2h-2zM1022 518h2v2h-2zM1050 518h2v2h-2zM14 546h2v2h-2zM42 546h2v2h-2zM70 546h2v2h-2zM98 546h2v2h-2zM126 546h2v2h-2zM154 546h2v2h-2zM182 546h2v2h-2zM210 546h2v2h-2zM238 546h2v2h-2zM266 546h2v2h-2zM294 546h2v2h-2zM322 546h2v2h-2zM350 546h2v2h-2zM378 546h2v2h-2zM406 546h2v2h-2zM434 546h2v2h-2zM462 546h2v2h-2zM490 546h2v2h-2zM518 546h2v2h-2zM546 546h2v2h-2zM574 546h2v2h-2zM602 546h2v2h-2zM630 546h2v2h-2zM658 546h2v2h-2zM686 546h2v2h-2zM714 546h2v2h-2zM742 546h2v2h-2zM770 546h2v2h-2zM798 546h2v2h-2zM826 546h2v2h-2zM854 546h2v2h-2zM882 546h2v2h-2zM910 546h2v2h-2zM938 546h2v2h-2zM966 546h2v2h-2zM994 546h2v2h-2zM1022 546h2v2h-2zM1050 546h2v2h-2zM14 574h2v2h-2zM42 574h2v2h-2zM70 574h2v2h-2zM98 574h2v2h-2zM126 574h2v2h-2zM154 574h2v2h-2zM182 574h2v2h-2zM210 574h2v2h-2zM238 574h2v2h-2zM266 574h2v2h-2zM294 574h2v2h-2zM322 574h2v2h-2zM350 574h2v2h-2zM378 574h2v2h-2zM406 574h2v2h-2zM434 574h2v2h-2zM462 574h2v2h-2zM490 574h2v2h-2zM518 574h2v2h-2zM546 574h2v2h-2zM574 574h2v2h-2zM602 574h2v2h-2zM630 574h2v2h-2zM658 574h2v2h-2zM686 574h2v2h-2zM714 574h2v2h-2zM742 574h2v2h-2zM770 574h2v2h-2zM798 574h2v2h-2zM826 574h2v2h-2zM854 574h2v2h-2zM882 574h2v2h-2zM910 574h2v2h-2zM938 574h2v2h-2zM966 574h2v2h-2zM994 574h2v2h-2zM1022 574h2v2h-2zM1050 574h2v2h-2zM14 602h2v2h-2zM42 602h2v2h-2zM70 602h2v2h-2zM98 602h2v2h-2zM126 602h2v2h-2zM154 602h2v2h-2zM182 602h2v2h-2zM210 602h2v2h-2zM238 602h2v2h-2zM266 602h2v2h-2zM294 602h2v2h-2zM322 602h2v2h-2zM350 602h2v2h-2zM378 602h2v2h-2zM406 602h2v2h-2zM434 602h2v2h-2zM462 602h2v2h-2zM490 602h2v2h-2zM518 602h2v2h-2zM546 602h2v2h-2zM574 602h2v2h-2zM602 602h2v2h-2zM630 602h2v2h-2zM658 602h2v2h-2zM686 602h2v2h-2zM714 602h2v2h-2zM742 602h2v2h-2zM770 602h2v2h-2zM798 602h2v2h-2zM826 602h2v2h-2zM854 602h2v2h-2zM882 602h2v2h-2zM910 602h2v2h-2zM938 602h2v2h-2zM966 602h2v2h-2zM994 602h2v2h-2zM1022 602h2v2h-2zM1050 602h2v2h-2zM14 630h2v2h-2zM42 630h2v2h-2zM70 630h2v2h-2zM98 630h2v2h-2zM126 630h2v2h-2zM154 630h2v2h-2zM182 630h2v2h-2zM210 630h2v2h-2zM238 630h2v2h-2zM266 630h2v2h-2zM294 630h2v2h-2zM322 630h2v2h-2zM350 630h2v2h-2zM378 630h2v2h-2zM406 630h2v2h-2zM434 630h2v2h-2zM462 630h2v2h-2zM490 630h2v2h-2zM518 630h2v2h-2zM546 630h2v2h-2zM574 630h2v2h-2zM602 630h2v2h-2zM630 630h2v2h-2zM658 630h2v2h-2zM686 630h2v2h-2zM714 630h2v2h-2zM742 630h2v2h-2zM770 630h2v2h-2zM798 630h2v2h-2zM826 630h2v2h-2zM854 630h2v2h-2zM882 630h2v2h-2zM910 630h2v2h-2zM938 630h2v2h-2zM966 630h2v2h-2zM994 630h2v2h-2zM1022 630h2v2h-2zM1050 630h2v2h-2zM14 658h2v2h-2zM42 658h2v2h-2zM70 658h2v2h-2zM98 658h2v2h-2zM126 658h2v2h-2zM154 658h2v2h-2zM182 658h2v2h-2zM210 658h2v2h-2zM238 658h2v2h-2zM266 658h2v2h-2zM294 658h2v2h-2zM322 658h2v2h-2zM350 658h2v2h-2zM378 658h2v2h-2zM406 658h2v2h-2zM434 658h2v2h-2zM462 658h2v2h-2zM490 658h2v2h-2zM518 658h2v2h-2zM546 658h2v2h-2zM574 658h2v2h-2zM602 658h2v2h-2zM630 658h2v2h-2zM658 658h2v2h-2zM686 658h2v2h-2zM714 658h2v2h-2zM742 658h2v2h-2zM770 658h2v2h-2zM798 658h2v2h-2zM826 658h2v2h-2zM854 658h2v2h-2zM882 658h2v2h-2zM910 658h2v2h-2zM938 658h2v2h-2zM966 658h2v2h-2zM994 658h2v2h-2zM1022 658h2v2h-2zM1050 658h2v2h-2zM14 686h2v2h-2zM42 686h2v2h-2zM70 686h2v2h-2zM98 686h2v2h-2zM126 686h2v2h-2zM154 686h2v2h-2zM182 686h2v2h-2zM210 686h2v2h-2zM238 686h2v2h-2zM266 686h2v2h-2zM294 686h2v2h-2zM322 686h2v2h-2zM350 686h2v2h-2zM378 686h2v2h-2zM406 686h2v2h-2zM434 686h2v2h-2zM462 686h2v2h-2zM490 686h2v2h-2zM518 686h2v2h-2zM546 686h2v2h-2zM574 686h2v2h-2zM602 686h2v2h-2zM630 686h2v2h-2zM658 686h2v2h-2zM686 686h2v2h-2zM714 686h2v2h-2zM742 686h2v2h-2zM770 686h2v2h-2zM798 686h2v2h-2zM826 686h2v2h-2zM854 686h2v2h-2zM882 686h2v2h-2zM910 686h2v2h-2zM938 686h2v2h-2zM966 686h2v2h-2zM994 686h2v2h-2zM1022 686h2v2h-2zM1050 686h2v2h-2zM14 714h2v2h-2zM42 714h2v2h-2zM70 714h2v2h-2zM98 714h2v2h-2zM126 714h2v2h-2zM154 714h2v2h-2zM182 714h2v2h-2zM210 714h2v2h-2zM238 714h2v2h-2zM266 714h2v2h-2zM294 714h2v2h-2zM322 714h2v2h-2zM350 714h2v2h-2zM378 714h2v2h-2zM406 714h2v2h-2zM434 714h2v2h-2zM462 714h2v2h-2zM490 714h2v2h-2zM518 714h2v2h-2zM546 714h2v2h-2zM574 714h2v2h-2zM602 714h2v2h-2zM630 714h2v2h-2zM658 714h2v2h-2zM686 714h2v2h-2zM714 714h2v2h-2zM742 714h2v2h-2zM770 714h2v2h-2zM798 714h2v2h-2zM826 714h2v2h-2zM854 714h2v2h-2zM882 714h2v2h-2zM910 714h2v2h-2zM938 714h2v2h-2zM966 714h2v2h-2zM994 714h2v2h-2zM1022 714h2v2h-2zM1050 714h2v2h-2zM14 742h2v2h-2zM42 742h2v2h-2zM70 742h2v2h-2zM98 742h2v2h-2zM126 742h2v2h-2zM154 742h2v2h-2zM182 742h2v2h-2zM210 742h2v2h-2zM238 742h2v2h-2zM266 742h2v2h-2zM294 742h2v2h-2zM322 742h2v2h-2zM350 742h2v2h-2zM378 742h2v2h-2zM406 742h2v2h-2zM434 742h2v2h-2zM462 742h2v2h-2zM490 742h2v2h-2zM518 742h2v2h-2zM546 742h2v2h-2zM574 742h2v2h-2zM602 742h2v2h-2zM630 742h2v2h-2zM658 742h2v2h-2zM686 742h2v2h-2zM714 742h2v2h-2zM742 742h2v2h-2zM770 742h2v2h-2zM798 742h2v2h-2zM826 742h2v2h-2zM854 742h2v2h-2zM882 742h2v2h-2zM910 742h2v2h-2zM938 742h2v2h-2zM966 742h2v2h-2zM994 742h2v2h-2zM1022 742h2v2h-2zM1050 742h2v2h-2zM14 770h2v2h-2zM42 770h2v2h-2zM70 770h2v2h-2zM98 770h2v2h-2zM126 770h2v2h-2zM154 770h2v2h-2zM182 770h2v2h-2zM210 770h2v2h-2zM238 770h2v2h-2zM266 770h2v2h-2zM294 770h2v2h-2zM322 770h2v2h-2zM350 770h2v2h-2zM378 770h2v2h-2zM406 770h2v2h-2zM434 770h2v2h-2zM462 770h2v2h-2zM490 770h2v2h-2zM518 770h2v2h-2zM546 770h2v2h-2zM574 770h2v2h-2zM602 770h2v2h-2zM630 770h2v2h-2zM658 770h2v2h-2zM686 770h2v2h-2zM714 770h2v2h-2zM742 770h2v2h-2zM770 770h2v2h-2zM798 770h2v2h-2zM826 770h2v2h-2zM854 770h2v2h-2zM882 770h2v2h-2zM910 770h2v2h-2zM938 770h2v2h-2zM966 770h2v2h-2zM994 770h2v2h-2zM1022 770h2v2h-2zM1050 770h2v2h-2zM14 798h2v2h-2zM42 798h2v2h-2zM70 798h2v2h-2zM98 798h2v2h-2zM126 798h2v2h-2zM154 798h2v2h-2zM182 798h2v2h-2zM210 798h2v2h-2zM238 798h2v2h-2zM266 798h2v2h-2zM294 798h2v2h-2zM322 798h2v2h-2zM350 798h2v2h-2zM378 798h2v2h-2zM406 798h2v2h-2zM434 798h2v2h-2zM462 798h2v2h-2zM490 798h2v2h-2zM518 798h2v2h-2zM546 798h2v2h-2zM574 798h2v2h-2zM602 798h2v2h-2zM630 798h2v2h-2zM658 798h2v2h-2zM686 798h2v2h-2zM714 798h2v2h-2zM742 798h2v2h-2zM770 798h2v2h-2zM798 798h2v2h-2zM826 798h2v2h-2zM854 798h2v2h-2zM882 798h2v2h-2zM910 798h2v2h-2zM938 798h2v2h-2zM966 798h2v2h-2zM994 798h2v2h-2zM1022 798h2v2h-2zM1050 798h2v2h-2zM14 826h2v2h-2zM42 826h2v2h-2zM70 826h2v2h-2zM98 826h2v2h-2zM126 826h2v2h-2zM154 826h2v2h-2zM182 826h2v2h-2zM210 826h2v2h-2zM238 826h2v2h-2zM266 826h2v2h-2zM294 826h2v2h-2zM322 826h2v2h-2zM350 826h2v2h-2zM378 826h2v2h-2zM406 826h2v2h-2zM434 826h2v2h-2zM462 826h2v2h-2zM490 826h2v2h-2zM518 826h2v2h-2zM546 826h2v2h-2zM574 826h2v2h-2zM602 826h2v2h-2zM630 826h2v2h-2zM658 826h2v2h-2zM686 826h2v2h-2zM714 826h2v2h-2zM742 826h2v2h-2zM770 826h2v2h-2zM798 826h2v2h-2zM826 826h2v2h-2zM854 826h2v2h-2zM882 826h2v2h-2zM910 826h2v2h-2zM938 826h2v2h-2zM966 826h2v2h-2zM994 826h2v2h-2zM1022 826h2v2h-2zM1050 826h2v2h-2zM14 854h2v2h-2zM42 854h2v2h-2zM70 854h2v2h-2zM98 854h2v2h-2zM126 854h2v2h-2zM154 854h2v2h-2zM182 854h2v2h-2zM210 854h2v2h-2zM238 854h2v2h-2zM266 854h2v2h-2zM294 854h2v2h-2zM322 854h2v2h-2zM350 854h2v2h-2zM378 854h2v2h-2zM406 854h2v2h-2zM434 854h2v2h-2zM462 854h2v2h-2zM490 854h2v2h-2zM518 854h2v2h-2zM546 854h2v2h-2zM574 854h2v2h-2zM602 854h2v2h-2zM630 854h2v2h-2zM658 854h2v2h-2zM686 854h2v2h-2zM714 854h2v2h-2zM742 854h2v2h-2zM770 854h2v2h-2zM798 854h2v2h-2zM826 854h2v2h-2zM854 854h2v2h-2zM882 854h2v2h-2zM910 854h2v2h-2zM938 854h2v2h-2zM966 854h2v2h-2zM994 854h2v2h-2zM1022 854h2v2h-2zM1050 854h2v2h-2zM14 882h2v2h-2zM42 882h2v2h-2zM70 882h2v2h-2zM98 882h2v2h-2zM126 882h2v2h-2zM154 882h2v2h-2zM182 882h2v2h-2zM210 882h2v2h-2zM238 882h2v2h-2zM266 882h2v2h-2zM294 882h2v2h-2zM322 882h2v2h-2zM350 882h2v2h-2zM378 882h2v2h-2zM406 882h2v2h-2zM434 882h2v2h-2zM462 882h2v2h-2zM490 882h2v2h-2zM518 882h2v2h-2zM546 882h2v2h-2zM574 882h2v2h-2zM602 882h2v2h-2zM630 882h2v2h-2zM658 882h2v2h-2zM686 882h2v2h-2zM714 882h2v2h-2zM742 882h2v2h-2zM770 882h2v2h-2zM798 882h2v2h-2zM826 882h2v2h-2zM854 882h2v2h-2zM882 882h2v2h-2zM910 882h2v2h-2zM938 882h2v2h-2zM966 882h2v2h-2zM994 882h2v2h-2zM1022 882h2v2h-2zM1050 882h2v2h-2zM14 910h2v2h-2zM42 910h2v2h-2zM70 910h2v2h-2zM98 910h2v2h-2zM126 910h2v2h-2zM154 910h2v2h-2zM182 910h2v2h-2zM210 910h2v2h-2zM238 910h2v2h-2zM266 910h2v2h-2zM294 910h2v2h-2zM322 910h2v2h-2zM350 910h2v2h-2zM378 910h2v2h-2zM406 910h2v2h-2zM434 910h2v2h-2zM462 910h2v2h-2zM490 910h2v2h-2zM518 910h2v2h-2zM546 910h2v2h-2zM574 910h2v2h-2zM602 910h2v2h-2zM630 910h2v2h-2zM658 910h2v2h-2zM686 910h2v2h-2zM714 910h2v2h-2zM742 910h2v2h-2zM770 910h2v2h-2zM798 910h2v2h-2zM826 910h2v2h-2zM854 910h2v2h-2zM882 910h2v2h-2zM910 910h2v2h-2zM938 910h2v2h-2zM966 910h2v2h-2zM994 910h2v2h-2zM1022 910h2v2h-2zM1050 910h2v2h-2zM14 938h2v2h-2zM42 938h2v2h-2zM70 938h2v2h-2zM98 938h2v2h-2zM126 938h2v2h-2zM154 938h2v2h-2zM182 938h2v2h-2zM210 938h2v2h-2zM238 938h2v2h-2zM266 938h2v2h-2zM294 938h2v2h-2zM322 938h2v2h-2zM350 938h2v2h-2zM378 938h2v2h-2zM406 938h2v2h-2zM434 938h2v2h-2zM462 938h2v2h-2zM490 938h2v2h-2zM518 938h2v2h-2zM546 938h2v2h-2zM574 938h2v2h-2zM602 938h2v2h-2zM630 938h2v2h-2zM658 938h2v2h-2zM686 938h2v2h-2zM714 938h2v2h-2zM742 938h2v2h-2zM770 938h2v2h-2zM798 938h2v2h-2zM826 938h2v2h-2zM854 938h2v2h-2zM882 938h2v2h-2zM910 938h2v2h-2zM938 938h2v2h-2zM966 938h2v2h-2zM994 938h2v2h-2zM1022 938h2v2h-2zM1050 938h2v2h-2z"
+          fill="#E3D9D6"
+        ></path>
+      </svg>
+    </div>
+  </body>
+</html>

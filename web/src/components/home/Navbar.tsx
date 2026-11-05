@@ -1,6 +1,10 @@
 import React from "react";
+import Link from "next/link";
 import { Github, History } from "lucide-react";
 import { GITHUB_URL } from "./HackathonPill";
+import { getCabinetDictionary } from "../cabinet/dictionary";
+
+const cabinetText = getCabinetDictionary();
 
 export interface NavbarProps {
   onGoHome?: () => void;
@@ -46,6 +50,13 @@ export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarP
         >
           Для бизнеса
         </button>
+
+        <Link
+          href="/cabinet"
+          className="text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors hidden lg:block"
+        >
+          {cabinetText.nav.cabinet}
+        </Link>
 
         {onOpenHistory && (
           <button

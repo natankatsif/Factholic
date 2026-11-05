@@ -58,8 +58,14 @@ export class JobStore {
    * Готовый отчёт без утверждений не переиспользуем: повтор стоит один вызов LLM, а случайный пустой ответ
    * (сбой извлечения, старый промпт) иначе навсегда превращает текст в «нет проверяемых фактов».
    */
-  create(id: JobId, request: StartAnalysisRequest, ownerIp?: string): { job: JobRecord; cached: boolean } {
-    const existing = this.reusable(request);
+  create(
+    id: JobId,
+    request: StartAnalysisRequest,
+    ownerIp?: string,
+    /** Заново, даже если материал уже проверяли: слежению нужен новый поиск, а не кэш */
+    fresh = false,
+  ): { job: JobRecord; cached: boolean } {
+    const existing = fresh ? undefined : this.reusable(request);
     if (existing) return { job: existing, cached: existing.report.status === "completed" };
 
     const videoKey = videoKeyOf(request);

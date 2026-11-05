@@ -57,7 +57,7 @@ def run_pipeline(cases: str, label: str) -> None:
         "SEARCH_MAX_PARALLEL": "4",
         "CHECK_MAX_PARALLEL": "2",
     }
-    command = ["npm", "run", "eval:pipeline", "-w", "backend", "--", "--label", label, "--only", cases, "--parallel", "2"]
+    command = ["npm", "run", "eval:pipeline", "-w", "backend", "--", "--label", label, "--only", cases, "--parallel", "1"]
     with open(EVAL / f"{label}.log", "w") as log:
         subprocess.run(command, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
 
@@ -244,6 +244,51 @@ a{color:inherit}.wrap{overflow-x:auto}
 """
 
 
+STAGE_NAMES = {
+    "03": "Утверждения",
+    "04": "Запросы и фильтр поиска",
+    "05": "Дерево",
+    "06": "Мутации",
+    "08": "Кто за, кто против",
+}
+
+
+def cost_totals(cases: list[dict]) -> dict:
+    stages: Counter = Counter()
+    calls: Counter = Counter()
+    llm = search = credits = 0.0
+    claims = 0
+    for case in cases:
+        cost = case.get("cost")
+        if not cost:
+            continue
+        claims += len(case["claims"])
+        llm += cost["llmUsd"]
+        search += cost["searchUsd"]
+        credits += cost["credits"]
+        for stage, row in cost["stages"].items():
+            stages[stage] += row["usd"]
+            calls[stage] += row["calls"]
+    return {"stages": stages, "calls": calls, "llm": llm, "search": search, "credits": credits, "claims": claims}
+
+
+def cost_table(cases: list[dict]) -> str:
+    total = cost_totals(cases)
+    if not total["claims"]:
+        return ""
+    whole = total["llm"] + total["search"]
+    rows = "".join(
+        f"<tr><td>{STAGE_NAMES.get(stage, stage)}</td><td>{total['calls'][stage]}</td><td>${usd:.4f}</td></tr>"
+        for stage, usd in total["stages"].most_common()
+    )
+    return (
+        "<h2>Затраты</h2>"
+        f'<p class="meta">Всего ${whole:.3f}, на утверждение ${whole / total["claims"]:.3f}. '
+        f'Поиск ${total["search"]:.3f} ({int(total["credits"])} кредитов), LLM ${total["llm"]:.3f}.</p>'
+        f"<div class=wrap><table><tr><th>Этап</th><th>Вызовов</th><th>Цена</th></tr>{rows}</table></div>"
+    )
+
+
 def render(label: str, cases: list[dict]) -> str:
     totals = Counter(i["reason"] for c in cases for claim in c["claims"] for i in claim["isolated"])
     publications = sum(claim["publications"] for c in cases for claim in c["claims"])
@@ -254,6 +299,7 @@ def render(label: str, cases: list[dict]) -> str:
         f'<p class="meta">Публикаций: {publications}. Со связью: {linked}. Без связи: {publications - linked}.</p>',
         f"<h2>Почему нет связи</h2><div class=wrap><table><tr><th>Причина</th><th>Публикаций</th></tr>{rows}</table></div>",
     ]
+    body.append(cost_table(cases))
     for case in cases:
         body.append(f"<h2>{html.escape(case['id'])}</h2>")
         for claim in case["claims"]:
@@ -307,7 +353,7 @@ def main() -> int:
             continue
         data = json.loads(path.read_text())
         claims = [a for a in map(analyze, data["report"]) if a]
-        cases.append({"id": path.stem, "claims": claims})
+        cases.append({"id": path.stem, "claims": claims, "cost": data.get("cost")})
 
     out = EVAL / "trees"
     out.mkdir(parents=True, exist_ok=True)
@@ -323,6 +369,9 @@ def main() -> int:
             print(f"{case['id']}: {claim['linked']} из {claim['publications']} со связью, итог {claim['consensus']}")
     for code, count in totals.most_common():
         print(f"{count:3}  {REASONS[code]}")
+    total = cost_totals(cases)
+    if total["claims"]:
+        print(f"затраты: поиск ${total['search']:.3f}, LLM ${total['llm']:.3f}, утверждений {total['claims']}")
     print(out / f"{label}.html")
     return 0
 

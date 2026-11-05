@@ -49,6 +49,14 @@ export async function askJson<S extends z.ZodType>(
     { signal: ctx.signal },
   );
 
+  ctx.usage?.({
+    stage: "06",
+    model: res.model,
+    input: res.usage?.input_tokens ?? 0,
+    cached: res.usage?.input_tokens_details?.cached_tokens ?? 0,
+    output: res.usage?.output_tokens ?? 0,
+  });
+
   if (res.status === "incomplete")
     throw new Error(`Ответ LLM неполный: ${res.incomplete_details?.reason ?? "причина неизвестна"}`);
   for (const item of res.output) {

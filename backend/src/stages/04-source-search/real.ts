@@ -1,7 +1,8 @@
 import { config } from "../../config.ts";
 import type { Stage, StageContext } from "../../pipeline/context.ts";
-import { findCopiesWithTraces, type CopiesResult } from "./copies.ts";
+import { dateFromHtml, dateFromUrl, findCopiesWithTraces, type CopiesResult } from "./copies.ts";
 import { factCheckSearch, limited, tavilySearch, type Candidate } from "./engines.ts";
+import { forEachPage, openPage } from "./pages.ts";
 import { planFollowUpQueries, planQueries, type PlannedQuery } from "./queries.ts";
 import { dedupe, enrich, registrableDomain, selectDiverse, toFoundSource, type Enriched } from "./select.ts";
 import { assessSufficiency, type Sufficiency } from "./sufficiency.ts";
@@ -40,11 +41,19 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
   const t0 = Date.now();
   const planned = await planQueries(input, ctx);
   const tPlanned = Date.now();
-  const copiesPromise = findCopiesWithTraces(claim, planned, ctx).catch((err: unknown): CopiesResult => {
-    if (ctx.signal.aborted) return { copies: [] };
-    ctx.log("04 copies: упал поиск копий", String(err));
-    return { copies: [] };
-  });
+  ctx.log(
+    `04: ${claim.id}: запросы`,
+    planned.map((q) => `${q.language}/${q.intent}: ${q.text}`),
+  );
+  let shareSources: (pages: Enriched[]) => void = () => {};
+  const sourcePages = new Promise<Enriched[]>((resolve) => (shareSources = resolve));
+  const copiesPromise = findCopiesWithTraces(claim, planned, ctx, undefined, sourcePages).catch(
+    (err: unknown): CopiesResult => {
+      if (ctx.signal.aborted) return { copies: [] };
+      ctx.log("04 copies: упал поиск копий", String(err));
+      return { copies: [] };
+    },
+  );
 
   const stems = keywordStems(claim.normalized, claim.quote, ...claim.entities);
   const queries: SearchQuery[] = [];
@@ -54,35 +63,40 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
   let round = 0;
   let next: PlannedQuery[] = planned;
 
-  while (next.length && round < MAX_ROUNDS) {
-    round++;
-    const tasks = searchTasks(next, round === 1, ctx);
-    queries.push(...tasks.map((t) => t.query));
-    const settled = await Promise.allSettled(tasks.map((t) => t.run()));
-    const errors = settled.flatMap((s) => (s.status === "rejected" ? [s.reason] : []));
-    if (round === 1 && errors.length === settled.length) {
-      throw new Error(`04: все поисковые запросы упали: ${String(errors[0])}`);
+  try {
+    while (next.length && round < MAX_ROUNDS) {
+      round++;
+      const tasks = searchTasks(next, round === 1, ctx);
+      queries.push(...tasks.map((t) => t.query));
+      const settled = await Promise.allSettled(tasks.map((t) => t.run()));
+      const errors = settled.flatMap((s) => (s.status === "rejected" ? [s.reason] : []));
+      if (round === 1 && errors.length === settled.length) {
+        throw new Error(`04: все поисковые запросы упали: ${String(errors[0])}`);
+      }
+      for (const err of errors) ctx.log("04: поисковый запрос упал", String(err));
+
+      candidates = dedupe([
+        ...candidates,
+        ...settled.flatMap((s) => (s.status === "fulfilled" ? s.value : [])),
+      ]);
+      relevant = candidates.map((c) => enrich(c, stems)).filter((e): e is Enriched => e !== null);
+      verdict = assessSufficiency(claim, relevant);
+      if (verdict.sufficient || round === MAX_ROUNDS) break;
+
+      const missing = [...verdict.unconfirmed, ...verdict.gaps];
+      ctx.log(`04: ${claim.id}: раунд ${round} — не хватает: ${missing.join("; ")}`);
+      const sites = [...new Set(relevant.map((e) => registrableDomain(e.domain)))];
+      next = await planFollowUpQueries(
+        input,
+        missing,
+        queries.map((q) => q.text),
+        sites,
+        ctx,
+      );
     }
-    for (const err of errors) ctx.log("04: поисковый запрос упал", String(err));
-
-    candidates = dedupe([
-      ...candidates,
-      ...settled.flatMap((s) => (s.status === "fulfilled" ? s.value : [])),
-    ]);
-    relevant = candidates.map((c) => enrich(c, stems)).filter((e): e is Enriched => e !== null);
-    verdict = assessSufficiency(claim, relevant);
-    if (verdict.sufficient || round === MAX_ROUNDS) break;
-
-    const missing = [...verdict.unconfirmed, ...verdict.gaps];
-    ctx.log(`04: ${claim.id}: раунд ${round} — не хватает: ${missing.join("; ")}`);
-    const sites = [...new Set(relevant.map((e) => registrableDomain(e.domain)))];
-    next = await planFollowUpQueries(
-      input,
-      missing,
-      queries.map((q) => q.text),
-      sites,
-      ctx,
-    );
+  } finally {
+    // поиск копий ждёт эти страницы: при сбое он должен идти дальше без них
+    shareSources(relevant);
   }
   const tSources = Date.now();
 
@@ -91,6 +105,8 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
     `04: ${claim.id}: раундов ${round}, найдено ${candidates.length}, по теме ${relevant.length}, ` +
       `взято ${picked.length}${verdict.unconfirmed.length ? `, не подтверждено: ${verdict.unconfirmed.join("; ")}` : ""}`,
   );
+
+  await fillSourceDates(picked, ctx);
 
   const retrievedAt = new Date().toISOString();
   const { copies, traces } = await copiesPromise.then((result) => {
@@ -108,6 +124,16 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
     copies,
   };
 };
+
+/** Поисковик часто не знает дату: берём её со страницы. Без этого источник окажется в дереве без даты */
+async function fillSourceDates(picked: Enriched[], ctx: StageContext): Promise<void> {
+  const missing = picked.filter((e) => !e.candidate.publishedAt);
+  await forEachPage(missing, async (e) => {
+    const html = await openPage(e.candidate.url, ctx);
+    const date = (html ? dateFromHtml(html, false) : undefined) ?? dateFromUrl(e.candidate.url);
+    if (date) e.candidate.publishedAt = date;
+  });
+}
 
 /** Запросы раунда: Tavily на каждый; Fact Check API — только в первом раунде (по одному на язык) */
 function searchTasks(planned: PlannedQuery[], firstRound: boolean, ctx: StageContext): SearchTask[] {

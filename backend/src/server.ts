@@ -23,6 +23,7 @@ import { PipelineError } from "./pipeline/context.ts";
 import { allow, clientIp } from "./pipeline/guard.ts";
 import { runPipeline } from "./pipeline/orchestrator.ts";
 import { JobStore, type JobRecord } from "./pipeline/store.ts";
+import { createOrgApi } from "./org/routes.ts";
 
 process.on("unhandledRejection", (reason) => {
   console.error("server: unhandledRejection:", reason);
@@ -44,10 +45,29 @@ const REPLAY = config.serverMode === "replay";
 /** Задачи, кэш по видео, готовые отчёты (см. pipeline/store.ts) */
 const store = new JobStore();
 
+/** Кабинет организаций: только с CABINET_API=on, входа в аккаунт пока нет */
+const orgApi = config.cabinet.api
+  ? createOrgApi({
+      start: (request, fresh) => {
+        const { job } = store.create(randomUUID(), request, undefined, fresh);
+        startJob(job);
+        return job.id;
+      },
+      report: (jobId) => store.get(jobId)?.report,
+      subscribe: (jobId, listener) => {
+        const job = store.get(jobId);
+        return job ? store.subscribe(job, listener) : () => undefined;
+      },
+    })
+  : undefined;
+
 const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   if (req.method === "OPTIONS") return res.end();
+
+  if (orgApi && (await orgApi.handle(req, res))) return;
 
   if (req.method === "POST" && req.url === API_ROUTES.startJob) {
     let request: StartAnalysisRequest;
@@ -126,6 +146,10 @@ const server = createServer(async (req, res) => {
 const wss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req, socket, head) => {
+  if (orgApi?.isEventsUrl(req.url)) {
+    wss.handleUpgrade(req, socket, head, (ws) => orgApi.addListener(ws));
+    return;
+  }
   const jobId = req.url?.match(/^\/api\/jobs\/([^/]+)\/events$/)?.[1];
   const job = jobId ? store.get(jobId) : undefined;
   if (!job) return socket.destroy();
@@ -178,6 +202,11 @@ function handleJobSocket(ws: WebSocket, job: JobRecord) {
   });
 
   // Пайплайн запускается один раз — при первом подключении
+  startJob(job);
+}
+
+/** Запустить пайплайн задачи. Кабинет вызывает это сам: его проверки идут без открытого сокета */
+function startJob(job: JobRecord) {
   if (job.started) return;
   job.started = true;
   const emit = (e: ServerEvent) => store.emit(job, e);

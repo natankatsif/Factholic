@@ -340,9 +340,13 @@ export function baseDomain(domain: string): string {
  * первым), затем фразы-атрибуции этапа 04 из текста копии. Без повторов и без упоминаний самой копии
  * («сообщает NewsMaker» в статье NewsMaker — не ребро к другой статье NewsMaker).
  */
-export function copyCites(c: Pick<CopyFacts, "source" | "cites">): string[] {
+export function copyCites(
+  c: Pick<CopyFacts, "source" | "cites"> & Partial<Pick<CopyFacts, "structure">>,
+): string[] {
   const seen = new Set<string>();
-  return [...c.cites, ...c.source.attributions].filter((cite) => {
+  // «заявил StratCom» — тоже источник: пересказы одного заявления не должны считаться разными голосами
+  const speaker = c.structure?.attributedTo ?? "";
+  return [...c.cites, ...c.source.attributions, speaker].filter((cite) => {
     const key = phrase(cite);
     if (key.length < 2 || seen.has(key) || citeMatches(cite, c.source)) return false;
     seen.add(key);
@@ -609,7 +613,7 @@ const FACT_CHECK_HOST =
   /(^|\.)(mythdetector\.com|stopfals\.md|veridica\.ro|euvsdisinfo\.eu|stopfake\.org|provereno\.media|factcheck\.ge|factual\.ro)$/i;
 /** Заголовок разбора. Слова из текста не берём: фейк может сам писать про «фейки» */
 const DEBUNK_TITLE =
-  /фейк|дезинформ|опроверг|разоблач|\bfake\b|\bfals\b|dezinform|fact.?check|debunk|\bhoax\b|manipul[aă]r/iu;
+  /фейк|дезинформ|опроверг|разоблач|правда ли|\bfake\b|\bfals\b|\bfalsuri|dezinform|dezmin[tț]|infirm|denatur|fact.?check|debunk|\bhoax\b|manipul[aă]r/iu;
 
 /** Отношение LLM ошибается на разборах, поэтому явные признаки проверяет код */
 export function checkedRelation(
@@ -643,7 +647,8 @@ function unresolvedCite(index: number, copies: CopyFacts[]): string | null {
 /**
  * Группа независимости копии. Отличия от простого «корень ветки»:
  *  - разбор и то, что он разбирает, — разные голоса, даже если разбор ссылается на фейк;
- *  - копии, которые ссылаются на один не найденный источник, — один голос, а не несколько.
+ *  - копии, которые ссылаются на один не найденный источник, — один голос, а не несколько;
+ *  - то же для разборов, но отдельной группой: у них другая сторона.
  */
 export function independentGroup(index: number, copies: CopyFacts[], parents: (Edge | null)[]): string {
   const debunks = (i: number) => copies[i].relation === "debunks";
@@ -651,9 +656,10 @@ export function independentGroup(index: number, copies: CopyFacts[], parents: (E
   for (let edge = parents[top]; edge && debunks(top) === debunks(edge.parent); edge = parents[top]) {
     top = edge.parent;
   }
-  if (debunks(top)) return copies[top].source.id;
   const cited = unresolvedCite(top, copies);
-  return cited ? `cited:${cited}` : copies[top].source.id;
+  if (!cited) return copies[top].source.id;
+  // разборы одного не найденного заявления — один голос, но не вместе с теми, кто повторяет утверждение
+  return debunks(top) ? `debunk-cited:${cited}` : `cited:${cited}`;
 }
 
 // ===================== ОДИН РОДИТЕЛЬ =====================

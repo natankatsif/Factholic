@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "skills": {
+    "html-to-react": {
+      "source": "skills.sh",
+      "sourceUrl": "https://skills.sh/p/899ZGAwJ1eQyiWcU",
+      "sourceType": "well-known",
+      "computedHash": "aa4a5639e685080a2b2a10b97793d75fb8c8cc634d652b727a07467fa8122baf",
+      "wellKnownDigest": "sha256:cfb741343137a9378f14a03f81172f793da7cbf718ef1404b27ac9d66500448b"
+    }
+  }
+}

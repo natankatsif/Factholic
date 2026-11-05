@@ -69,6 +69,7 @@ const RETRY_AFTER_429_MS = 1500;
 export async function tavilyPost(body: Record<string, unknown>, signal: AbortSignal): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
     await throttle();
+    searchCredits.count += body.search_depth === "advanced" ? 2 : 1;
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
@@ -201,6 +202,9 @@ export class RateWindow {
 }
 
 const rate = new RateWindow(config.limits.searchPerMinute);
+
+/** Кредиты поиска с начала работы процесса: basic — 1, advanced — 2, extract — 1 за 5 страниц */
+export const searchCredits = { count: 0 };
 
 /** Дождаться места в минутном лимите. Вызывается перед каждым HTTP-запросом к поиску, включая повторы */
 export async function throttle(): Promise<void> {

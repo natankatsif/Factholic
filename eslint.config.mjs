@@ -4,7 +4,9 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**"] },
+  {
+    ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**", ".agents/**", ".claude/skills/**", "tmp/**"],
+  },
   js.configs.recommended,
   tseslint.configs.recommended,
   {
