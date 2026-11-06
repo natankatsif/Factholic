@@ -211,7 +211,12 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                           ? "ended"
                           : "unstarted";
                 setState(next);
-                if (next === "playing") setStarted(true);
+                if (next === "playing") {
+                  setStarted(true);
+                  // смотреть не мешаем: кнопки вернутся, когда двинут мышью
+                  clearTimeout(idleTimer.current);
+                  setActive(false);
+                }
                 if (next === "playing") {
                   const d = e.target.getDuration();
                   if (d > 0) setDuration(d);
@@ -521,6 +526,14 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                 : `${vertical ? "aspect-[4/5]" : "aspect-video"} w-full rounded-[24px] lg:aspect-auto lg:min-h-[260px] lg:flex-1`
           } ${showControls || mini ? "" : "cursor-none"}`}
         >
+          {vertical && !mini && (
+            <img
+              src={video.thumbnailUrl ?? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`}
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-50 blur-2xl"
+            />
+          )}
           {/* Видео вписано в 16:9 (Shorts — в 9:16) внутри плеера. Как у Vidstack: iframe в 10 раз выше рамки и отцентрован —
               YouTube вписывает видео по ширине, и оно остаётся на месте, а шапка с названием и каналом и полоса
               «Ещё видео» уезжают далеко за края и обрезаются. Мышь забирает наш слой сверху. */}
@@ -621,14 +634,18 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                     <span className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" />
                   </span>
                 )
-              : !isPlaying && (
+              : (!isPlaying || showControls) && (
                   <button
                     type="button"
                     onClick={togglePlay}
-                    aria-label={state === "ended" ? t.player.watchAgain : t.player.watch}
+                    aria-label={
+                      isPlaying ? t.player.pause : state === "ended" ? t.player.watchAgain : t.player.watch
+                    }
                     className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-none bg-[#FBF8F7] text-[#4A3333] shadow-[0px_10px_30px_rgba(30,21,21,0.35)] transition-transform hover:scale-105 active:scale-95"
                   >
-                    {state === "ended" ? (
+                    {isPlaying ? (
+                      <Pause className="h-7 w-7" strokeWidth={2.4} />
+                    ) : state === "ended" ? (
                       <RotateCcw className="h-7 w-7" strokeWidth={2.4} />
                     ) : (
                       <Play className="ml-1 h-7 w-7" strokeWidth={2.4} />
