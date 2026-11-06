@@ -1,4 +1,5 @@
 /** Данные бэкенда → данные экранов. Подписи берутся из словаря, цвета кружков считаются из названия */
+import { quoteLink } from "../../lib/quote-link";
 import {
   formatTimecode,
   type FactCheck,
@@ -39,11 +40,14 @@ import type {
 const PALETTE = ["#1660D6", "#0A93AD", "#D42A7E", "#4A3333", "#6E1EF0", "#1DA57A", "#FF7A12"];
 const DAY_MS = 86_400_000;
 
-function colorOf(name: string): string {
+export function colorOf(name: string): string {
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return PALETTE[hash % PALETTE.length]!;
 }
+
+const fullDate = (iso: string, t: CabinetDictionary) =>
+  new Date(iso).toLocaleDateString(LOCALE_TAGS[t.locale], { day: "numeric", month: "long", year: "numeric" });
 
 const dayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 
@@ -190,7 +194,10 @@ function treeOf(
         after: [[{ text: after.text }]],
         changes,
         evidence: to?.role === "target" ? t.edgeCard.similarOnly : edge.label,
-        fragmentUrl: to?.role === "target" ? (from?.url ?? "") : (to?.url ?? from?.url ?? ""),
+        fragmentUrl:
+          to?.role === "target" || !to?.url
+            ? quoteLink(from?.url ?? "", before.text)
+            : quoteLink(to.url, after.text),
         similarOnly: to?.role === "target",
       },
     };
@@ -342,6 +349,7 @@ export function toCheckView(detail: OrgCheckDetail, claimIndex: number, t: Cabin
     factCheckId: target?.id,
     searchingMore: target ? detail.searchingMore.includes(target.id) : false,
     moreFound: check.lastMore?.found,
+    activity: detail.activity,
   };
 }
 
@@ -408,7 +416,7 @@ export function toRunningRow(
     checks: 1,
     last: t.topBar.step(run.step, run.totalSteps),
     ageDays: 0,
-    status: "new",
+    status: "checking",
     scopes: ["running"],
     runningStep: t.search.steps[run.stepKey],
   };
@@ -436,11 +444,12 @@ export function toSession(session: OrgSession, alerts: Alert[], t: CabinetDictio
     memberInitial: session.member.name.charAt(0),
     unreadAlerts: session.unreadAlerts,
     alerts: alerts.map((alert) => alertItem(alert, t)),
-    clarifications: session.clarifications.map(({ id, question, input, rewritten }) => ({
+    clarifications: session.clarifications.map(({ id, question, input, rewritten, options }) => ({
       id,
       question,
       input,
       rewritten,
+      options,
     })),
     running: session.running.map((item) => ({
       id: item.id,
@@ -449,6 +458,7 @@ export function toSession(session: OrgSession, alerts: Alert[], t: CabinetDictio
       totalSteps: item.totalSteps,
       message: t.search.steps[item.stepKey].toLowerCase(),
       video: item.kind === "video",
+      article: item.kind === "article",
       found: item.found,
     })),
     counts: session.counts,
@@ -512,12 +522,15 @@ export function toNarrativeView(detail: OrgNarrativeDetail, t: CabinetDictionary
       status: claim.status,
       sides: claim.sides ?? { for: 0, against: 0, partial: 0, neutral: 0 },
       searching: claim.searching,
+      watchId: detail.watches.find((watch) => watch.claimId === claim.id)?.id,
     })),
     quotes: narrative.quotes.map((quote, index) => ({
-      id: String(index),
+      id: quote.url ?? String(index),
+      date: quote.isoDate ? fullDate(quote.isoDate, t) : quote.date,
+      href: quote.url ? quoteLink(quote.url, quote.text) : undefined,
+      fresh: quote.fresh,
       outlet: quote.site,
       color: colorOf(quote.site),
-      date: quote.date,
       text: quote.text,
     })),
   };
@@ -534,5 +547,6 @@ export function toVideoRow(video: OrgVideo, t: CabinetDictionary): VideoRow {
     claims: video.claims,
     checked: video.checked,
     date: whenLabel(video.startedAt, t),
+    kind: video.kind,
   };
 }

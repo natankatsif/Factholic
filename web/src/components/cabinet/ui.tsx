@@ -6,6 +6,13 @@ import { CheckIcon } from "./icons";
 import type { ClaimStatus, SidesSummary } from "./types";
 
 const STATUS_TONE: Record<ClaimStatus, string> = {
+  checking: "animate-pulse bg-cabinet-blue/10 text-cabinet-blue",
+  outdated: "bg-cabinet-old-soft text-cabinet-old",
+  inflated: "bg-cabinet-inflated-soft text-cabinet-inflated-text",
+  against: "bg-cabinet-against-soft text-cabinet-against-text",
+  split: "bg-cabinet-split-soft text-primary",
+  converging: "bg-cabinet-agree-soft text-cabinet-agree",
+  few: "bg-canvas text-cabinet-ink-mid",
   new: "bg-cabinet-blue/10 text-cabinet-blue",
   spreading: "bg-cabinet-inflated-soft text-cabinet-inflated-text",
   stable: "bg-primary/10 text-primary",

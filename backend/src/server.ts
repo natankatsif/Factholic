@@ -20,6 +20,9 @@ import { chatConfigErrors, handleChat, type ChatRequestBody } from "./chat/index
 import { config, configErrors, describeConfig } from "./config.ts";
 import { messagesFor, pipelineErrorText } from "./messages.ts";
 import { ClaimChecker } from "./pipeline/checks.ts";
+import type { SearchActivity } from "./pipeline/context.ts";
+import { failedPageView, forgetPage, loadPageView } from "./pipeline/page-view.ts";
+import { reportLabels } from "./pipeline/report-labels.ts";
 import { PipelineError } from "./pipeline/context.ts";
 import { allow, clientIp } from "./pipeline/guard.ts";
 import { runPipeline } from "./pipeline/orchestrator.ts";
@@ -57,6 +60,13 @@ const orgApi = config.cabinet.api
         return job.id;
       },
       report: (jobId) => store.get(jobId)?.report,
+      activity: (jobId) => store.get(jobId)?.activity ?? [],
+      forget: (jobId, keepJob) => {
+        const job = store.get(jobId);
+        if (!job) return;
+        forgetPage(job.report.video.pageUrl);
+        store.purge(job, keepJob);
+      },
       more: (jobId, claimId) => {
         const job = store.get(jobId);
         return (job && ensureChecker(job)?.more(claimId)) ?? false;
@@ -139,6 +149,21 @@ const server = createServer(async (req, res) => {
     if (!checker) return sendJson(res, 404, { error: "задача не найдена или её утверждения не сохранены" });
     if (!checker.has(claimId)) return sendJson(res, 404, { error: "утверждение не найдено" });
     return sendJson(res, 202, { queued: checker.request(claimId) });
+  }
+
+  // Подписи уже готовых отчётов на выбранном языке
+  const labelsMatch = req.method === "GET" && req.url?.match(/^\/api\/report-labels\/(ru|ro|en)$/);
+  if (labelsMatch) return sendJson(res, 200, reportLabels(labelsMatch[1]!));
+
+  // Копия статьи для встроенного окна. Только страница своей задачи: это не открытый прокси
+  const pageMatch = req.method === "GET" && req.url?.match(/^\/api\/jobs\/([^/]+)\/page$/);
+  if (pageMatch) {
+    const job = REPLAY ? undefined : store.get(pageMatch[1]!);
+    const view = job ? await loadPageView(job.report.video.pageUrl) : failedPageView();
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.setHeader("content-security-policy", view.csp);
+    res.setHeader("x-content-type-options", "nosniff");
+    return res.end(view.html);
   }
 
   // Кнопка «Найти ещё» у готового утверждения: новый поиск дополняет прошлый
@@ -237,6 +262,7 @@ function startJob(job: JobRecord) {
     signal: job.abort.signal,
     onChecker: (checker) => (job.checker = checker),
     ownerIp: job.ownerIp,
+    onActivity: (activity) => noteActivity(job, activity),
   }).catch((err) => {
     if (job.abort.signal.aborted) return; // отменили сами — это не ошибка
     // В лог — всё, включая техническую причину (cause); фронту — код и понятный текст
@@ -256,12 +282,19 @@ function startJob(job: JobRecord) {
  * Очередь проверок задачи. Пайплайн создаёт её сам; отчёт с диска (после перезапуска сервера) — восстанавливаем
  * из сохранённых утверждений. Нет данных (старый отчёт, задача ещё не началась) — undefined.
  */
+const MAX_ACTIVITY = 200;
+
+function noteActivity(job: JobRecord, activity: SearchActivity): void {
+  if (job.activity.length < MAX_ACTIVITY) job.activity.push(activity);
+}
+
 function ensureChecker(job: JobRecord): ClaimChecker | undefined {
   if (job.checker || !job.saved || job.report.status !== "completed") return job.checker;
   const ctx = {
     jobId: job.id,
     signal: job.abort.signal,
     log: (msg: string, data?: unknown) => console.log(`[${job.id}] ${msg}`, data ?? ""),
+    activity: (activity: SearchActivity) => noteActivity(job, activity),
   };
   const checker = new ClaimChecker({
     jobId: job.id,

@@ -3,6 +3,7 @@
 /** Диалоги кабинета: цитаты предложения и сборка нарратива. Экранов для них в дизайне нет, стиль как у карточек */
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { quoteLink } from "../../lib/quote-link";
 import { useCabinetActions } from "./actions";
 import { useCabinetText } from "./dictionary";
 import { CloseIcon } from "./icons";
@@ -146,7 +147,18 @@ export function SuggestionDialog({
             )}
             <span className="text-[12px] font-bold text-cabinet-ink-mid">{quote.date}</span>
           </div>
-          <div className="text-[14px] font-bold leading-[18px]">{quote.text}</div>
+          {quote.url ? (
+            <a
+              href={quoteLink(quote.url, quote.text)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[14px] font-bold leading-[18px] underline decoration-border underline-offset-2 hover:decoration-primary"
+            >
+              {quote.text}
+            </a>
+          ) : (
+            <div className="text-[14px] font-bold leading-[18px]">{quote.text}</div>
+          )}
         </div>
       ))}
     </Dialog>

@@ -13,6 +13,8 @@ export interface ClaimTextPanelProps {
   sourceText?: string;
   viewedClaimIds?: Set<string>;
   pageUrl?: string;
+  /** Подпись над текстом: почему показан текст, а не страница */
+  notice?: string;
 }
 
 /** Подсветка утверждения по позиции источников: фон + подчёркивание */
@@ -23,6 +25,19 @@ const TONE: Record<ClaimConsensus, { bg: string; line: string }> = {
   flagged: { bg: "#FFE7D3", line: "#FF7A12" },
   unverifiable: { bg: "#EEE8E6", line: "#A27C7A" },
 };
+
+/** Цвета утверждения на копии статьи: те же, что в тексте */
+export function claimColors(fc: FactCheck): {
+  bg: string;
+  line: string;
+  dashed: boolean;
+  checking: boolean;
+} {
+  if (fc.status === "checking") return { bg: "#EEE8E6", line: PENDING_LINE, dashed: false, checking: true };
+  if (fc.status === "found") return { bg: "transparent", line: PENDING_LINE, dashed: true, checking: false };
+  const tone = TONE[fc.consensus] ?? TONE.unverifiable;
+  return { ...tone, dashed: false, checking: false };
+}
 
 /** Линия утверждения, которое ещё не проверено — как кружок в колонке слева */
 const PENDING_LINE = "#C9B8B6";
@@ -114,6 +129,7 @@ export function ClaimTextPanel({
   sourceText,
   viewedClaimIds,
   pageUrl,
+  notice,
 }: ClaimTextPanelProps) {
   const t = useSiteText();
   // Находим вхождения утверждений в исходном тексте
@@ -300,6 +316,8 @@ export function ClaimTextPanel({
             </a>
           )}
         </div>
+
+        {notice && <p className="m-0 mt-2 shrink-0 text-[14px] font-bold text-[#A27C7A]">{notice}</p>}
 
         {/* запас p-1 под обводку выбранного утверждения;
             снизу — место под смайлик в углу: текст прокручивается выше и под него не заходит */}

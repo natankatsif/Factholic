@@ -370,3 +370,41 @@ body {
     animation: none !important;
   }
 }
+
+/* Ход поиска: новые слова и сайты появляются, а не возникают */
+@keyframes search-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes search-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-search-rise {
+  animation: search-rise 0.35s ease-out both;
+}
+
+.animate-search-pop {
+  animation: search-pop 0.3s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-search-rise,
+  .animate-search-pop {
+    animation: none;
+  }
+}

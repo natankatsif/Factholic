@@ -5,8 +5,21 @@
  * Сайт импортирует отсюда только типы. Когда команда согласует, файл переезжает в контракты без изменений.
  */
 import type { ClaimId, ISODateString, JobId, VideoReport } from "@news/contracts";
+import type { SearchActivity } from "../pipeline/context.ts";
 
-export type OrgClaimStatus = "new" | "spreading" | "stable" | "debunked" | "fading";
+export type OrgClaimStatus =
+  | "checking"
+  | "new"
+  | "spreading"
+  | "stable"
+  | "debunked"
+  | "fading"
+  | "outdated"
+  | "inflated"
+  | "against"
+  | "split"
+  | "converging"
+  | "few";
 export type OrgCheckStatus = "running" | "done" | "failed";
 export type OrgStepKey = "claims" | "search" | "traces" | "tree" | "stances" | "done";
 export type OrgStepStatus = "waiting" | "running" | "done" | "failed";
@@ -86,6 +99,8 @@ export interface Clarification {
   input: string;
   question: string;
   rewritten: string;
+  /** В тексте несколько утверждений: сотрудник выбирает одно, и вопроса о формулировке нет */
+  options?: string[];
   /** Язык интерфейса: на нём написан вопрос и пойдут тексты отчёта */
   locale: string;
   status: "pending" | "answered";
@@ -122,7 +137,7 @@ export interface ClaimCheck {
    * Видео: живёт отдельным списком, утверждения в общие вопросы не попадают. Разбор на утверждения считается
    * проверкой целиком, а сами утверждения проверяются по ходу просмотра: текущее и ближайшие
    */
-  kind?: "video";
+  kind?: "video" | "article";
 }
 
 /** GET /api/org/videos: видео организации */
@@ -136,6 +151,7 @@ export interface OrgVideo {
   claims: number;
   checked: number;
   startedAt: ISODateString;
+  kind: "video" | "article";
 }
 
 export interface Watch {
@@ -196,7 +212,11 @@ export interface NarrativeQuote {
   url?: string;
   site: string;
   date: string;
+  /** Дата для показа на языке интерфейса */
+  isoDate?: ISODateString;
   text: string;
+  /** Появилась после последнего поиска по слежению */
+  fresh?: boolean;
 }
 
 export interface Narrative {
@@ -231,7 +251,7 @@ export interface OrgRunningCheck {
 export interface OrgSession {
   organization: { id: string; name: string };
   member: { id: string; name: string; role: "member" | "admin" };
-  counts: Record<OrgClaimScope | "videos", number>;
+  counts: Record<OrgClaimScope | "videos" | "links", number>;
   unreadAlerts: number;
   clarifications: Clarification[];
   running: OrgRunningCheck[];
@@ -256,12 +276,16 @@ export interface OrgCheckDetail {
   alerts: Alert[];
   /** Для каких утверждений отчёта сейчас идёт «Найти ещё» */
   searchingMore: string[];
+  /** Что поиск уже сделал: запросы, отбор страниц, связи */
+  activity: SearchActivity[];
 }
 
 /** GET /api/org/narratives/:id */
 export interface OrgNarrativeDetail {
   narrative: Narrative;
   claims: TrackedClaim[];
+  /** Слежения за вопросами нарратива */
+  watches: Watch[];
   publications: number;
   languages: number;
   lastChange?: ISODateString;
@@ -294,3 +318,5 @@ export type OrgEvent =
   | { type: "check.finished"; checkId: string }
   | { type: "check.failed"; checkId: string }
   | { type: "alert.created"; alert: Alert };
+
+export type { SearchActivity };

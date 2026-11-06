@@ -33,6 +33,11 @@ const LONG_EDGE_ROOM = 16;
 const MIN_LAYER_GAP = 62;
 const LANE_STEP = 12;
 const LANE_PADDING = 18;
+/** Шаг между линиями, входящими в одну карточку, и наибольший разброс */
+const ENTRY_STEP = 12;
+const ENTRY_SPREAD = 56;
+/** Горизонтальные участки ближе этого сливаются в одну линию */
+const LINE_CLEARANCE = 4;
 const ORDER_SWEEPS = 24;
 const POSITION_SWEEPS = 12;
 const EDGE_GAP = 3;
@@ -57,6 +62,8 @@ export interface Rect extends Point {
 }
 
 export interface EdgeRoute {
+  /** Сдвиг от обычной точки входа: чтобы линии разных блоков не шли одна по другой */
+  entry?: number;
   /** Вертикальные участки: дорожка x и высота, на которую линия выходит */
   hops: Array<{ lane: number; y: number }>;
 }
@@ -278,25 +285,73 @@ function assignHeights(layers: string[][], items: Map<string, Item>, links: Link
 
 interface Segment {
   source: string;
+  target: string;
+  /** Связь, которой принадлежит участок */
+  edge: string;
   fromY: number;
   toY: number;
+  /** Сдвиг точки входа */
+  entry: number;
 }
 
-/** Дорожки в промежутке: одна на источник, порядок такой, чтобы линии не резали друг друга */
+const entryY = (segment: Segment) => segment.toY + segment.entry;
+const isBent = (segment: Segment) => Math.abs(segment.fromY - entryY(segment)) >= 1;
+
+/** В одну карточку линии входят рядом, а не друг по другу. Прямая остаётся прямой */
+function spreadEntries(segments: Segment[]): void {
+  const byTarget = new Map<string, Segment[]>();
+  for (const segment of segments) {
+    byTarget.set(segment.target, [...(byTarget.get(segment.target) ?? []), segment]);
+  }
+  for (const list of byTarget.values()) {
+    if (list.length < 2) continue;
+    const sorted = [...list].sort((a, b) => a.fromY - b.fromY);
+    const step = Math.min(ENTRY_STEP, ENTRY_SPREAD / (sorted.length - 1));
+    const offsets = sorted.map((_, index) => (index - (sorted.length - 1) / 2) * step);
+    const straight = sorted.findIndex((segment) => Math.abs(segment.fromY - segment.toY) < 1);
+    const shift = straight >= 0 ? -offsets[straight]! : 0;
+    sorted.forEach((segment, index) => (segment.entry = offsets[index]! + shift));
+  }
+}
+
+/**
+ * Дорожки в промежутке: одна на источник, порядок такой, чтобы линии меньше пересекались.
+ * Выход одного блока и вход другого на той же высоте слились бы: выход должен свернуть раньше.
+ * Если обе линии мешают друг другу, вход сдвигается.
+ */
 function assignLanes(segments: Segment[]): Map<string, number> {
   const bySource = new Map<string, Segment[]>();
   for (const segment of segments) {
-    if (Math.abs(segment.fromY - segment.toY) < 1) continue;
+    if (!isBent(segment)) continue;
     bySource.set(segment.source, [...(bySource.get(segment.source) ?? []), segment]);
   }
   const groups = [...bySource.entries()].map(([source, list]) => {
     const fromY = list[0]!.fromY;
-    const mean = list.reduce((sum, item) => sum + item.toY, 0) / list.length;
-    return { source, fromY, down: mean > fromY };
+    const mean = list.reduce((sum, item) => sum + entryY(item), 0) / list.length;
+    return { source, fromY, down: mean > fromY, list };
   });
   const downs = groups.filter((group) => group.down).sort((a, b) => b.fromY - a.fromY);
   const ups = groups.filter((group) => !group.down).sort((a, b) => a.fromY - b.fromY);
-  return new Map([...downs, ...ups].map((group, index) => [group.source, index]));
+  const collides = (segment: Segment, fromY: number) => Math.abs(entryY(segment) - fromY) < LINE_CLEARANCE;
+  const mustPrecede = (first: (typeof groups)[number], second: (typeof groups)[number]) =>
+    first !== second && second.list.some((segment) => collides(segment, first.fromY));
+
+  const waiting = [...downs, ...ups];
+  const ordered: typeof groups = [];
+  while (waiting.length) {
+    const free = waiting.findIndex((group) => !waiting.some((other) => mustPrecede(other, group)));
+    ordered.push(...waiting.splice(Math.max(free, 0), 1));
+  }
+  const lanes = new Map(ordered.map((group, index) => [group.source, index]));
+  // круговая зависимость: порядок её не решает
+  ordered.forEach((group, index) => {
+    for (const later of ordered.slice(index + 1)) {
+      for (const segment of group.list) {
+        if (collides(segment, later.fromY)) segment.entry += ENTRY_STEP;
+      }
+    }
+  });
+  return lanes;
 }
 
 function layoutComponent(
@@ -332,19 +387,30 @@ function layoutComponent(
   const y = assignHeights(ordered, items, links);
 
   // промежутки между слоями: ширина зависит от числа дорожек
+  const entries = new Map<string, number>();
   const gapLanes = ordered.slice(0, -1).map((layer, index) => {
     const inLayer = new Set(layer);
     const next = new Set(ordered[index + 1]);
     const segments: Segment[] = [];
-    for (const chain of chains.values()) {
+    for (const [edge, chain] of chains) {
       chain.slice(0, -1).forEach((id, hop) => {
         const to = chain[hop + 1]!;
         if (inLayer.has(id) && next.has(to)) {
-          segments.push({ source: id, fromY: y.get(id) ?? 0, toY: y.get(to) ?? 0 });
+          segments.push({
+            source: id,
+            target: to,
+            edge,
+            fromY: y.get(id) ?? 0,
+            toY: y.get(to) ?? 0,
+            entry: 0,
+          });
         }
       });
     }
-    return assignLanes(segments);
+    spreadEntries(segments);
+    const lanes = assignLanes(segments);
+    for (const segment of segments) if (segment.entry) entries.set(segment.edge, segment.entry);
+    return lanes;
   });
 
   const layerX: number[] = [];
@@ -369,6 +435,7 @@ function layoutComponent(
   for (const [edge, chain] of chains) {
     const start = layerOf.get(chain[0]!) ?? 0;
     routes[edge] = {
+      entry: entries.get(edge),
       hops: chain.slice(0, -1).map((id, hop) => {
         const index = start + hop;
         const lanes = gapLanes[index]!;
@@ -453,7 +520,10 @@ export function layoutTree(check: CheckView, { heights, showAlert }: LayoutOptio
       nodes[id] = { x: point.x + LEFT_X, y: point.y + cursor };
     }
     for (const [id, route] of Object.entries(part.routes)) {
-      routes[id] = { hops: route.hops.map((hop) => ({ lane: hop.lane + LEFT_X, y: hop.y + cursor })) };
+      routes[id] = {
+        ...route,
+        hops: route.hops.map((hop) => ({ lane: hop.lane + LEFT_X, y: hop.y + cursor })),
+      };
     }
     cursor += part.height + COMPONENT_GAP;
   }
@@ -505,7 +575,7 @@ function roundedPath(points: Point[]): string {
 /** Линия между узлами. Перетащенный узел тянет за собой только свой конец линии */
 export function edgeShape(from: Rect, to: Rect, route?: EdgeRoute): EdgeShape {
   const start = { x: from.x + from.w + EDGE_GAP, y: from.y + ANCHOR_Y };
-  const tip = { x: to.x - EDGE_ARROW_GAP, y: to.y + ANCHOR_Y };
+  const tip = { x: to.x - EDGE_ARROW_GAP, y: to.y + ANCHOR_Y + (route?.entry ?? 0) };
   const hops = route?.hops ?? [{ lane: (start.x + tip.x) / 2, y: tip.y }];
   const points: Point[] = [start];
   let y = start.y;

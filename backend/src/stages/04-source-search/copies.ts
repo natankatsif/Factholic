@@ -74,6 +74,9 @@ export interface CopiesResult {
   traces?: TraceReport;
 }
 
+/** Сколько сайтов показывать в ходе поиска */
+const MAX_SHOWN_SITES = 8;
+
 const queryKey = (text: string) => text.trim().toLowerCase();
 
 /** Точка входа этапа: прежний поиск или поиск по следам (TRACE_SEARCH=on) */
@@ -549,6 +552,7 @@ async function traceCopies(
     for (const name of pickedCitations) triedCitations.add(name.toLowerCase());
     const pickedPhrases = phrases.slice(0, MAX_PHRASES_PER_ROUND);
     for (const phrase of pickedPhrases) triedPhrases.add(phrase.toLowerCase());
+    if (anchors.length) ctx.activity?.({ kind: "anchors", terms: anchors.map((a) => a.term) });
     for (const anchor of anchors) triedAnchors.add(normalizeTerm(anchor.term));
     if (anchors.length)
       ctx.log(
@@ -636,6 +640,12 @@ async function traceCopies(
 
   copies.forEach((c, i) => (c.id = `k${i + 1}`));
   const story = await filterSameEvent(claim, copies, ctx, true);
+  ctx.activity?.({
+    kind: "filtered",
+    checked: copies.length,
+    kept: story.length,
+    sites: [...new Set(story.map((copy) => copy.domain))].slice(0, MAX_SHOWN_SITES),
+  });
   // порядок копий — по весу, поэтому лимит режет самые слабые из тех, что прошли фильтр
   const kept = story.slice(0, MAX_COPIES);
   if (kept.length < story.length)

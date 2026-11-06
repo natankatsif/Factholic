@@ -34,7 +34,7 @@ import type {
   RunningCheck,
   SuggestionView,
 } from "./types";
-import { Video } from "lucide-react";
+import { Link2, Video } from "lucide-react";
 
 interface NarrativeRequest {
   claimIds: string[];
@@ -128,7 +128,7 @@ const SCOPE_HREF: Record<ClaimScope, string> = {
 };
 /** Пауза, чтобы успеть перевести мышь с кнопки на выехавшее меню */
 const HOVER_CLOSE_MS = 250;
-const SCOPES: ClaimScope[] = ["all", "mine", "watched", "running", "ungrouped"];
+const SCOPES: ClaimScope[] = ["all", "mine", "watched", "running"];
 
 function RunningSteps({ check }: { check: RunningCheck }) {
   return (
@@ -168,7 +168,13 @@ function RunningList({ checks }: { checks: RunningCheck[] }) {
             </span>
           </div>
           <Link
-            href={check.video ? `/cabinet/videos/${check.id}` : `/cabinet/checks/${check.id}`}
+            href={
+              check.video
+                ? `/cabinet/videos/${check.id}`
+                : check.article
+                  ? `/cabinet/links/${check.id}`
+                  : `/cabinet/checks/${check.id}`
+            }
             className="flex items-center gap-1 text-[13px] font-extrabold"
           >
             {t.running.openCanvas}
@@ -203,6 +209,10 @@ function ClarificationBlock({ items }: { items: ClarificationView[] }) {
     setOpen(false);
     void actions.answerClarification(first.id, value, value === "other" ? other : undefined);
   };
+  const choose = (index: number) => {
+    setOpen(false);
+    void actions.chooseClaim(first.id, index);
+  };
   return (
     <div className="relative" ref={ref}>
       <button
@@ -219,31 +229,56 @@ function ClarificationBlock({ items }: { items: ClarificationView[] }) {
       </button>
       {open && (
         <div className={cn(POPOVER_PANEL, "left-0 top-[50px] flex w-[420px] flex-col gap-2.5 p-[18px]")}>
-          <div className="text-[16px] font-black leading-5">{first.question}</div>
-          <div className="flex flex-col gap-1 rounded-[14px] bg-canvas p-3">
-            <div className="text-[12px] font-extrabold text-cabinet-ink-mid">{t.clarify.original}</div>
-            <div className="text-[14px] font-bold leading-[18px]">{first.input}</div>
-          </div>
-          <div className="flex flex-col gap-1 rounded-[14px] bg-cabinet-split-soft p-3">
-            <div className="text-[12px] font-extrabold text-cabinet-ink-mid">{t.clarify.rewritten}</div>
-            <div className="text-[14px] font-extrabold leading-[18px]">{first.rewritten}</div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => answer("yes")}
-              className={cn(button, "bg-primary text-white")}
-            >
-              {t.clarify.yes}
-            </button>
-            <button
-              type="button"
-              onClick={() => answer("no")}
-              className={cn(button, "outline outline-2 -outline-offset-1 outline-primary")}
-            >
-              {t.clarify.no}
-            </button>
-          </div>
+          {first.options ? (
+            <>
+              <div className="text-[16px] font-black leading-5">{t.clarify.pickTitle}</div>
+              {first.options.map((option, index) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => choose(index)}
+                  className="w-full rounded-[14px] px-3 py-2.5 text-left text-[14px] font-extrabold leading-[18px] outline outline-2 -outline-offset-1 outline-border hover:outline-primary"
+                >
+                  {option}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => answer("no")}
+                className={cn(button, "self-start outline outline-2 -outline-offset-1 outline-primary")}
+              >
+                {t.clarify.pickAll}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="text-[16px] font-black leading-5">{first.question}</div>
+              <div className="flex flex-col gap-1 rounded-[14px] bg-canvas p-3">
+                <div className="text-[12px] font-extrabold text-cabinet-ink-mid">{t.clarify.original}</div>
+                <div className="text-[14px] font-bold leading-[18px]">{first.input}</div>
+              </div>
+              <div className="flex flex-col gap-1 rounded-[14px] bg-cabinet-split-soft p-3">
+                <div className="text-[12px] font-extrabold text-cabinet-ink-mid">{t.clarify.rewritten}</div>
+                <div className="text-[14px] font-extrabold leading-[18px]">{first.rewritten}</div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => answer("yes")}
+                  className={cn(button, "bg-primary text-white")}
+                >
+                  {t.clarify.yes}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => answer("no")}
+                  className={cn(button, "outline outline-2 -outline-offset-1 outline-primary")}
+                >
+                  {t.clarify.no}
+                </button>
+              </div>
+            </>
+          )}
           <div className="text-[13px] font-extrabold">{t.clarify.other}</div>
           <div className="flex items-center gap-2">
             <input
@@ -398,6 +433,7 @@ function LeftMenu({
   session,
   scope,
   videos,
+  links,
   narrativeId,
   newCheckActive,
   className,
@@ -406,6 +442,7 @@ function LeftMenu({
   session?: CabinetSession;
   scope?: ClaimScope;
   videos?: boolean;
+  links?: boolean;
   narrativeId?: string;
   newCheckActive?: boolean;
   className?: string;
@@ -466,6 +503,21 @@ function LeftMenu({
           )}
         >
           {session?.counts.videos}
+        </span>
+      </Link>
+      <Link href="/cabinet/links" className={cn(row, links && "bg-primary")}>
+        <Link2
+          className={cn("h-[17px] w-[17px] shrink-0", links ? "text-white" : "text-cabinet-ink-mid")}
+          strokeWidth={2.4}
+        />
+        <span className={cn("flex-1 text-[14px] font-extrabold", links && "text-white")}>{t.menu.links}</span>
+        <span
+          className={cn(
+            "whitespace-nowrap text-[13px] font-extrabold",
+            links ? "text-white" : "text-cabinet-ink-mid",
+          )}
+        >
+          {session?.counts.links}
         </span>
       </Link>
       <div className="flex w-full items-center justify-between px-3 pb-1.5 pt-5">
@@ -534,6 +586,8 @@ export interface CabinetShellProps {
   newCheck?: boolean;
   /** Открыт раздел видео: подсветить его в меню */
   videos?: boolean;
+  /** Открыт раздел ссылок */
+  links?: boolean;
   /** Страница дерева: меню закрыто и выезжает при наведении, дереву нужно место */
   tree?: boolean;
   /** Данные грузятся: вместо имени организации скелетон */
@@ -548,6 +602,7 @@ export function CabinetShell({
   pinnedMenu,
   scope,
   videos,
+  links,
   narrativeId,
   newCheck,
   tree,
@@ -597,6 +652,7 @@ export function CabinetShell({
               session={session}
               scope={scope}
               videos={videos}
+              links={links}
               narrativeId={narrativeId}
               newCheckActive={newCheck}
               onShowSuggestion={setSuggestion}
@@ -622,6 +678,7 @@ export function CabinetShell({
                 session={session}
                 scope={scope}
                 videos={videos}
+                links={links}
                 newCheckActive={newCheck}
                 onShowSuggestion={setSuggestion}
                 className="border-r-2 border-border"

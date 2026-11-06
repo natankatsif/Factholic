@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { WebSocket } from "ws";
 import { config } from "../config.ts";
 import { allow, clientIp } from "../pipeline/guard.ts";
+import { loadPageImage } from "../pipeline/page-view.ts";
 import { createClarifier } from "./clarify.ts";
 import { CabinetDb } from "./db.ts";
 import { CabinetService, OrgError, type JobRunner } from "./service.ts";
@@ -106,11 +107,32 @@ export function createOrgApi(runner: JobRunner) {
       return send(res, 201, service.answerClarification(id, answer, text));
     }
 
+    if (area === "clarifications" && method === "POST" && id && action === "choose") {
+      const { index } = await readJson<{ index: number }>(req);
+      guard(req);
+      return send(res, 201, await service.chooseClaim(id, index));
+    }
+
     if (area === "videos" && method === "GET" && !id) return send(res, 200, service.listVideos());
+    if (area === "videos" && method === "GET" && id && action === "thumbnail") {
+      const image = await loadPageImage(service.articleUrl(id));
+      if (!image) return send(res, 404, { ok: false });
+      res.writeHead(302, { location: image, "cache-control": "max-age=3600" });
+      return res.end();
+    }
+    if (area === "videos" && method === "DELETE" && id) {
+      service.deleteMaterial(id);
+      return send(res, 200, { ok: true });
+    }
 
     if (area === "claims" && method === "POST" && id && action === "search") {
       guard(req);
       return send(res, 202, service.repeatSearch(id));
+    }
+
+    if (area === "claims" && method === "DELETE" && id) {
+      service.deleteClaim(id);
+      return send(res, 200, { ok: true });
     }
 
     if (area === "claims" && method === "GET") {

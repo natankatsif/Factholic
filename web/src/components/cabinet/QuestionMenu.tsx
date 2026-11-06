@@ -1,6 +1,6 @@
 "use client";
 
-/** Три точки у вопроса: повторить поиск, в нарративе ещё и убрать из него */
+/** Три точки у вопроса: повторить поиск, удалить, в нарративе ещё и убрать из него */
 import { useCabinetText } from "./dictionary";
 import { DotsIcon } from "./icons";
 import { POPOVER_PANEL, PopoverItem, usePopover } from "./Popover";
@@ -9,10 +9,16 @@ export function QuestionMenu({
   searching,
   onRepeat,
   onRemove,
+  onDelete,
+  watching,
+  onToggleWatch,
 }: {
   searching?: boolean;
   onRepeat: () => void;
   onRemove?: () => void;
+  onDelete: () => void;
+  watching?: boolean;
+  onToggleWatch?: () => void;
 }) {
   const t = useCabinetText();
   const text = t.questionMenu;
@@ -35,12 +41,19 @@ export function QuestionMenu({
       {open && (
         <div className={`${POPOVER_PANEL} right-0 top-9 min-w-[200px]`}>
           {!searching && <PopoverItem onClick={() => choose(onRepeat)}>{text.repeatSearch}</PopoverItem>}
+          {onToggleWatch && (
+            <PopoverItem onClick={() => choose(onToggleWatch)}>
+              {watching ? text.unwatch : text.watch}
+            </PopoverItem>
+          )}
           {onRemove && (
             <PopoverItem danger onClick={() => choose(onRemove)}>
               {text.removeFromNarrative}
             </PopoverItem>
           )}
-          {searching && !onRemove && <div className="px-3 py-2 text-[14px] font-bold">{text.searching}</div>}
+          <PopoverItem danger onClick={() => choose(onDelete)}>
+            {text.deleteQuestion}
+          </PopoverItem>
         </div>
       )}
     </div>

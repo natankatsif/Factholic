@@ -3,6 +3,7 @@
  * на рабочем сайте издания и утверждения отсюда показывать нельзя.
  */
 import type {
+  SearchActivity,
   AlertItem,
   CabinetSession,
   CheckView,
@@ -62,7 +63,7 @@ export const FIXTURE_SESSION: CabinetSession = {
   alerts: [],
   clarifications: [],
   running: [],
-  counts: { all: 24, mine: 9, watched: 7, running: 2, ungrouped: 19, videos: 0 },
+  counts: { all: 24, mine: 9, watched: 7, running: 2, ungrouped: 19, videos: 0, links: 0 },
   narratives: [
     { id: "fires", title: "Скрывают масштаб пожаров", count: 3 },
     { id: "pensions", title: "Пенсии только через приложение", count: 2 },
@@ -247,7 +248,35 @@ const readyFeed: FeedItem[] = [
   { type: "offer", variant: "default" },
 ];
 
+/** Два поиска: первый и «Найти ещё» */
+const SEARCH_ACTIVITY: SearchActivity[] = [
+  {
+    kind: "queries",
+    texts: ["сгорел торговый центр 200 пострадавших", "incendiu centru comercial Chișinău"],
+  },
+  {
+    kind: "filtered",
+    checked: 34,
+    kept: 9,
+    sites: ["novosti.md", "portal.md", "srochno.md", "gorod.md", "chisinau.md"],
+  },
+  { kind: "anchors", terms: ["склад на Мунчештской", "Служба спасателей"] },
+  { kind: "tree", publications: 9, links: 4 },
+  { kind: "start" },
+  { kind: "queries", texts: ["Служба спасателей пожар склад Кишинёв"] },
+  { kind: "filtered", checked: 12, kept: 3, sites: ["jurnal.md", "tv8.md"] },
+];
+
 const treeReady: CheckView = {
+  activity: SEARCH_ACTIVITY,
+  steps: [
+    { key: "claims", status: "done", found: 1 },
+    { key: "search", status: "done", found: 6 },
+    { key: "traces", status: "done" },
+    { key: "tree", status: "done" },
+    { key: "stances", status: "done" },
+    { key: "done", status: "done" },
+  ],
   id: "demo",
   status: "done",
   claimStatus: "new",
@@ -287,6 +316,7 @@ const search: CheckView = {
   edges: [],
   unlinked: [],
   placeholders: 1,
+  activity: SEARCH_ACTIVITY,
   steps: waitingSteps([
     { key: "claims", status: "done", found: 1 },
     { key: "search", status: "running", found: 6 },

@@ -309,6 +309,11 @@ const ru = {
     ask: "Спросить",
   },
   text: {
+    articleFallback: "Не получилось открыть прямо страницей, вот текст",
+    article: "Статья",
+    articleLoading: "Страница загружается…",
+    articleHint: "Утверждения обведены в тексте: нажмите на любое",
+    articleUnmatched: (count: number) => `Не нашли на странице: ${count}`,
     claimTitle: (index: number, quote: string, unviewed: boolean) =>
       `Тезис ${index}: «${quote}»${unviewed ? " (не просмотрено)" : ""}`,
     askedText: "Текст который спросили",

@@ -48,6 +48,8 @@ export interface AnalysisCardProps {
   totalSources: number;
   onOpenProvenanceTree: () => void;
   suggestedQuestions?: string[];
+  /** Над разбором: утверждения, которые не нашлись на странице статьи */
+  claimsNote?: React.ReactNode;
   /** Что проверяем — от этого подпись и иконка последнего узла цепочки («Это видео» / «Этот текст» / …) */
   material?: MaterialKind;
 }
@@ -60,6 +62,7 @@ export function AnalysisCard({
   totalSources,
   onOpenProvenanceTree,
   suggestedQuestions,
+  claimsNote,
   material = "video",
 }: AnalysisCardProps) {
   const t = useSiteText();
@@ -88,6 +91,8 @@ export function AnalysisCard({
           </div>
         </div>
       </div>
+
+      {claimsNote}
 
       <div className="mt-4 h-px shrink-0 bg-[#E3D9D6] [@media(max-height:780px)]:mt-3" />
 

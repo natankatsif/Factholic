@@ -293,6 +293,11 @@ export const en: SiteDictionary = {
     ask: "Ask",
   },
   text: {
+    articleFallback: "The page could not be opened directly, here is the text",
+    article: "The article",
+    articleLoading: "Loading the page…",
+    articleHint: "Claims are outlined in the text: click any of them",
+    articleUnmatched: (count: number) => `Not found on the page: ${count}`,
     claimTitle: (index, quote, unviewed) => `Claim ${index}: “${quote}”${unviewed ? " (not viewed)" : ""}`,
     askedText: "The text you asked about",
     original: "Original",

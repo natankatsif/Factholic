@@ -293,6 +293,11 @@ export const ro: SiteDictionary = {
     ask: "Întreabă",
   },
   text: {
+    articleFallback: "Pagina nu a putut fi deschisă direct, iată textul",
+    article: "Articolul",
+    articleLoading: "Pagina se încarcă…",
+    articleHint: "Afirmațiile sunt încadrate în text: apăsați pe oricare",
+    articleUnmatched: (count: number) => `Negăsite pe pagină: ${count}`,
     claimTitle: (index, quote, unviewed) =>
       `Afirmația ${index}: „${quote}”${unviewed ? " (nevizualizată)" : ""}`,
     askedText: "Textul întrebat",

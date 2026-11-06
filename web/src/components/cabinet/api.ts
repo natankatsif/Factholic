@@ -51,12 +51,15 @@ export const cabinetApi = {
   check: (id: string) => request<OrgCheckDetail>(`/checks/${encodeURIComponent(id)}`),
   startCheck: (input: string, locale: string) =>
     request<StartCheckResponse>("/checks", "POST", { input, locale }),
+  chooseClaim: (id: string, index: number) =>
+    request<StartCheckResponse>(`/clarifications/${id}/choose`, "POST", { index }),
   answerClarification: (id: string, answer: ClarificationAnswer, text?: string) =>
     request<ClaimCheck>(`/clarifications/${id}/answer`, "POST", { answer, text }),
   retryCheck: (id: string) => request<ClaimCheck>(`/checks/${id}/retry`, "POST"),
   searchMore: (id: string, factCheckId: string) =>
     request<{ ok: true }>(`/checks/${id}/more`, "POST", { factCheckId }),
   videos: () => request<OrgVideo[]>("/videos"),
+  deleteMaterial: (id: string) => request<{ ok: true }>(`/videos/${id}`, "DELETE"),
   watches: () => request<WatchWithClaim[]>("/watches"),
   createWatch: (body: CreateWatchRequest) => request<Watch>("/watches", "POST", body),
   updateWatch: (id: string, patch: Partial<Watch>) => request<Watch>(`/watches/${id}`, "PATCH", patch),
@@ -69,10 +72,15 @@ export const cabinetApi = {
     request<Narrative>(`/narratives/${id}`, "PATCH", { claimIds }),
   removeFromNarrative: (id: string, claimId: string) =>
     request<Narrative>(`/narratives/${id}/claims/${encodeURIComponent(claimId)}`, "DELETE"),
+  deleteClaim: (claimId: string) => request<{ ok: true }>(`/claims/${encodeURIComponent(claimId)}`, "DELETE"),
   repeatSearch: (claimId: string) =>
     request<{ ok: true }>(`/claims/${encodeURIComponent(claimId)}/search`, "POST"),
   dismissSuggestion: (id: string) => request<{ ok: true }>(`/narrative-suggestions/${id}/dismiss`, "POST"),
 };
+
+/** Превью статьи: сервер ищет картинку на странице и перенаправляет на неё */
+export const articleThumbnailUrl = (id: string) =>
+  `${BACKEND_URL}/api/org/videos/${encodeURIComponent(id)}/thumbnail`;
 
 /** Сокет событий кабинета. Возвращает отключение */
 export function subscribeCabinet(onEvent: (event: OrgEvent) => void): () => void {

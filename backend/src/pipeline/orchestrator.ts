@@ -22,7 +22,7 @@ import {
 } from "../stages/02-transcription/index.ts";
 import { CHECKWORTHINESS_THRESHOLD, extractClaims, type Claim } from "../stages/03-claim-extraction/index.ts";
 import { ClaimChecker } from "./checks.ts";
-import type { LlmUsage, StageContext } from "./context.ts";
+import type { LlmUsage, SearchActivity, StageContext } from "./context.ts";
 
 const CONTEXT_WINDOW_SEC = 60;
 /** Сколько кусков разбирать на утверждения одновременно */
@@ -40,6 +40,8 @@ export interface RunPipelineParams {
   ownerIp?: string;
   /** Учёт токенов, например для eval */
   onUsage?: (usage: LlmUsage) => void;
+  /** Ход поиска для кабинета */
+  onActivity?: (activity: SearchActivity) => void;
 }
 
 export async function runPipeline({
@@ -51,12 +53,14 @@ export async function runPipeline({
   onChecker,
   ownerIp,
   onUsage,
+  onActivity,
 }: RunPipelineParams) {
   const ctx: StageContext = {
     jobId,
     signal,
     log: (msg, data) => console.log(`[${jobId}] ${msg}`, data ?? ""),
     usage: onUsage,
+    activity: onActivity,
   };
 
   const { video, chunks } = await ingest({ jobId, request, liveAudio, chunkSec: 30 }, ctx);

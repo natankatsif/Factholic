@@ -49,6 +49,7 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
     `04: ${claim.id}: запросы`,
     planned.map((q) => `${q.language}/${q.intent}: ${q.text}`),
   );
+  ctx.activity?.({ kind: "queries", texts: planned.map((q) => q.text) });
   let shareSources: (pages: Enriched[]) => void = () => {};
   const sourcePages = new Promise<Enriched[]>((resolve) => (shareSources = resolve));
   const copiesPromise = findCopiesWithTraces(claim, planned, ctx, undefined, sourcePages).catch(
@@ -158,8 +159,9 @@ function deepen(
           ctx,
           RETRY_QUERIES,
         ),
-      run: (queries, used) =>
-        findCopiesWithTraces(
+      run: (queries, used) => {
+        ctx.activity?.({ kind: "queries", texts: queries.map((q) => q.text) });
+        return findCopiesWithTraces(
           claim,
           queries,
           ctx,
@@ -170,7 +172,8 @@ function deepen(
         ).catch((err: unknown): CopiesResult => {
           if (!ctx.signal.aborted) ctx.log("04: повторный заход упал", String(err));
           return { copies: [] };
-        }),
+        });
+      },
       log: (message) => ctx.log(message),
     },
   );

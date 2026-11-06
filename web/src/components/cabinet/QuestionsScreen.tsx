@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useCabinetActions } from "./actions";
 import { CabinetShell, useOpenNarrativeDialog } from "./CabinetShell";
+import { ConfirmDialog } from "./Dialogs";
 import { useCabinetText } from "./dictionary";
 import type { CabinetFixture } from "./fixtures";
 import { CaretDownIcon, EyeIcon, SearchIcon, SpinnerIcon, StackIcon } from "./icons";
@@ -21,6 +22,7 @@ interface Filters {
   author?: string;
   language?: string;
   state?: ClaimStatus;
+  group?: "ungrouped";
 }
 
 function FilterPill<T extends string>({
@@ -163,6 +165,7 @@ export function QuestionsScreen({
   const text = t.questions;
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(fixture?.overlay?.selectedQuestionIds ?? []);
+  const [deleting, setDeleting] = useState<QuestionRow>();
 
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -173,7 +176,8 @@ export function QuestionsScreen({
         (!filters.period || row.ageDays <= PERIOD_DAYS[filters.period]) &&
         (!filters.author || row.author === filters.author) &&
         (!filters.language || row.language === filters.language) &&
-        (!filters.state || row.status === filters.state),
+        (!filters.state || row.status === filters.state) &&
+        (!filters.group || row.scopes.includes(filters.group)),
     );
   }, [fixture, query, scope, filters]);
 
@@ -239,6 +243,12 @@ export function QuestionsScreen({
             onChange={(language) => setFilters((list) => ({ ...list, language }))}
           />
           <FilterPill
+            label={text.filters.group}
+            value={filters.group}
+            options={[{ value: "ungrouped" as const, label: t.menu.ungrouped }]}
+            onChange={(group) => setFilters((list) => ({ ...list, group }))}
+          />
+          <FilterPill
             label={text.filters.state}
             value={filters.state}
             options={states}
@@ -291,8 +301,6 @@ export function QuestionsScreen({
               <div className="flex w-[154px] shrink-0 flex-col items-start gap-1.5">
                 {row.runningStep ? (
                   <Pill className="bg-cabinet-blue/10 text-cabinet-blue">{t.panel.checkRunning}</Pill>
-                ) : row.searching ? (
-                  <Pill className="bg-cabinet-blue/10 text-cabinet-blue">{t.questionMenu.searching}</Pill>
                 ) : (
                   <StatusPill status={row.status} />
                 )}
@@ -308,6 +316,7 @@ export function QuestionsScreen({
                   <QuestionMenu
                     searching={row.searching}
                     onRepeat={() => void actions.repeatSearch(row.id)}
+                    onDelete={() => setDeleting(row)}
                   />
                 )}
               </div>
@@ -320,6 +329,20 @@ export function QuestionsScreen({
             rows={all}
             limits={fixture?.session.limits}
             onClear={() => setSelected([])}
+          />
+        )}
+        {deleting && (
+          <ConfirmDialog
+            title={t.questionMenu.deleteTitle}
+            text={t.questionMenu.deleteText(deleting.text)}
+            confirm={t.questionMenu.delete}
+            cancel={t.questionMenu.cancel}
+            onClose={() => setDeleting(undefined)}
+            onConfirm={() => {
+              setDeleting(undefined);
+              setSelected((list) => list.filter((id) => id !== deleting.id));
+              void actions.deleteClaim(deleting.id);
+            }}
           />
         )}
       </main>

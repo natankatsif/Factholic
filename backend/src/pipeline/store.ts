@@ -12,11 +12,12 @@
  * Хранится в памяти процесса: для хакатона хватает. Для продакшена — Redis/Postgres.
  */
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { JobId, ServerEvent, StartAnalysisRequest, VideoReport } from "@news/contracts";
 import type { CheckerSnapshot, ClaimChecker } from "./checks.ts";
+import type { SearchActivity } from "./context.ts";
 
 export interface JobRecord {
   /** Задачу запустил кабинет: не отменять, когда со страницы ушли все зрители */
@@ -39,6 +40,8 @@ export interface JobRecord {
   checker?: ClaimChecker;
   /** С диска: что нужно, чтобы восстановить checker после перезапуска */
   saved?: CheckerSnapshot;
+  /** Ход поиска для кабинета: все запуски по порядку */
+  activity: SearchActivity[];
   /** IP того, кто начал задачу: её проверки считаются в его лимит (pipeline/guard.ts) */
   ownerIp?: string;
 }
@@ -96,6 +99,7 @@ export class JobStore {
       subscribers: new Set(),
       abort: new AbortController(),
       started: false,
+      activity: [],
       ownerIp,
     };
     this.jobs.set(id, job);
@@ -156,6 +160,19 @@ export class JobStore {
     this.forget(job);
   }
 
+  /**
+   * Удалили материал или утверждение: тот же вопрос потом ищется заново, а не открывается из кэша.
+   * keepJob — в проверке есть другие утверждения: разбор живёт дальше, но повторно его не отдаём.
+   */
+  purge(job: JobRecord, keepJob = false): void {
+    this.forget(job);
+    rmSync(join(REPORTS_DIR, `${job.id}.json`), { force: true });
+    if (keepJob) return;
+    if (job.cancelTimer) clearTimeout(job.cancelTimer);
+    job.abort.abort();
+    this.jobs.delete(job.id);
+  }
+
   private forget(job: JobRecord): void {
     if (this.byVideo.get(job.videoKey) === job.id) this.byVideo.delete(job.videoKey);
   }
@@ -166,7 +183,12 @@ export class JobStore {
     try {
       mkdirSync(REPORTS_DIR, { recursive: true });
       const report = { ...job.report, sourceText: job.report.sourceText ?? job.request.text };
-      const data = { request: job.request, report, checker: job.checker?.snapshot() ?? job.saved };
+      const data = {
+        request: job.request,
+        report,
+        checker: job.checker?.snapshot() ?? job.saved,
+        activity: job.activity,
+      };
       writeFileSync(join(REPORTS_DIR, `${job.id}.json`), JSON.stringify(data));
     } catch (err) {
       console.error("store: не удалось сохранить отчёт", err);
@@ -177,10 +199,13 @@ export class JobStore {
     if (!existsSync(REPORTS_DIR)) return;
     for (const file of readdirSync(REPORTS_DIR).filter((f) => f.endsWith(".json"))) {
       try {
-        const { request, report, checker } = JSON.parse(readFileSync(join(REPORTS_DIR, file), "utf8")) as {
+        const { request, report, checker, activity } = JSON.parse(
+          readFileSync(join(REPORTS_DIR, file), "utf8"),
+        ) as {
           request: StartAnalysisRequest;
           report: VideoReport;
           checker?: CheckerSnapshot;
+          activity?: SearchActivity[];
         };
         // отчёты, сохранённые до появления sourceText, — добираем текст из заявки
         report.sourceText ??= request.text;
@@ -197,6 +222,7 @@ export class JobStore {
           subscribers: new Set(),
           abort: new AbortController(),
           started: true,
+          activity: activity ?? [],
           saved: checker,
         };
         this.jobs.set(job.id, job);

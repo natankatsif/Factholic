@@ -26,6 +26,15 @@ export interface LlmUsage {
   output: number;
 }
 
+/** Что поиск делает прямо сейчас: кабинет показывает это как ход проверки */
+export type SearchActivity =
+  /** Начался новый поиск: первый, «Найти ещё» или повторный */
+  | { kind: "start" }
+  | { kind: "queries"; texts: string[] }
+  | { kind: "anchors"; terms: string[] }
+  | { kind: "filtered"; checked: number; kept: number; sites: string[] }
+  | { kind: "tree"; publications: number; links: number };
+
 /** Передаётся вторым аргументом в каждый этап. */
 export interface StageContext {
   jobId: JobId;
@@ -34,6 +43,8 @@ export interface StageContext {
   log: (msg: string, data?: unknown) => void;
   /** Учёт токенов: задаёт тот, кому нужна цена, например eval */
   usage?: (usage: LlmUsage) => void;
+  /** Ход поиска для показа: задаёт сервер */
+  activity?: (activity: SearchActivity) => void;
 }
 
 /** Сигнатура любого этапа: чистая функция вход -> выход. */

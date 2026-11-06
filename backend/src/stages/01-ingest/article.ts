@@ -5,6 +5,7 @@
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import type { ISODateString, LanguageCode } from "@news/contracts";
+import { config } from "../../config.ts";
 
 export interface Article {
   title: string;
@@ -12,6 +13,8 @@ export interface Article {
   siteName?: string;
   language?: LanguageCode;
   publishedAt?: ISODateString;
+  /** Картинка статьи для превью */
+  image?: string;
 }
 
 const TIMEOUT_MS = 15_000;
@@ -19,6 +22,8 @@ const TIMEOUT_MS = 15_000;
 const LIVING_DOC_HOST = /wiki|(^|\.)(fandom\.com|worldometers\.info|britannica\.com|dic\.academic\.ru)$/i;
 /** Меньше — это не статья (страница-заглушка, капча, пустая лента) */
 export const MIN_ARTICLE_CHARS = 300;
+const MIN_PARAGRAPH_CHARS = 40;
+const SENTENCE_END = /[.!?…»"”]$/;
 
 export async function fetchArticle(url: string, signal: AbortSignal): Promise<Article> {
   const res = await fetch(url, {
@@ -33,6 +38,52 @@ export async function fetchArticle(url: string, signal: AbortSignal): Promise<Ar
   // Википедия и подобные «живые документы»: дата в разметке — создание статьи, а не публикация факта
   if (LIVING_DOC_HOST.test(new URL(res.url || url).hostname)) delete article.publishedAt;
   return article;
+}
+
+/** Разметка Tavily → обычный текст: цитаты должны совпасть с тем, что увидит читатель */
+export function markdownToText(markdown: string): { title: string; text: string } {
+  const lines = markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`]{1,3}/g, "")
+    .split("\n")
+    .map((line) => line.replace(/^\s*(#{1,6}|>|[-+])\s+/, "").trim());
+  const title = markdownToPlainTitle(markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? "");
+  const body = articleBody(lines.filter(Boolean), title);
+  const all = normalizeText(lines.filter(Boolean).join("\n\n"));
+  const text = normalizeText(body.join("\n\n"));
+  return { title, text: text.length >= MIN_ARTICLE_CHARS ? text : all };
+}
+
+/** В тексте сервиса есть меню и чужие заголовки: статья начинается с заголовка, абзацы кончаются точкой */
+function articleBody(lines: string[], title: string): string[] {
+  const start = lines.findIndex((line) => line === title);
+  const seen = new Set<string>();
+  return lines.slice(start + 1).filter((line) => {
+    if (line.length < MIN_PARAGRAPH_CHARS || !SENTENCE_END.test(line) || seen.has(line)) return false;
+    seen.add(line);
+    return true;
+  });
+}
+
+function markdownToPlainTitle(title: string): string {
+  return title.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`]{1,3}/g, "");
+}
+
+/** Сайт не отдал страницу нам: берём текст у поискового сервиса. Его нет — null */
+export async function fetchArticleText(url: string, signal: AbortSignal): Promise<Article | null> {
+  const apiKey = config.providers.search.apiKey;
+  if (!apiKey) return null;
+  const res = await fetch("https://api.tavily.com/extract", {
+    method: "POST",
+    headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({ urls: [url], format: "markdown", extract_depth: "basic" }),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS * 2)]),
+  });
+  if (!res.ok) throw new Error(`Tavily extract ${res.status}`);
+  const body = (await res.json()) as { results?: Array<{ raw_content?: string | null }> };
+  const markdown = body.results?.[0]?.raw_content;
+  return markdown ? markdownToText(markdown) : null;
 }
 
 /** Отдельно от fetch — чтобы можно было проверить на сохранённом HTML */
@@ -55,6 +106,7 @@ export function parseArticle(html: string): Article {
     siteName: parsed?.siteName ?? undefined,
     language: lang,
     publishedAt,
+    image: document.querySelector('meta[property="og:image"]')?.getAttribute("content")?.trim() || undefined,
   };
 }
 

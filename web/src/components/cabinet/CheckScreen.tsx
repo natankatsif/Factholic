@@ -31,7 +31,7 @@ export function CheckScreen({
   const [offerHidden, setOfferHidden] = useState(false);
   const [focusIds, setFocusIds] = useState(initialFocusIds);
   const [highlightAlert, setHighlightAlert] = useState(Boolean(overlay?.highlightAlert));
-  const [searchOpen, setSearchOpen] = useState(check.status !== "done");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [claimChoice, setClaimChoice] = useState(0);
 
   // блок новых публикаций стоит вместо их отдельных узлов

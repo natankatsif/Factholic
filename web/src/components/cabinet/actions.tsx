@@ -8,12 +8,18 @@ export interface CabinetActions {
   /** Запустить проверку; ссылку на холст решает реализация */
   startCheck: (input: string) => Promise<void>;
   retryCheck: (checkId: string) => Promise<void>;
+  /** Удалить видео или ссылку из списка */
+  deleteMaterial: (checkId: string) => Promise<void>;
   /** «Найти ещё»: новый поиск дополняет дерево утверждения */
   searchMore: (checkId: string, factCheckId: string) => Promise<void>;
   answerClarification: (id: string, answer: "yes" | "no" | "other", text?: string) => Promise<void>;
+  /** Выбор одного утверждения из нескольких перед проверкой */
+  chooseClaim: (id: string, index: number) => Promise<void>;
   /** Повторить поиск по вопросу из списка */
   repeatSearch: (claimId: string) => Promise<void>;
   removeFromNarrative: (narrativeId: string, claimId: string) => Promise<void>;
+  /** Удалить вопрос совсем: потом его можно проверить заново */
+  deleteClaim: (claimId: string) => Promise<void>;
   createWatch: (claimId: string, form: WatchForm) => Promise<void>;
   /** Поставить выбранные вопросы на слежение с настройками по умолчанию */
   watchClaims: (claimIds: string[]) => Promise<void>;
@@ -41,9 +47,12 @@ export const demoActions = (push: (href: string) => void, pickerClaims: ClaimSco
   startCheck: async () => push("/cabinet/checks/demo?fixture=search"),
   retryCheck: async () => push("/cabinet/checks/demo?fixture=search"),
   searchMore: noop,
+  deleteMaterial: noop,
   repeatSearch: noop,
   removeFromNarrative: noop,
+  deleteClaim: noop,
   answerClarification: async () => push("/cabinet/checks/demo?fixture=search"),
+  chooseClaim: async () => push("/cabinet/checks/demo?fixture=search"),
   createWatch: async () => push("/cabinet/checks/demo?fixture=alert-on-tree"),
   watchClaims: noop,
   setWatchStatus: noop,

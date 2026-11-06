@@ -1,7 +1,7 @@
 import type { ISODateString, LanguageCode, VideoInfo } from "@news/contracts";
-import { messagesFor } from "../../messages.ts";
+import { messagesFor, PAGE_BLOCKED } from "../../messages.ts";
 import { PipelineError, type Stage, type StageContext } from "../../pipeline/context.ts";
-import { fetchArticle, guessLanguage, MIN_ARTICLE_CHARS, splitText } from "./article.ts";
+import { fetchArticle, fetchArticleText, guessLanguage, MIN_ARTICLE_CHARS, splitText } from "./article.ts";
 import { cutWav, downloadAudio, SAMPLE_RATE } from "./audio.ts";
 import { groupCues, loadCues, pickCaptionTrack, type YtMeta } from "./captions.ts";
 import { run } from "./process.ts";
@@ -89,15 +89,24 @@ async function ingestRemote(input: IngestInput, ctx: StageContext): Promise<Inge
   // 2. Не видеоплатформа (yt-dlp сайт не знает или лишь нашёл на странице медиафайл) → читаем как статью.
   // Клиент сам сказал, что это видеоплатформа (YouTube…), — статьёй не читаем, даже если yt-dlp не назвал сайт
   const isVideoPlatform = meta
-    ? meta.extractor_key !== "Generic"
+    ? isVideoMeta(meta, ref)
     : ref.platform !== "generic" || knownVideoSite(ytError);
   // yt-dlp узнал сайт ([youtube], [vimeo]…), но видео открыть не смог — это ошибка видео, а не «статья»
   if (!meta && isVideoPlatform) throw ytDlpError(ytError);
   if (!isVideoPlatform && !ref.mediaUrl) {
-    const article = await fetchArticle(ref.pageUrl, ctx.signal).catch((err: Error) => {
+    const direct = await fetchArticle(ref.pageUrl, ctx.signal).catch((err: Error) => {
       ctx.log(`ingest: статью не скачали (${err.message})`);
       return null;
     });
+    // сайт не отдал страницу: пробуем текст через поисковый сервис
+    const fallback =
+      direct && direct.text.length >= MIN_ARTICLE_CHARS
+        ? null
+        : await fetchArticleText(ref.pageUrl, ctx.signal).catch((err: Error) => {
+            ctx.log(`ingest: текст через поиск не получен (${err.message})`);
+            return null;
+          });
+    const article = fallback && fallback.text.length >= MIN_ARTICLE_CHARS ? fallback : direct;
     if (article && article.text.length >= MIN_ARTICLE_CHARS) {
       ctx.log(
         `ingest: статья «${article.title}», ${article.text.length} символов, дата ${article.publishedAt}`,
@@ -109,11 +118,13 @@ async function ingestRemote(input: IngestInput, ctx: StageContext): Promise<Inge
         durationSec: 0,
         language: request.languageHint ?? article.language ?? guessLanguage(article.text),
         publishedAt: article.publishedAt,
+        thumbnailUrl: article.image ?? direct?.image,
       });
     }
-    if (!meta) {
+    // прямая ссылка на файл: yt-dlp знает длину, это всё-таки видео
+    if (!meta?.duration) {
       // страница не открылась вовсе — это ошибка yt-dlp; открылась, но ни видео, ни статьи — не поддерживаем
-      if (!article) throw ytDlpError(ytError);
+      if (!article) throw new PipelineError("VIDEO_UNAVAILABLE", PAGE_BLOCKED, { cause: ytError });
       throw new PipelineError("UNSUPPORTED_PLATFORM", "На этой странице не нашли ни видео, ни текста статьи");
     }
   }
@@ -324,6 +335,28 @@ function firstWords(text: string, max = 100): string {
  * yt-dlp узнал сайт? В ошибке видеоплатформы есть имя экстрактора: "ERROR: [youtube] xxx: This video is unavailable".
  * Незнакомый сайт — "Unsupported URL" или "[generic]": такую страницу пробуем прочитать как статью.
  */
+/** Видео на самой странице. Плеер внутри новости ещё не делает её видео: у неё есть текст статьи */
+export function isVideoMeta(
+  meta: { extractor_key?: string; duration?: number; webpage_url?: string },
+  ref: { platform: string; pageUrl: string },
+): boolean {
+  if (ref.platform !== "generic") return true;
+  if (!meta.duration || PAGE_EXTRACTORS.has(meta.extractor_key ?? "")) return false;
+  return sameHost(meta.webpage_url ?? ref.pageUrl, ref.pageUrl);
+}
+
+/** Так yt-dlp называет любой плеер на обычной странице */
+const PAGE_EXTRACTORS = new Set(["Generic", "HTML5MediaEmbed"]);
+
+function sameHost(a: string, b: string): boolean {
+  const host = (url: string) => new URL(url).hostname.replace(/^www\./, "");
+  try {
+    return host(a) === host(b);
+  } catch {
+    return false;
+  }
+}
+
 function knownVideoSite(err: unknown): boolean {
   const text = (err as Error | undefined)?.message ?? "";
   const extractor = text.match(/\[([\w:.-]+)\]/)?.[1]?.toLowerCase();

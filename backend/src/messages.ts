@@ -12,6 +12,8 @@ interface Messages {
   chatTooLong: string;
   chatFailed: string;
   claimCheckFailed: string;
+  /** Сайт закрыт и для нас, и для поискового сервиса */
+  pageBlocked: string;
   /** Подписи материала без названия */
   titles: { untitled: string; screenshot: string; image: string };
   /** Текст сбоя по коду. В ru этапы пишут подробнее, поэтому там берём их текст (см. pipelineErrorText) */
@@ -21,6 +23,8 @@ interface Messages {
 
 const MESSAGES: Record<string, Messages> = {
   ru: {
+    pageBlocked:
+      "На сайте стоят блокировки, страницу не получается открыть. Обратитесь к natankatsif@gmail.com",
     fileTooLarge: "Файл слишком большой",
     textTooLong: (max) => `Текст слишком длинный: до ${max.toLocaleString("ru-RU")} символов`,
     chatTooLong: "Слишком длинный разговор — начни новый чат",
@@ -50,6 +54,7 @@ const MESSAGES: Record<string, Messages> = {
     },
   },
   ro: {
+    pageBlocked: "Site-ul are blocări și pagina nu poate fi deschisă. Scrieți la natankatsif@gmail.com",
     fileTooLarge: "Fișierul este prea mare",
     textTooLong: (max) => `Textul este prea lung: maximum ${max.toLocaleString("ro-RO")} de caractere`,
     chatTooLong: "Conversația este prea lungă. Începe un chat nou",
@@ -80,6 +85,7 @@ const MESSAGES: Record<string, Messages> = {
     },
   },
   en: {
+    pageBlocked: "The site has blocks in place and the page cannot be opened. Contact natankatsif@gmail.com",
     fileTooLarge: "The file is too large",
     textTooLong: (max) => `The text is too long: up to ${max.toLocaleString("en-US")} characters`,
     chatTooLong: "The conversation is too long. Start a new chat",
@@ -114,7 +120,11 @@ export function messagesFor(uiLanguage: LanguageCode): Messages {
   return MESSAGES[uiLanguage] ?? MESSAGES.en;
 }
 
+/** Метка вместо текста: это сообщение есть на всех языках */
+export const PAGE_BLOCKED = "page_blocked";
+
 /** Этапы пишут причину сбоя по-русски; на других языках показываем общий текст по коду */
 export function pipelineErrorText(code: ApiError["code"], text: string, uiLanguage: LanguageCode): string {
+  if (text === PAGE_BLOCKED) return messagesFor(uiLanguage).pageBlocked;
   return uiLanguage === "ru" ? text : messagesFor(uiLanguage).jobFailed[code];
 }

@@ -3,7 +3,23 @@
  * API пока нет, поэтому даты уже приходят подписями. Когда API появится, подписи будет строить фронт.
  */
 
-export type ClaimStatus = "new" | "spreading" | "stable" | "debunked" | "fading";
+import type { SearchActivity } from "../../../../backend/src/org/types";
+
+export type { SearchActivity };
+
+export type ClaimStatus =
+  | "checking"
+  | "new"
+  | "spreading"
+  | "stable"
+  | "debunked"
+  | "fading"
+  | "outdated"
+  | "inflated"
+  | "against"
+  | "split"
+  | "converging"
+  | "few";
 export type CheckStatus = "running" | "done" | "failed";
 export type Stance = "for" | "against" | "partial" | "neutral";
 export type OutletType = "media" | "channel" | "official" | "debunk";
@@ -203,6 +219,8 @@ export interface CheckView {
   /** Утверждение отчёта, по которому работает «Найти ещё» */
   factCheckId?: string;
   searchingMore?: boolean;
+  /** Что поиск уже сделал: для блока «Ход поиска» */
+  activity?: SearchActivity[];
   /** Сколько новых публикаций дал последний такой поиск */
   moreFound?: number;
 }
@@ -216,6 +234,8 @@ export interface RunningCheck {
   found: number;
   /** Разбор видео: открывается в разделе видео */
   video?: boolean;
+  /** Статья по ссылке: открывается в разделе ссылок */
+  article?: boolean;
 }
 
 export interface CabinetLimits {
@@ -249,6 +269,7 @@ export interface ClarificationView {
   question: string;
   input: string;
   rewritten: string;
+  options?: string[];
 }
 
 export interface SuggestionQuote {
@@ -287,7 +308,7 @@ export interface CabinetSession {
   alerts: AlertItem[];
   clarifications: ClarificationView[];
   running: RunningCheck[];
-  counts: Record<ClaimScope | "videos", number>;
+  counts: Record<ClaimScope | "videos" | "links", number>;
   narratives: NarrativeLink[];
   suggestions: SuggestionView[];
   limits: CabinetLimits;
@@ -345,6 +366,8 @@ export interface NarrativeQuestion {
   sides: SidesSummary;
   /** Идёт повторный поиск */
   searching?: boolean;
+  /** Вопрос на слежении */
+  watchId?: string;
 }
 
 export interface NarrativeQuote {
@@ -353,6 +376,10 @@ export interface NarrativeQuote {
   color: string;
   date: string;
   text: string;
+  /** Страница с выделенной цитатой */
+  href?: string;
+  /** Найдена последним поиском */
+  fresh?: boolean;
 }
 
 export interface NarrativeView {
@@ -393,4 +420,5 @@ export interface VideoRow {
   claims: number;
   checked: number;
   date: string;
+  kind: "video" | "article";
 }

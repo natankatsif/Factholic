@@ -36,11 +36,13 @@ import type {
   OrgSearchStep,
   OrgSession,
   OrgStepKey,
+  SearchActivity,
   StartCheckResponse,
   TrackedClaim,
   Watch,
 } from "./types.ts";
 
+const MAX_CLAIM_OPTIONS = 6;
 const STEP_KEYS: OrgStepKey[] = ["claims", "search", "traces", "tree", "stances", "done"];
 /** Этап проверки утверждения → шаг в «В процессе» */
 const MORE_STEPS: Partial<Record<ClaimStage, OrgStepKey>> = {
@@ -75,6 +77,10 @@ export interface JobRunner {
   report(jobId: JobId): VideoReport | undefined;
   /** «Найти ещё» по готовому утверждению. false — оно сейчас проверяется */
   more(jobId: JobId, claimId: string): boolean;
+  /** Ход поиска задачи */
+  activity(jobId: JobId): SearchActivity[];
+  /** Убрать задачу из кэша: тот же материал проверится заново. keepJob — разбор ещё нужен другим утверждениям */
+  forget(jobId: JobId, keepJob?: boolean): void;
   subscribe(jobId: JobId, listener: (event: ServerEvent) => void): () => void;
 }
 
@@ -109,6 +115,12 @@ const normalize = (text: string) =>
     .replace(/[«»"“”.,!?]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+
+/** Утверждения для выбора: без повторов и без формулировок, в которые попал чужой алфавит */
+function claimOptions(text: string, claims: string[]): string[] {
+  const clean = claims.map((claim) => claim.trim()).filter((claim) => claim && !mixesAlphabets(text, claim));
+  return [...new Set(clean)].slice(0, MAX_CLAIM_OPTIONS);
+}
 
 function isUrl(input: string): boolean {
   return /^https?:\/\/\S+$/i.test(input.trim());
@@ -147,7 +159,7 @@ function toRequest(input: string, locale: string): StartAnalysisRequest {
 export class CabinetService {
   private stopSubscriptions = new Map<string, () => void>();
   /** Идущие «Найти ещё»: `${checkId}:${factCheckId}` → шаг. Только в памяти: сервер перезапустился — поиска уже нет */
-  private searchingMore = new Map<string, OrgStepKey>();
+  private searchingMore = new Map<string, { step: OrgStepKey; silent: boolean }>();
 
   constructor(
     private db: CabinetDb,
@@ -196,6 +208,10 @@ export class CabinetService {
     const text = input?.trim();
     if (!text) throw new OrgError(400, "BAD_REQUEST", "пустой текст");
     this.assertChecksLeft();
+    return this.clarifyThenStart(text, locale, true);
+  }
+
+  private async clarifyThenStart(text: string, locale: string, split: boolean): Promise<StartCheckResponse> {
     const clarifier = this.options.clarifier;
     if (!clarifier || isUrl(text)) return { check: this.startCheck(text, undefined, locale) };
     let result: ClarifyResult | undefined;
@@ -203,6 +219,21 @@ export class CabinetService {
       result = await clarifier({ text, locale, now: this.now() });
     } catch (err) {
       console.error("cabinet: уточнение не удалось, проверяем как есть", err);
+    }
+    const options = split ? claimOptions(text, result?.claims ?? []) : [];
+    if (options.length > 1) {
+      const clarification = this.db.put<Clarification>("clarification", {
+        id: randomUUID(),
+        organizationId: ORGANIZATION_ID,
+        input: text,
+        question: "",
+        rewritten: text,
+        options,
+        locale,
+        status: "pending",
+        createdAt: this.now().toISOString(),
+      });
+      return { clarification };
     }
     const rewritten = result?.rewritten.trim();
     if (!result?.needed || !rewritten || rewritten === text || mixesAlphabets(text, rewritten)) {
@@ -234,6 +265,18 @@ export class CabinetService {
     return check;
   }
 
+  /** Выбранное утверждение ещё может потребовать уточнения времени или страны */
+  async chooseClaim(id: string, index: number): Promise<StartCheckResponse> {
+    const clarification = this.db.get<Clarification>("clarification", id);
+    const option = clarification?.options?.[index];
+    if (clarification?.status !== "pending" || !option) {
+      throw new OrgError(404, "NOT_FOUND", "вопрос не найден");
+    }
+    const started = await this.clarifyThenStart(option, clarification.locale, false);
+    this.db.put("clarification", { ...clarification, status: "answered" });
+    return started;
+  }
+
   private clarifications(): Clarification[] {
     return this.db
       .list<Clarification>("clarification")
@@ -246,8 +289,8 @@ export class CabinetService {
     if (!text) throw new OrgError(400, "BAD_REQUEST", "пустой текст");
     if (text.length > MAX_INPUT_CHARS) throw new OrgError(400, "BAD_REQUEST", "текст слишком длинный");
     const videoId = youtubeId(text);
-    // то же видео уже разобрано: открываем его, лимит не тратим
-    const known = videoId && this.knownVideo(videoId, locale);
+    // то же видео или статья уже разобраны: открываем, лимит не тратим
+    const known = isUrl(text) && this.knownMaterial(text, locale);
     if (known) return known;
     this.assertChecksLeft();
     // слежению нужен новый поиск; обычная проверка того же текста может взять готовое
@@ -264,7 +307,7 @@ export class CabinetService {
       watchClaimId,
       createdBy: MEMBER_ID,
       startedAt: this.now().toISOString(),
-      ...(videoId ? { kind: "video" as const } : {}),
+      ...(videoId ? { kind: "video" as const } : isUrl(text) ? { kind: "article" as const } : {}),
     };
     this.db.put("check", check);
     this.follow(check);
@@ -274,13 +317,17 @@ export class CabinetService {
   private videoChecks(): ClaimCheck[] {
     return this.db
       .list<ClaimCheck>("check")
-      .filter((check) => check.kind === "video")
+      .filter((check) => check.kind !== undefined)
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   }
 
-  private knownVideo(videoId: string, locale: string): ClaimCheck | undefined {
+  private knownMaterial(input: string, locale: string): ClaimCheck | undefined {
+    const videoId = youtubeId(input);
     return this.videoChecks().find(
-      (check) => check.status !== "failed" && check.locale === locale && youtubeId(check.input) === videoId,
+      (check) =>
+        check.status !== "failed" &&
+        check.locale === locale &&
+        (videoId ? youtubeId(check.input) === videoId : check.input === input),
     );
   }
 
@@ -303,8 +350,63 @@ export class CabinetService {
         claims: factChecks.length,
         checked: factChecks.filter((factCheck) => factCheck.status === "done").length,
         startedAt: check.startedAt,
+        kind: check.kind ?? "video",
       };
     });
+  }
+
+  /** Адрес страницы, у которой ищем превью: только наши материалы, не любой адрес из запроса */
+  articleUrl(id: string): string {
+    const check = this.db.get<ClaimCheck>("check", id);
+    if (check?.kind !== "article") throw new OrgError(404, "NOT_FOUND", "статья не найдена");
+    return check.input;
+  }
+
+  /** Видео или статья уходят из списка вместе с сохранённым отчётом */
+  deleteMaterial(id: string): void {
+    const check = this.db.get<ClaimCheck>("check", id);
+    if (!check?.kind) throw new OrgError(404, "NOT_FOUND", "материал не найден");
+    this.removeCheck(check);
+    this.emit({ type: "check.finished", checkId: id });
+  }
+
+  private removeCheck(check: ClaimCheck): void {
+    this.unfollow(check.id);
+    this.runner.forget(check.jobId);
+    this.db.remove("report", check.id);
+    this.db.remove("check", check.id);
+  }
+
+  /** Утверждение уходит совсем: со слежением, уведомлениями и кэшем. Такой же вопрос потом ищется заново */
+  deleteClaim(id: string): void {
+    const claim = this.db.get<TrackedClaim>("claim", id);
+    if (!claim) throw new OrgError(404, "NOT_FOUND", "утверждение не найдено");
+    if (claim.narrativeId) this.removeFromNarrative(claim.narrativeId, id);
+    for (const watch of this.watches().filter((item) => item.claimId === id)) {
+      this.db.remove("watch", watch.id);
+    }
+    for (const alert of this.alerts().filter((item) => item.claimId === id)) {
+      this.db.remove("alert", alert.id);
+    }
+    const checks = this.db
+      .list<ClaimCheck>("check")
+      .filter(
+        (check) =>
+          check.id === claim.latestCheckId || check.watchClaimId === id || check.claimIds.includes(id),
+      );
+    for (const check of checks) {
+      const rest = check.claimIds.filter((item) => item !== id);
+      if (rest.length > 0) {
+        // в тексте были и другие утверждения: их разбор остаётся
+        this.runner.forget(check.jobId, true);
+        this.db.put("check", { ...check, claimIds: rest });
+      } else {
+        this.removeCheck(check);
+      }
+    }
+    this.db.remove("claim", id);
+    this.refreshSuggestions();
+    this.emit({ type: "check.finished", checkId: claim.latestCheckId });
   }
 
   retryCheck(id: string): ClaimCheck {
@@ -360,7 +462,7 @@ export class CabinetService {
     if (!check || check.status !== "running") return;
     const report = this.runner.report(check.jobId);
     if (!report) return;
-    if (check.kind === "video") return this.settleVideo(check, report, force);
+    if (check.kind) return this.settleVideo(check, report, force);
     // «found» не ждём: утверждение сверх лимита не проверится никогда, и проверка зависла бы
     const busy = report.factChecks.some((factCheck) => factCheck.status === "checking");
     if (!force && (report.status !== "completed" || busy)) return;
@@ -430,17 +532,21 @@ export class CabinetService {
     const check = this.db.get<ClaimCheck>("check", id);
     if (!check) throw new OrgError(404, "NOT_FOUND", "проверка не найдена");
     const report =
-      (check.kind === "video"
+      (check.kind
         ? this.videoReport(check)
         : (this.db.get<StoredReport>("report", id)?.report ?? this.runner.report(check.jobId))) ?? null;
     const ids = check.watchClaimId ? [check.watchClaimId] : check.claimIds;
-    const claims = ids.flatMap((claimId) => this.db.get<TrackedClaim>("claim", claimId) ?? []);
+    const claims = ids.flatMap((claimId) => {
+      const claim = this.db.get<TrackedClaim>("claim", claimId);
+      return claim ? [this.withStatus(claim)] : [];
+    });
     return {
       check,
       report,
       claims,
       watches: this.watches().filter((watch) => ids.includes(watch.claimId)),
       alerts: this.alerts().filter((alert) => ids.includes(alert.claimId)),
+      activity: this.runner.activity(check.jobId),
       searchingMore: [...this.searchingMore.keys()]
         .filter((key) => key.startsWith(`${id}:`))
         .map((key) => key.slice(id.length + 1)),
@@ -448,7 +554,7 @@ export class CabinetService {
   }
 
   /** «Найти ещё»: прошлые публикации остаются, новые дополняют то же дерево */
-  searchMore(id: string, factCheckId: string): { ok: true } {
+  searchMore(id: string, factCheckId: string, silent = false): { ok: true } {
     const check = this.db.get<ClaimCheck>("check", id);
     if (!check) throw new OrgError(404, "NOT_FOUND", "проверка не найдена");
     const key = `${id}:${factCheckId}`;
@@ -467,7 +573,7 @@ export class CabinetService {
     const stop = this.runner.subscribe(check.jobId, (event) => {
       if (!live) return;
       if (event.type === "claim.progress" && event.claimId === factCheckId) {
-        this.searchingMore.set(key, MORE_STEPS[event.stage] ?? "search");
+        this.searchingMore.set(key, { step: MORE_STEPS[event.stage] ?? "search", silent });
         this.emit({ type: "check.step", checkId: id });
       }
       if (event.type !== "claim.checked" || event.factCheck.id !== factCheckId) return;
@@ -475,7 +581,7 @@ export class CabinetService {
       this.finishMore(id, event.factCheck, before);
     });
     live = true;
-    this.searchingMore.set(key, "search");
+    this.searchingMore.set(key, { step: "search", silent });
     if (!this.runner.more(check.jobId, factCheckId)) {
       finish();
       throw new OrgError(400, "BAD_REQUEST", "утверждение ещё проверяется");
@@ -486,15 +592,53 @@ export class CabinetService {
   }
 
   /** Три точки у вопроса: поиск по последней проверке */
-  repeatSearch(claimId: string): { ok: true } {
+  repeatSearch(claimId: string, silent = false): { ok: true } {
     const claim = this.db.get<TrackedClaim>("claim", claimId);
     if (!claim) throw new OrgError(404, "NOT_FOUND", "утверждение не найдено");
-    return this.searchMore(claim.latestCheckId, claim.factCheckId);
+    return this.searchMore(claim.latestCheckId, claim.factCheckId, silent);
   }
 
-  private withSearching(claim: TrackedClaim): TrackedClaim {
+  /** Слежение началось: сразу один поиск, но без строки в «В процессе» */
+  private firstWatchSearch(claimId: string): void {
+    try {
+      this.repeatSearch(claimId, true);
+    } catch (err) {
+      // лимит или идущая проверка не мешают включить слежение: следующий поиск пройдёт по расписанию
+      if (!(err instanceof OrgError)) throw err;
+    }
+  }
+
+  /** Новые публикации вопроса встают в начало цитат нарратива */
+  private refreshNarrative(claim: TrackedClaim): void {
+    const narrative = claim.narrativeId && this.db.get<Narrative>("narrative", claim.narrativeId);
+    if (!narrative) return;
+    const known = new Set(narrative.quotes.map((quote) => quote.url));
+    const nodes = this.factCheckOf(claim)?.provenance?.nodes ?? [];
+    const fresh = nodes
+      .filter((node) => node.role !== "target" && node.url && node.quote && !known.has(node.url))
+      .map((node) => ({ url: node.url, site: node.name, date: node.date, text: node.quote!, fresh: true }));
+    const old = narrative.quotes.map(({ fresh: _seen, ...quote }) => quote);
+    this.db.put("narrative", {
+      ...narrative,
+      quotes: [...fresh, ...old].slice(0, MAX_NARRATIVE_QUOTES),
+    });
+  }
+
+  /** Что показать про вопрос: поиск, свежая проверка или итог по источникам */
+  private withStatus(claim: TrackedClaim): TrackedClaim {
     const searching = this.searchingMore.has(`${claim.latestCheckId}:${claim.factCheckId}`);
-    return searching ? { ...claim, searching } : claim;
+    const rechecking = this.db
+      .list<ClaimCheck>("check")
+      .some((check) => check.status === "running" && check.watchClaimId === claim.id);
+    const watched = this.watches().some((watch) => watch.claimId === claim.id && watch.status === "active");
+    const status = shownStatus({
+      claim,
+      checking: searching || rechecking,
+      watched,
+      factCheck: this.factCheckOf(claim),
+      now: this.now(),
+    });
+    return { ...claim, status, ...(searching ? { searching } : {}) };
   }
 
   private reportFactCheck(check: ClaimCheck, factCheckId: string): FactCheck | undefined {
@@ -513,20 +657,23 @@ export class CabinetService {
     const ids = check.watchClaimId ? [check.watchClaimId] : check.claimIds;
     for (const claimId of ids) {
       const claim = this.db.get<TrackedClaim>("claim", claimId);
-      if (claim?.factCheckId === after.id)
-        this.db.put<TrackedClaim>("claim", {
-          ...claim,
-          checksCount: claim.checksCount + 1,
-          lastCheckAt: now,
-          sides: sidesOf(after),
-        });
+      if (claim?.factCheckId !== after.id) continue;
+      const updated = {
+        ...claim,
+        checksCount: claim.checksCount + 1,
+        lastCheckAt: now,
+        sides: sidesOf(after),
+      };
+      this.db.put<TrackedClaim>("claim", updated);
+      this.refreshNarrative(updated);
     }
     this.emit({ type: "check.finished", checkId: id });
   }
 
   /** Повторный поиск виден в «В процессе» так же, как обычная проверка */
   private runningMore(): OrgRunningCheck[] {
-    return [...this.searchingMore].flatMap(([key, stepKey]) => {
+    return [...this.searchingMore].flatMap(([key, { step: stepKey, silent }]) => {
+      if (silent) return [];
       const separator = key.indexOf(":");
       const check = this.db.get<ClaimCheck>("check", key.slice(0, separator));
       const factCheck = check && this.reportFactCheck(check, key.slice(separator + 1));
@@ -553,10 +700,7 @@ export class CabinetService {
         const index = Math.max(check.steps.filter((step) => step.status !== "waiting").length - 1, 0);
         return {
           id: check.id,
-          claim: ((check.kind === "video" && this.videoReport(check)?.video.title) || check.input).slice(
-            0,
-            120,
-          ),
+          claim: ((check.kind && this.videoReport(check)?.video.title) || check.input).slice(0, 120),
           step: index + 1,
           totalSteps: check.steps.length,
           stepKey: check.steps[index]!.key,
@@ -585,7 +729,7 @@ export class CabinetService {
         .filter((check) => check.status === "running" && check.watchClaimId)
         .map((check) => check.watchClaimId),
     );
-    const list = this.claims().map((claim) => this.withSearching(claim));
+    const list = this.claims().map((claim) => this.withStatus(claim));
     return list.filter((claim) => {
       if (scope === "mine") return claim.createdBy === MEMBER_ID;
       if (scope === "watched") return watched.has(claim.id);
@@ -609,7 +753,7 @@ export class CabinetService {
   listWatches(): Array<Watch & { claim: TrackedClaim }> {
     return this.watches().flatMap((watch) => {
       const claim = this.db.get<TrackedClaim>("claim", watch.claimId);
-      return claim ? [{ ...watch, claim }] : [];
+      return claim ? [{ ...watch, claim: this.withStatus(claim) }] : [];
     });
   }
 
@@ -626,7 +770,7 @@ export class CabinetService {
     }
     if (!request.signals?.length) throw new OrgError(400, "BAD_REQUEST", "нужен хотя бы один сигнал");
     const now = this.now();
-    return this.db.put<Watch>("watch", {
+    const watch = this.db.put<Watch>("watch", {
       id: existing?.id ?? randomUUID(),
       organizationId: ORGANIZATION_ID,
       claimId: claim.id,
@@ -641,6 +785,8 @@ export class CabinetService {
       lastNewAt: existing?.lastNewAt ?? now.toISOString(),
       fresh: existing?.fresh ?? 0,
     });
+    if (!existing) this.firstWatchSearch(claim.id);
+    return watch;
   }
 
   updateWatch(
@@ -713,7 +859,7 @@ export class CabinetService {
       for (const alert of alerts) this.emit({ type: "alert.created", alert });
     }
 
-    this.db.put<TrackedClaim>("claim", {
+    const updated = this.db.put<TrackedClaim>("claim", {
       ...claim,
       latestCheckId: check.id,
       factCheckId: after.id,
@@ -722,6 +868,7 @@ export class CabinetService {
       status: nextStatus(signals, claim, after, watch, now),
       sides: sidesOf(after),
     });
+    this.refreshNarrative(updated);
   }
 
   private signalsFor(watch: Watch, claim: TrackedClaim, before: FactCheck, after: FactCheck): Signal[] {
@@ -872,7 +1019,7 @@ export class CabinetService {
     if (!narrative) throw new OrgError(404, "NOT_FOUND", "нарратив не найден");
     const claims = narrative.claimIds.flatMap((claimId) => {
       const claim = this.db.get<TrackedClaim>("claim", claimId);
-      return claim ? [this.withSearching(claim)] : [];
+      return claim ? [this.withStatus(claim)] : [];
     });
     const factChecks = claims.flatMap((claim) => this.factCheckOf(claim) ?? []);
     const urls = new Set(
@@ -880,9 +1027,18 @@ export class CabinetService {
         (factCheck.provenance?.nodes ?? []).flatMap((node) => (node.url ? [node.url] : [])),
       ),
     );
+    const dates = new Map(
+      factChecks.flatMap((factCheck) =>
+        (factCheck.provenance?.nodes ?? []).map((node) => [node.url, node.isoDate] as const),
+      ),
+    );
     return {
-      narrative,
+      narrative: {
+        ...narrative,
+        quotes: narrative.quotes.map((quote) => ({ ...quote, isoDate: dates.get(quote.url) })),
+      },
       claims,
+      watches: this.watches().filter((watch) => narrative.claimIds.includes(watch.claimId)),
       publications: urls.size,
       languages: new Set(
         factChecks.flatMap((factCheck) => factCheck.sources.map((source) => source.language)),
@@ -946,7 +1102,8 @@ export class CabinetService {
       watched: this.listClaims("watched").length,
       running: this.running().length,
       ungrouped: this.listClaims("ungrouped").length,
-      videos: this.videoChecks().length,
+      videos: this.videoChecks().filter((check) => check.kind === "video").length,
+      links: this.videoChecks().filter((check) => check.kind === "article").length,
     };
     return {
       organization: { id: ORGANIZATION_ID, name: this.options.organizationName },
@@ -1010,6 +1167,40 @@ function applyStep(steps: OrgSearchStep[], event: ServerEvent): boolean {
     ].some(Boolean);
   }
   return [setStep(steps, "tree", "done"), setStep(steps, "stances", "running")].some(Boolean);
+}
+
+/** Столько держится «Только проверили» после конца последней проверки */
+const JUST_CHECKED_MS = 5 * 60 * 1000;
+
+/**
+ * Статус считается при показе: он зависит от времени и от идущего поиска.
+ * Изменения по слежению важнее итога проверки: они говорят, что происходит с историей сейчас.
+ */
+export function shownStatus({
+  claim,
+  checking,
+  watched,
+  factCheck,
+  now,
+}: {
+  claim: TrackedClaim;
+  checking: boolean;
+  watched: boolean;
+  factCheck?: FactCheck;
+  now: Date;
+}): TrackedClaim["status"] {
+  if (checking) return "checking";
+  if (claim.status === "spreading" || claim.status === "fading" || claim.status === "debunked")
+    return claim.status;
+  if (now.getTime() - new Date(claim.lastCheckAt).getTime() < JUST_CHECKED_MS) return "new";
+  if (claim.status === "stable" && watched) return "stable";
+  const flags = new Set(factCheck?.flags.map((flag) => flag.type));
+  if (flags.has("outdated")) return "outdated";
+  if (flags.has("exaggerated")) return "inflated";
+  if (factCheck?.consensus === "against") return "against";
+  if (factCheck?.consensus === "split") return "split";
+  if (factCheck?.consensus === "converge") return "converging";
+  return "few";
 }
 
 function nextStatus(

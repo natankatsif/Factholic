@@ -88,6 +88,25 @@ export interface TreeCanvasProps {
   onToggleSearch?: () => void;
 }
 
+const POSITIONS_KEY = "factholic:tree-positions";
+
+/** Хранилище может быть закрыто: тогда карточки просто встанут по раскладке */
+function readPositions(key: string): Record<string, Point> {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, Point>;
+  } catch {
+    return {};
+  }
+}
+
+function writePositions(key: string, positions: Record<string, Point>): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(positions));
+  } catch {
+    // без сохранения карточки всё равно двигаются
+  }
+}
+
 export function TreeCanvas({
   check,
   selectedNodeId,
@@ -107,13 +126,39 @@ export function TreeCanvas({
   const focusedKey = useRef<string>();
   const elements = useRef(new Map<string, HTMLElement>());
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 });
-  const [offsets, setOffsets] = useState<Record<string, Point>>({});
+  // где человек поставил карточки: у каждого дерева своё. Публикации помним по адресу: номера меняются
+  const [positions, setPositions] = useState<Record<string, Point>>({});
+  const savedPositions = useRef(positions);
+  const storageKey = `${POSITIONS_KEY}:${check.id}:${check.factCheckId ?? ""}`;
   const [heights, setHeights] = useState<Record<string, number>>({});
 
   const layout = useMemo(
     () => layoutTree(check, { heights, showAlert: highlightAlert }),
     [check, heights, highlightAlert],
   );
+
+  const nodeKey = useCallback(
+    (id: string) => {
+      const node = check.nodes.find((item) => item.id === id);
+      return (node?.kind === "publication" && node.detail?.url) || id;
+    },
+    [check.nodes],
+  );
+
+  const offsets = useMemo(() => {
+    const result: Record<string, Point> = {};
+    for (const [id, base] of Object.entries(layout.nodes)) {
+      const position = positions[nodeKey(id)];
+      if (position) result[id] = { x: position.x - base.x, y: position.y - base.y };
+    }
+    return result;
+  }, [layout, positions, nodeKey]);
+
+  useEffect(() => {
+    const saved = readPositions(storageKey);
+    savedPositions.current = saved;
+    setPositions(saved);
+  }, [storageKey]);
 
   const measure = useCallback(
     (id: string) => (element: HTMLElement | null) => {
@@ -288,16 +333,21 @@ export function TreeCanvas({
     }
     if (!current.moved && Math.hypot(dx, dy) < CLICK_DISTANCE) return;
     current.moved = true;
-    setOffsets((all) => ({
-      ...all,
-      [current.id]: { x: current.offset.x + dx / view.zoom, y: current.offset.y + dy / view.zoom },
-    }));
+    const base = layout.nodes[current.id];
+    if (!base) return;
+    const position = {
+      x: base.x + current.offset.x + dx / view.zoom,
+      y: base.y + current.offset.y + dy / view.zoom,
+    };
+    savedPositions.current = { ...savedPositions.current, [nodeKey(current.id)]: position };
+    setPositions(savedPositions.current);
   };
 
   const onPointerUp = (event: ReactPointerEvent) => {
     const current = drag.current;
     drag.current = null;
     if (!current) return;
+    if (current.type === "node" && current.moved) writePositions(storageKey, savedPositions.current);
     if (current.type === "node" && !current.moved) {
       const node = check.nodes.find((item) => item.id === current.id);
       if (node?.kind === "publication") onSelectNode(current.id);
@@ -524,9 +574,11 @@ export function TreeCanvas({
           onZoomIn={() => zoomAt(view.zoom + ZOOM_STEP)}
           onZoomOut={() => zoomAt(view.zoom - ZOOM_STEP)}
         />
-        {check.steps && (check.status !== "done" || searchOpen) && (
+        {check.steps && (check.status !== "done" || searchOpen || Boolean(check.activity?.length)) && (
           <SearchProgress
             steps={check.steps}
+            activity={check.activity ?? []}
+            searching={Boolean(check.searchingMore)}
             open={searchOpen}
             onToggle={onToggleSearch ?? (() => undefined)}
           />

@@ -1,6 +1,7 @@
 "use client";
 
 /** Экраны на настоящем API и обёртка демо-данных. Данные перечитываются по событиям /api/org/events */
+import { useLocalizedReport } from "../../lib/report-labels";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -35,8 +36,13 @@ import { WatchesScreen } from "./WatchesScreen";
 import { DEFAULT_WATCH_FORM } from "./WatchSettings";
 
 /** Видео живёт в своём разделе, остальное — на холсте */
+const ACTIVITY_REFRESH_MS = 2500;
+
+const materialPath = (kind: "video" | "article", id: string) =>
+  `/cabinet/${kind === "article" ? "links" : "videos"}/${id}`;
+
 const checkPath = (check: ClaimCheck) =>
-  check.kind === "video" ? `/cabinet/videos/${check.id}` : `/cabinet/checks/${check.id}`;
+  check.kind ? materialPath(check.kind, check.id) : `/cabinet/checks/${check.id}`;
 
 const DURATION_DAYS: Record<WatchDuration, number | undefined> = { d7: 7, d30: 30, forever: undefined };
 
@@ -103,6 +109,12 @@ function useLiveActions(reload: () => Promise<void>, picker: CabinetActions["pic
           // если модель спросила, вопрос появится в верхней панели
           if ("check" in started) router.push(checkPath(started.check));
         }),
+      chooseClaim: (id, index) =>
+        run(async () => {
+          const started = await cabinetApi.chooseClaim(id, index);
+          // по выбранному утверждению может быть ещё вопрос: он появится в верхней панели
+          if ("check" in started) router.push(checkPath(started.check));
+        }),
       answerClarification: (id, answer, text) =>
         run(async () => {
           const check = await cabinetApi.answerClarification(id, answer, text);
@@ -113,8 +125,10 @@ function useLiveActions(reload: () => Promise<void>, picker: CabinetActions["pic
           const check = await cabinetApi.retryCheck(id);
           router.push(checkPath(check));
         }),
+      deleteMaterial: (id) => run(() => cabinetApi.deleteMaterial(id)),
       searchMore: (id, factCheckId) => run(() => cabinetApi.searchMore(id, factCheckId)),
       repeatSearch: (claimId) => run(() => cabinetApi.repeatSearch(claimId)),
+      deleteClaim: (claimId) => run(() => cabinetApi.deleteClaim(claimId)),
       removeFromNarrative: (id, claimId) => run(() => cabinetApi.removeFromNarrative(id, claimId)),
       createWatch: (claimId, form) => run(() => cabinetApi.createWatch(watchRequest(claimId, form))),
       watchClaims: (claimIds) =>
@@ -220,14 +234,23 @@ export function LiveCheck({ id, showAlert }: { id: string; showAlert: boolean })
     const [common, detail] = await Promise.all([loadCommon(), cabinetApi.check(id)]);
     return { ...common, detail };
   });
+  // ход поиска идёт без событий кабинета, поэтому смотрим сами, пока проверка работает
+  const working = data?.detail.check.status === "running" || Boolean(data?.detail.searchingMore.length);
+  useEffect(() => {
+    if (!working) return;
+    const timer = setInterval(() => void reload(), ACTIVITY_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [working, reload]);
+  const report = useLocalizedReport(data?.detail.report ?? null, t.locale);
   const noClaims = data?.detail.check.noClaims;
   const missing = Boolean(failed) && !data;
-  const isVideo = data?.detail.check.kind === "video";
+  const materialKind = data?.detail.check.kind;
+  const isVideo = Boolean(materialKind);
   useEffect(() => {
-    if (isVideo) router.replace(`/cabinet/videos/${id}`);
+    if (materialKind) router.replace(materialPath(materialKind, id));
     else if (noClaims) router.replace(`/cabinet?noClaims=${id}`);
     else if (missing) router.replace("/cabinet");
-  }, [isVideo, noClaims, missing, id, router]);
+  }, [materialKind, noClaims, missing, id, router]);
   // пока неизвестно, есть ли в тексте утверждения, холст не показываем: дерева может и не быть
   const waitingClaims = data?.detail.check.status === "running" && !data.detail.report?.factChecks.length;
   if (!data || isVideo || noClaims || waitingClaims) {
@@ -239,7 +262,7 @@ export function LiveCheck({ id, showAlert }: { id: string; showAlert: boolean })
       </LiveFrame>
     );
   }
-  const check = toCheckView(data.detail, claimIndex, t);
+  const check = toCheckView({ ...data.detail, report }, claimIndex, t);
   return (
     <LiveFrame reload={reload} claims={data.claims}>
       <CheckScreen
@@ -310,7 +333,7 @@ export function LiveWatches() {
   );
 }
 
-export function LiveVideos() {
+export function LiveVideos({ kind = "video" }: { kind?: "video" | "article" }) {
   const t = useCabinetText();
   const { data, failed, reload } = useLive(async () => {
     const [common, videos] = await Promise.all([loadCommon(), cabinetApi.videos()]);
@@ -318,14 +341,14 @@ export function LiveVideos() {
   });
   const view = data && {
     session: toSession(data.session, data.alerts, t),
-    videos: data.videos.map((video) => toVideoRow(video, t)),
+    videos: data.videos.filter((video) => video.kind === kind).map((video) => toVideoRow(video, t)),
   };
   return (
     <LiveFrame reload={reload} claims={data?.claims}>
       {data || failed ? (
-        <VideosScreen fixture={view} />
+        <VideosScreen fixture={view} kind={kind} />
       ) : (
-        <CabinetShell pinnedMenu videos loading>
+        <CabinetShell pinnedMenu videos={kind === "video"} links={kind === "article"} loading>
           <ListSkeleton />
         </CabinetShell>
       )}
@@ -334,13 +357,15 @@ export function LiveVideos() {
 }
 
 /** Плеер и лента — те же, что на сайте. Позицию плеера шлём в задачу: бэкенд проверяет текущее и ближайшие утверждения */
-export function LiveVideo({ id }: { id: string }) {
+export function LiveVideo({ id, kind = "video" }: { id: string; kind?: "video" | "article" }) {
   const t = useCabinetText();
   const router = useRouter();
   const { data, failed, reload } = useLive(async () => {
     const [common, detail] = await Promise.all([loadCommon(), cabinetApi.check(id)]);
     return { ...common, detail };
   });
+  const section = kind === "article" ? "/cabinet/links" : "/cabinet/videos";
+  const sectionText = kind === "article" ? t.links : t.videos;
   const jobId = data?.detail.check.jobId;
   const [report, setReport] = useState<VideoReport | null>(null);
   const [jobError, setJobError] = useState<string>();
@@ -362,23 +387,29 @@ export function LiveVideo({ id }: { id: string }) {
     };
   }, [jobId]);
   useEffect(() => {
-    if (failed && !data) router.replace("/cabinet/videos");
-  }, [failed, data, router]);
+    if (failed && !data) router.replace(section);
+  }, [failed, data, router, section]);
 
   const shown = report ?? data?.detail.report;
   const session = data && toSession(data.session, data.alerts, t);
-  const failure = jobError ?? (data?.detail.check.status === "failed" ? t.videos.failed : undefined);
+  const failure = jobError ?? (data?.detail.check.status === "failed" ? sectionText.failed : undefined);
   return (
     <LiveFrame reload={reload} claims={data?.claims}>
-      <CabinetShell session={session} tree videos loading={!data}>
+      <CabinetShell
+        session={session}
+        tree
+        videos={kind === "video"}
+        links={kind === "article"}
+        loading={!data}
+      >
         {failure ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
             <p className="max-w-[420px] text-[16px] font-extrabold">{failure}</p>
             <Link
-              href="/cabinet/videos"
+              href={section}
               className="rounded-full bg-primary px-5 py-2.5 text-[14px] font-extrabold text-white"
             >
-              {t.videos.title}
+              {sectionText.title}
             </Link>
           </div>
         ) : shown ? (

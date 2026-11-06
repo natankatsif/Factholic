@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { FactCheck, ProvenanceNode, ServerEvent, VideoReport } from "@news/contracts";
 import { CabinetDb } from "./db.ts";
-import { CabinetService, type JobRunner, type OrgError } from "./service.ts";
+import { shownStatus, CabinetService, type JobRunner, type OrgError } from "./service.ts";
+import type { TrackedClaim } from "./types.ts";
 import type { OrgEvent, OrgSignal } from "./types.ts";
 
 const SIGNALS: OrgSignal[] = [
@@ -87,6 +88,13 @@ class FakeRunner implements JobRunner {
   subscribe(id: string, listener: (event: ServerEvent) => void) {
     this.listeners.set(id, listener);
     return () => undefined;
+  }
+  forgotten: Array<{ id: string; keepJob?: boolean }> = [];
+  forget(id: string, keepJob?: boolean) {
+    this.forgotten.push({ id, keepJob });
+  }
+  activity() {
+    return [];
   }
   moreAccepted = true;
   more() {
@@ -355,7 +363,12 @@ test("уточнение: вопрос ждёт ответа, проверка �
     watches: 20,
     clarifier: async ({ text, locale }) => {
       seen.push(locale);
-      return { needed: true, question: "Вы имеете в виду 2026 год?", rewritten: `${text} в 2026 году` };
+      return {
+        needed: true,
+        question: "Вы имеете в виду 2026 год?",
+        rewritten: `${text} в 2026 году`,
+        claims: [],
+      };
     },
   });
   const first = await service.requestCheck("Объявили мобилизацию", "ro");
@@ -390,7 +403,7 @@ test("уточнение: без вопроса, при сбое и для сс�
       watches: 20,
       clarifier,
     });
-  const quiet = make(async ({ text }) => ({ needed: false, question: "", rewritten: text }));
+  const quiet = make(async ({ text }) => ({ needed: false, question: "", rewritten: text, claims: [] }));
   assert.ok("check" in (await quiet.requestCheck("Текст в 2026 году")));
   const broken = make(async () => {
     throw new Error("сеть");
@@ -408,9 +421,62 @@ test("уточнение: формулировка со смешанными а�
     memberName: "Ирина",
     checksPerMonth: 100,
     watches: 20,
-    clarifier: async ({ text }) => ({ needed: true, question: "?", rewritten: `${text} в 2026 году` }),
+    clarifier: async ({ text }) => ({
+      needed: true,
+      question: "?",
+      rewritten: `${text} в 2026 году`,
+      claims: [],
+    }),
   });
   assert.ok("check" in (await service.requestCheck("Dronele sunt ucrainene")));
+});
+
+test("уточнение: из нескольких утверждений выбирают одно до начала проверки", async () => {
+  const runner = new FakeRunner();
+  const seen: string[] = [];
+  const service = new CabinetService(new CabinetDb(":memory:"), runner, {
+    organizationName: "Орг",
+    memberName: "Ирина",
+    checksPerMonth: 100,
+    watches: 20,
+    clarifier: async ({ text }) => {
+      seen.push(text);
+      if (text === "Первое") return { needed: false, question: "", rewritten: text, claims: [] };
+      if (text === "Второе") {
+        // при уточнении выбранного новый список не показывается
+        return { needed: true, question: "Какой год?", rewritten: "Второе в 2026 году", claims: ["А", "Б"] };
+      }
+      return {
+        needed: false,
+        question: "",
+        rewritten: text,
+        claims: ["Первое", "Второе", "Первое", "Third"],
+      };
+    },
+  });
+  const pick = await service.requestCheck("Первое и второе");
+  assert.ok("clarification" in pick);
+  assert.deepEqual(pick.clarification.options, ["Первое", "Второе"]);
+  assert.equal(runner.started.length, 0);
+  await assert.rejects(service.chooseClaim(pick.clarification.id, 5));
+
+  const started = await service.chooseClaim(pick.clarification.id, 0);
+  assert.ok("check" in started);
+  assert.equal(started.check.input, "Первое");
+  assert.equal(service.session().clarifications.length, 0);
+  await assert.rejects(service.chooseClaim(pick.clarification.id, 0));
+
+  const again = await service.requestCheck("Первое и второе");
+  assert.ok("clarification" in again);
+  const asked = await service.chooseClaim(again.clarification.id, 1);
+  assert.ok("clarification" in asked);
+  assert.equal(asked.clarification.options, undefined);
+  assert.equal(asked.clarification.rewritten, "Второе в 2026 году");
+  assert.deepEqual(seen, ["Первое и второе", "Первое", "Первое и второе", "Второе"]);
+
+  const whole = await service.requestCheck("Первое и второе");
+  assert.ok("clarification" in whole);
+  assert.equal(service.answerClarification(whole.clarification.id, "no").input, "Первое и второе");
 });
 
 test("утверждение сверх лимита не держит проверку в процессе", () => {
@@ -563,4 +629,116 @@ test("повторный поиск из списка идёт по послед
   ctx.runner.listeners.get(jobId)?.({ type: "claim.checked", jobId, factCheck: factCheckDone });
   assert.equal(ctx.service.session().counts.running, 0);
   assert.equal(ctx.service.listClaims("all")[0]?.checksCount, 2);
+});
+
+test("ссылка на статью считается отдельно от видео", () => {
+  const ctx = setup();
+  const check = ctx.service.startCheck("https://site.md/news/1");
+  assert.equal(check.kind, "article");
+  assert.equal(ctx.service.session().counts.links, 1);
+  assert.equal(ctx.service.session().counts.videos, 0);
+  assert.equal(ctx.service.listVideos()[0]?.kind, "article");
+  assert.equal(ctx.service.startCheck("https://site.md/news/1").id, check.id);
+});
+
+test("материал удаляется из списка, обычная проверка так не удаляется", () => {
+  const ctx = setup();
+  const article = ctx.service.startCheck("https://site.md/news/2");
+  ctx.service.deleteMaterial(article.id);
+  assert.equal(ctx.service.listVideos().length, 0);
+  assert.equal(ctx.service.session().counts.links, 0);
+
+  const text = ctx.service.startCheck("Обычный текст");
+  assert.throws(
+    () => ctx.service.deleteMaterial(text.id),
+    (err: OrgError) => err.code === "NOT_FOUND",
+  );
+});
+
+test("удаление утверждения убирает его отовсюду и чистит кэш", () => {
+  const ctx = setup();
+  const a = checked(ctx, "Первое", ["a"]);
+  const b = checked(ctx, "Второе", ["b"]);
+  const narrative = ctx.service.createNarrative({
+    title: "История",
+    description: "",
+    claimIds: [a.id, b.id],
+  });
+  ctx.service.createWatch({ claimId: a.id, frequency: "daily", signals: SIGNALS, channels: ["cabinet"] });
+  const jobId = ctx.service.getCheck(a.latestCheckId).check.jobId;
+
+  ctx.service.deleteClaim(a.id);
+
+  assert.deepEqual(ctx.runner.forgotten, [{ id: jobId, keepJob: undefined }]);
+  assert.equal(ctx.service.listClaims("all").length, 1);
+  assert.equal(ctx.service.listWatches().length, 0);
+  assert.deepEqual(ctx.service.getNarrative(narrative.id).narrative.claimIds, [b.id]);
+  assert.throws(
+    () => ctx.service.getCheck(a.latestCheckId),
+    (err: OrgError) => err.code === "NOT_FOUND",
+  );
+
+  const again = checked(ctx, "Первое", ["a"]);
+  assert.notEqual(again.id, a.id);
+  assert.equal(again.checksCount, 1);
+});
+
+test("удаление ссылки чистит кэш задачи", () => {
+  const ctx = setup();
+  const article = ctx.service.startCheck("https://site.md/news/3");
+  ctx.service.deleteMaterial(article.id);
+  assert.deepEqual(ctx.runner.forgotten, [{ id: article.jobId, keepJob: undefined }]);
+});
+
+test("слежение сразу запускает тихий поиск, а новые цитаты встают в нарратив первыми", () => {
+  const ctx = setup();
+  const claim = checked(ctx, "Первое", ["a"]);
+  const narrative = ctx.service.createNarrative({ title: "История", description: "", claimIds: [claim.id] });
+  const { jobId } = ctx.service.getCheck(claim.latestCheckId).check;
+
+  ctx.service.createWatch({ claimId: claim.id, frequency: "daily", signals: SIGNALS, channels: ["cabinet"] });
+
+  assert.equal(ctx.service.listClaims("all")[0]?.searching, true);
+  assert.equal(ctx.service.session().counts.running, 0);
+  assert.equal(ctx.service.getNarrative(narrative.id).watches.length, 1);
+
+  const after = factCheck(claim.text, ["a", "b"]);
+  ctx.runner.reports.set(jobId, { ...ctx.runner.reports.get(jobId)!, factChecks: [after] });
+  ctx.runner.listeners.get(jobId)?.({ type: "claim.checked", jobId, factCheck: after });
+
+  const quotes = ctx.service.getNarrative(narrative.id).narrative.quotes;
+  assert.equal(quotes[0]?.fresh, true);
+  assert.equal(quotes.filter((quote) => quote.fresh).length, 1);
+  assert.equal(ctx.service.listClaims("all")[0]?.searching, undefined);
+});
+
+test("статус вопроса: в проверке, пять минут «только проверили», потом итог", () => {
+  const base = {
+    id: "c",
+    lastCheckAt: "2026-11-05T10:00:00Z",
+    status: "new",
+  } as unknown as TrackedClaim;
+  const fresh = new Date("2026-11-05T10:04:59Z");
+  const later = new Date("2026-11-05T10:05:01Z");
+  const shown = (extra: Partial<FactCheck>, now = later, more: Partial<TrackedClaim> = {}, watched = false) =>
+    shownStatus({
+      claim: { ...base, ...more },
+      checking: false,
+      watched,
+      factCheck: factCheck("Т", ["a"], extra),
+      now,
+    });
+
+  assert.equal(shownStatus({ claim: base, checking: true, watched: false, now: later }), "checking");
+  assert.equal(shown({}, fresh), "new");
+  assert.equal(shown({ consensus: "split" }), "split");
+  assert.equal(shown({ consensus: "converge" }), "converging");
+  assert.equal(shown({ consensus: "against" }), "against");
+  assert.equal(shown({ consensus: "unverifiable" }), "few");
+  assert.equal(
+    shown({ flags: [{ type: "outdated", label: "", detail: "" }] as FactCheck["flags"] }),
+    "outdated",
+  );
+  assert.equal(shown({}, later, { status: "spreading" }), "spreading");
+  assert.equal(shown({ consensus: "split" }, later, { status: "stable" }, true), "stable");
 });

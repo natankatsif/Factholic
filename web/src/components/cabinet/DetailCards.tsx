@@ -1,4 +1,5 @@
 /** Всплывающие карточки над холстом: публикация и связь */
+import { quoteLink } from "../../lib/quote-link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { cn } from "../../lib/utils";
 import { useCabinetText } from "./dictionary";
@@ -98,7 +99,18 @@ export function PublicationDetailCard({
       <div className="flex w-full flex-col gap-1 rounded-[14px] bg-canvas p-3">
         <div className={CAPTION}>{t.publicationCard.quote}</div>
         <div className="w-full text-[14px] font-extrabold leading-[18px]">
-          {detail?.fullQuote ?? node.quote}
+          {detail?.url ? (
+            <a
+              href={quoteLink(detail.url, detail.fullQuote || node.quote)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-border underline-offset-2 hover:decoration-primary"
+            >
+              {detail.fullQuote || node.quote}
+            </a>
+          ) : (
+            (detail?.fullQuote ?? node.quote)
+          )}
         </div>
       </div>
       {node.stance && (

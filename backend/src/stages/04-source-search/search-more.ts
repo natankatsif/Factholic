@@ -115,6 +115,7 @@ export async function searchMore(
     queries.map((q) => `${q.language}: ${q.text}`),
   );
   if (!queries.length) return result;
+  ctx.activity?.({ kind: "queries", texts: queries.map((q) => q.text) });
 
   const { copies } = await findCopiesWithTraces(
     claim,

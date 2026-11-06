@@ -5,6 +5,10 @@ import { VerificationHeader } from "./VerificationHeader";
 import { ClaimTextPanel, findQuoteInText } from "./ClaimTextPanel";
 import { AnalysisCard } from "./AnalysisCard";
 import { ConsensusBar } from "./ConsensusBar";
+import { useSiteText } from "../../i18n/site";
+import { DATA_SOURCE } from "../../lib/jobs";
+import { useLocalizedReport } from "../../lib/report-labels";
+import { ArticleFrame, UnmatchedClaims } from "./ArticleFrame";
 import { ClaimTree } from "./ClaimTree";
 import { VideoClaimFeed } from "./VideoClaimFeed";
 import { VideoPlayerPanel, type VideoPlayerHandle } from "./VideoPlayerPanel";
@@ -58,7 +62,7 @@ export interface VerificationScreenProps {
  * Мобильные: всё в одну колонку с обычной прокруткой.
  */
 export function VerificationScreen({
-  report,
+  report: originalReport,
   embedded = false,
   view,
   onViewChange,
@@ -66,6 +70,8 @@ export function VerificationScreen({
   sourceText,
   onSend,
 }: VerificationScreenProps) {
+  const t = useSiteText();
+  const report = useLocalizedReport(originalReport, t.locale);
   const youtubeId = reportYoutubeId(report.video);
   const twoColumns = embedded ? inCabinet(TWO_COLUMNS) : TWO_COLUMNS;
   const treeMain = embedded ? inCabinet(TREE_MAIN) : TREE_MAIN;
@@ -193,6 +199,13 @@ export function VerificationScreen({
     setView("tree");
   };
 
+  // статья по ссылке: слева сама страница. Не загрузилась — обычный текст
+  const [frameFailed, setFrameFailed] = useState(false);
+  const isArticle = materialKind(report.video) === "article";
+  const showArticle = isArticle && DATA_SOURCE === "backend" && !frameFailed;
+  const [foundOnPage, setFoundOnPage] = useState<string[]>();
+  const notOnPage = showArticle && foundOnPage ? factChecks.filter((fc) => !foundOnPage.includes(fc.id)) : [];
+
   const totalSources =
     report.summary?.totalSources ?? new Set(factChecks.flatMap((fc) => fc.sources.map((s) => s.url))).size;
 
@@ -274,26 +287,41 @@ export function VerificationScreen({
       ) : (
         <main className={twoColumns}>
           <div className="flex min-h-0 flex-col gap-5 lg:gap-[22px]">
-            <ClaimTextPanel
-              factChecks={factChecks}
-              selectedClaimId={currentClaim?.id ?? ""}
-              onSelectClaimId={setSelectedClaimId}
-              isDimmed={() => false}
-              sourceText={sourceText ?? report.sourceText}
-              viewedClaimIds={viewedClaimIds}
-              pageUrl={
-                report.video?.pageUrl && !report.video.pageUrl.startsWith("text:")
-                  ? report.video.pageUrl
-                  : undefined
-              }
-            />
-            <ConsensusBar
-              factChecks={factChecks}
-              totalSources={totalSources}
-              material={materialKind(report.video)}
-              onSelectClaimId={setSelectedClaimId}
-              viewedClaimIds={viewedClaimIds}
-            />
+            {showArticle ? (
+              <ArticleFrame
+                jobId={report.jobId}
+                pageUrl={report.video.pageUrl}
+                factChecks={factChecks}
+                selectedClaimId={currentClaim?.id ?? ""}
+                onSelectClaimId={setSelectedClaimId}
+                onFailed={() => setFrameFailed(true)}
+                onFound={setFoundOnPage}
+              />
+            ) : (
+              <ClaimTextPanel
+                factChecks={factChecks}
+                selectedClaimId={currentClaim?.id ?? ""}
+                onSelectClaimId={setSelectedClaimId}
+                isDimmed={() => false}
+                sourceText={sourceText ?? report.sourceText}
+                viewedClaimIds={viewedClaimIds}
+                notice={frameFailed ? t.text.articleFallback : undefined}
+                pageUrl={
+                  report.video?.pageUrl && !report.video.pageUrl.startsWith("text:")
+                    ? report.video.pageUrl
+                    : undefined
+                }
+              />
+            )}
+            {!isArticle && (
+              <ConsensusBar
+                factChecks={factChecks}
+                totalSources={totalSources}
+                material={materialKind(report.video)}
+                onSelectClaimId={setSelectedClaimId}
+                viewedClaimIds={viewedClaimIds}
+              />
+            )}
           </div>
 
           <AnalysisCard
@@ -304,6 +332,15 @@ export function VerificationScreen({
             onOpenProvenanceTree={() => setView("tree")}
             suggestedQuestions={report.summary?.suggestedQuestions}
             material={materialKind(report.video)}
+            claimsNote={
+              notOnPage.length > 0 ? (
+                <UnmatchedClaims
+                  claims={notOnPage}
+                  selectedClaimId={currentClaim?.id ?? ""}
+                  onSelectClaimId={setSelectedClaimId}
+                />
+              ) : undefined
+            }
           />
         </main>
       )}

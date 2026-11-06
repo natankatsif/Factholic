@@ -83,7 +83,10 @@ export class ClaimChecker {
     this.p = p;
     const isShorts = Boolean(p.video && p.video.durationSec > 0 && p.video.durationSec <= 90);
     const hasPlayer = !p.request.text && !p.request.imageDataUrl && p.video.durationSec > 0;
-    const maxChecks = hasPlayer ? config.limits.maxClaimsPerVideo : config.limits.maxClaimsPerJob;
+    // статья по ссылке: утверждения обведены на странице и проверяются по клику, как в видео
+    const isArticle = !p.request.text && !p.request.imageDataUrl;
+    const maxChecks =
+      hasPlayer || isArticle ? config.limits.maxClaimsPerVideo : config.limits.maxClaimsPerJob;
     this.scheduler = new CheckScheduler<Claim>({
       run: (claim) => this.check(claim),
       concurrency: isShorts ? Math.max(config.limits.checkParallel, 4) : config.limits.checkParallel,
@@ -222,6 +225,7 @@ export class ClaimChecker {
       this.update(toFactCheck({ kind: "pending", claim, uiLanguage: request.uiLanguage }), "claim.detected");
     let fc: FactCheck;
     try {
+      ctx.activity?.({ kind: "start" });
       this.progress(claim, "source_search");
       const t0 = Date.now();
       const {
@@ -251,6 +255,10 @@ export class ClaimChecker {
       const t04 = Date.now();
       const tree = await this.buildTree(claim, treeCopies);
       const t05 = Date.now();
+      if (tree) {
+        const links = tree.nodes.filter((node) => node.parentId).length;
+        ctx.activity?.({ kind: "tree", publications: tree.nodes.length - 1, links });
+      }
       this.progress(claim, "stances", tree ? `узлов в дереве ${tree.nodes.length}` : "без дерева");
       // голосуют и независимые ветки дерева: в выборку этапа 04 они могли не попасть
       const voters = tree && config.experiments.traceSearch ? votersFromTree(tree, treeCopies, found) : [];
