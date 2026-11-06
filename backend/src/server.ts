@@ -51,10 +51,16 @@ const orgApi = config.cabinet.api
   ? createOrgApi({
       start: (request, fresh) => {
         const { job } = store.create(randomUUID(), request, undefined, fresh);
+        // кабинет ведёт проверку сам: ушли со страницы — разбор всё равно должен дойти до конца
+        job.keepRunning = true;
         startJob(job);
         return job.id;
       },
       report: (jobId) => store.get(jobId)?.report,
+      more: (jobId, claimId) => {
+        const job = store.get(jobId);
+        return (job && ensureChecker(job)?.more(claimId)) ?? false;
+      },
       subscribe: (jobId, listener) => {
         const job = store.get(jobId);
         return job ? store.subscribe(job, listener) : () => undefined;
@@ -135,6 +141,16 @@ const server = createServer(async (req, res) => {
     return sendJson(res, 202, { queued: checker.request(claimId) });
   }
 
+  // Кнопка «Найти ещё» у готового утверждения: новый поиск дополняет прошлый
+  const moreMatch = req.method === "POST" && req.url?.match(/^\/api\/jobs\/([^/]+)\/claims\/([^/]+)\/more$/);
+  if (moreMatch) {
+    if (REPLAY) return sendJson(res, 202, { queued: false });
+    const job = store.get(moreMatch[1]!);
+    const checker = job && ensureChecker(job);
+    if (!checker) return sendJson(res, 404, { error: "задача не найдена или её утверждения недоступны" });
+    return sendJson(res, 202, { queued: checker.more(decodeURIComponent(moreMatch[2]!)) });
+  }
+
   const getMatch = req.method === "GET" && req.url?.match(/^\/api\/jobs\/([^/]+)$/);
   if (getMatch) {
     if (REPLAY) return sendJson(res, 200, { ...MOCK_VIDEO_REPORT, jobId: getMatch[1] });
@@ -177,7 +193,7 @@ function handleJobSocket(ws: WebSocket, job: JobRecord) {
     // никто не смотрит — новых проверок не начинаем (идущие доводятся до конца)
     if (job.subscribers.size === 0) job.checker?.pause();
     // Даём 30 секунд запаса на случай перезагрузки страницы или переподключения WS
-    if (job.subscribers.size === 0 && store.isRunning(job)) {
+    if (job.subscribers.size === 0 && store.isRunning(job) && !job.keepRunning) {
       if (!job.cancelTimer) {
         job.cancelTimer = setTimeout(() => {
           if (job.subscribers.size === 0 && store.isRunning(job)) {
@@ -197,7 +213,7 @@ function handleJobSocket(ws: WebSocket, job: JobRecord) {
       return;
     }
     if (msg.type === "cancel") ws.close();
-    // позиция плеера: проверяем текущее утверждение и два следующих
+    // позиция плеера: проверяем текущее утверждение и то, что впереди на две минуты
     if (msg.type === "playback" && Number.isFinite(msg.currentTime))
       ensureChecker(job)?.playhead(msg.currentTime);
     // пользователь открыл утверждение — проверить первым

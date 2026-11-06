@@ -62,6 +62,8 @@ export const config = {
     maxClaimsPerChunk: positiveInt("MAX_CLAIMS_PER_CHUNK", 5),
     /** Потолок проверок на один материал — сколько бы ни смотрели и ни открывали */
     maxClaimsPerJob: positiveInt("MAX_CLAIMS_PER_JOB", 40),
+    /** У видео отдельный потолок: утверждения идут за плеером, одной проверки на ролик не хватит */
+    maxClaimsPerVideo: positiveInt("MAX_CLAIMS_PER_VIDEO", 40),
     /** Сколько утверждений одной задачи проверять одновременно */
     checkParallel: positiveInt("CHECK_MAX_PARALLEL", 3),
     /** Сколько запросов к поиску (Tavily) одновременно — на весь сервер */

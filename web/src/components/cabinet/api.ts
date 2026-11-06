@@ -13,6 +13,7 @@ import type {
   OrgEvent,
   OrgNarrativeDetail,
   OrgSession,
+  OrgVideo,
   StartCheckResponse,
   TrackedClaim,
   Watch,
@@ -53,6 +54,9 @@ export const cabinetApi = {
   answerClarification: (id: string, answer: ClarificationAnswer, text?: string) =>
     request<ClaimCheck>(`/clarifications/${id}/answer`, "POST", { answer, text }),
   retryCheck: (id: string) => request<ClaimCheck>(`/checks/${id}/retry`, "POST"),
+  searchMore: (id: string, factCheckId: string) =>
+    request<{ ok: true }>(`/checks/${id}/more`, "POST", { factCheckId }),
+  videos: () => request<OrgVideo[]>("/videos"),
   watches: () => request<WatchWithClaim[]>("/watches"),
   createWatch: (body: CreateWatchRequest) => request<Watch>("/watches", "POST", body),
   updateWatch: (id: string, patch: Partial<Watch>) => request<Watch>(`/watches/${id}`, "PATCH", patch),
@@ -63,6 +67,10 @@ export const cabinetApi = {
   createNarrative: (body: CreateNarrativeRequest) => request<Narrative>("/narratives", "POST", body),
   addToNarrative: (id: string, claimIds: string[]) =>
     request<Narrative>(`/narratives/${id}`, "PATCH", { claimIds }),
+  removeFromNarrative: (id: string, claimId: string) =>
+    request<Narrative>(`/narratives/${id}/claims/${encodeURIComponent(claimId)}`, "DELETE"),
+  repeatSearch: (claimId: string) =>
+    request<{ ok: true }>(`/claims/${encodeURIComponent(claimId)}/search`, "POST"),
   dismissSuggestion: (id: string) => request<{ ok: true }>(`/narrative-suggestions/${id}/dismiss`, "POST"),
 };
 

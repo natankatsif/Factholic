@@ -43,6 +43,7 @@ export const en: CabinetDictionary = {
     watched: "Watched",
     running: "In progress",
     ungrouped: "Ungrouped",
+    videos: "Videos",
     narratives: "Narratives",
     addNarrative: "Add narrative",
     suggestionTitle: "Looks like one story",
@@ -50,7 +51,6 @@ export const en: CabinetDictionary = {
   },
   canvas: {
     tree: "Tree",
-    timeline: "Timeline",
     searchDone: "Search progress: done",
     fit: "Show all",
     zoomIn: "Zoom in",
@@ -152,6 +152,12 @@ export const en: CabinetDictionary = {
     checkFailed: "Search error",
   },
   feed: {
+    findMore: "Find more",
+    findingMore: "Searching…",
+    findMoreHint:
+      "New searches based on words from the pages found. Results are added to the tree, and the search counts as a check.",
+    moreFound: (count: number) => `New publications: ${count}`,
+    moreNothing: "No new publications",
     claimsFoundTitle: "Claims found",
     claimsFoundOne: "The text has one checkable claim. We have started on it.",
     claimsFoundMany: (count) => `The text has ${count} claims. Choose which one to follow.`,
@@ -240,6 +246,17 @@ export const en: CabinetDictionary = {
     debunked: "Fact-checks exist",
     fading: "Fading",
   },
+  questionMenu: {
+    label: "Question actions",
+    repeatSearch: "Repeat search",
+    searching: "Searching…",
+    removeFromNarrative: "Remove from narrative",
+    removeTitle: "Remove the question from the narrative?",
+    removeText: (question: string) =>
+      `Are you sure? ${question} will leave the narrative but stay in your questions.`,
+    remove: "Remove",
+    cancel: "Cancel",
+  },
   questions: {
     subtitle: (count, word) =>
       `${count} ${word}. You can return to any of them: the tree and past checks remain.`,
@@ -285,6 +302,23 @@ export const en: CabinetDictionary = {
     fresh: (count) => `+${count}`,
     toggle: { active: "On", paused: "Pause", finished: "Off" },
     more: "More",
+  },
+  videos: {
+    title: "Videos",
+    subtitle: (count, word) => `${count} ${word}. Claims are checked as you watch.`,
+    word: forms("video", "videos"),
+    placeholder: "Paste a YouTube video link",
+    submit: "Analyze",
+    notYoutube: "Only YouTube links are supported for now",
+    emptyTitle: "No videos yet",
+    emptyText:
+      "Paste a link: the player opens, and claims near the current moment are checked automatically.",
+    claims: (count, word) => `${count} ${word}`,
+    claimsWord: forms("claim", "claims"),
+    checked: (count) => `${count} checked`,
+    running: "Analyzing",
+    failed: "The video could not be analyzed",
+    retry: "Retry",
   },
   narrative: {
     back: "All questions",

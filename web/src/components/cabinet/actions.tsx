@@ -8,7 +8,12 @@ export interface CabinetActions {
   /** Запустить проверку; ссылку на холст решает реализация */
   startCheck: (input: string) => Promise<void>;
   retryCheck: (checkId: string) => Promise<void>;
+  /** «Найти ещё»: новый поиск дополняет дерево утверждения */
+  searchMore: (checkId: string, factCheckId: string) => Promise<void>;
   answerClarification: (id: string, answer: "yes" | "no" | "other", text?: string) => Promise<void>;
+  /** Повторить поиск по вопросу из списка */
+  repeatSearch: (claimId: string) => Promise<void>;
+  removeFromNarrative: (narrativeId: string, claimId: string) => Promise<void>;
   createWatch: (claimId: string, form: WatchForm) => Promise<void>;
   /** Поставить выбранные вопросы на слежение с настройками по умолчанию */
   watchClaims: (claimIds: string[]) => Promise<void>;
@@ -35,6 +40,9 @@ const noop = async () => undefined;
 export const demoActions = (push: (href: string) => void, pickerClaims: ClaimScopeRow[]): CabinetActions => ({
   startCheck: async () => push("/cabinet/checks/demo?fixture=search"),
   retryCheck: async () => push("/cabinet/checks/demo?fixture=search"),
+  searchMore: noop,
+  repeatSearch: noop,
+  removeFromNarrative: noop,
   answerClarification: async () => push("/cabinet/checks/demo?fixture=search"),
   createWatch: async () => push("/cabinet/checks/demo?fixture=alert-on-tree"),
   watchClaims: noop,

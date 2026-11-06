@@ -1,7 +1,8 @@
 /**
  * Очередь проверок по требованию: утверждения найдены все, а проверяются (поиск + LLM — дорого) только нужные:
  *  1. открытые пользователем (request) — первыми, в порядке запросов;
- *  2. текущее в плеере и LOOKAHEAD следующих (playhead) — по порядку таймкодов;
+ *  2. текущее в плеере и всё, что впереди в пределах horizonSec, но не меньше lookahead следующих (playhead) —
+ *     по порядку таймкодов: проверка занимает время, к моменту, когда видео дойдёт, итог должен быть готов;
  *  3. фон (background) — когда первым двум ничего не нужно (текст статьи: всё остальное, пока человек читает).
  * Перемотали — окно переезжает: то, что не успело начаться, возвращается в «найдено»; начатое доводится до конца.
  * Одновременно — не больше concurrency проверок, всего на материал — не больше maxChecks.
@@ -22,8 +23,10 @@ export interface CheckSchedulerOptions<C extends Schedulable> {
   run: (claim: C) => Promise<void>;
   /** Сколько проверок одновременно */
   concurrency: number;
-  /** Сколько утверждений после текущего проверять заранее */
+  /** Сколько утверждений после текущего проверять заранее как минимум */
   lookahead: number;
+  /** На сколько секунд вперёд от позиции плеера проверять заранее; нет — только lookahead */
+  horizonSec?: number;
   /** Потолок проверок на материал */
   maxChecks: number;
   /** Упёрлись в потолок — в лог */
@@ -63,7 +66,7 @@ export class CheckScheduler<C extends Schedulable> {
     this.pump();
   }
 
-  /** Позиция плеера: проверяем текущее и LOOKAHEAD следующих */
+  /** Позиция плеера: проверяем текущее и то, что впереди (см. window) */
   playhead(sec: Seconds | null): void {
     this.position = sec;
     this.pump();
@@ -90,6 +93,14 @@ export class CheckScheduler<C extends Schedulable> {
     return this.request(id);
   }
 
+  /** Готовое утверждение ещё раз, по кнопке: потолок на материал это не тратит */
+  again(id: string): boolean {
+    if (this.state.get(id) !== "done") return false;
+    this.state.set(id, "found");
+    this.started = Math.max(0, this.started - 1);
+    return this.request(id);
+  }
+
   /** В фон: проверить после запросов пользователя и окна плеера, в порядке добавления */
   background(ids: string[]): void {
     const fresh = ids.filter((id) => this.state.get(id) === "found" && !this.queued.includes(id));
@@ -108,13 +119,19 @@ export class CheckScheduler<C extends Schedulable> {
     return this.state.get(id);
   }
 
-  /** Окно плеера: текущее утверждение и lookahead следующих; видео ещё не дошло до первого — первые lookahead + 1 */
+  /**
+   * Окно плеера: текущее утверждение и всё, что начнётся в ближайшие horizonSec, но не меньше lookahead следующих.
+   * Видео ещё не дошло до первого — считаем от начала
+   */
   window(): C[] {
     if (this.position === null) return [];
     const t = this.position + TIME_SLACK;
     let current = 0;
     for (let i = 0; i < this.claims.length && this.claims[i].range.start <= t; i++) current = i;
-    return this.claims.slice(current, current + this.opts.lookahead + 1);
+    let end = current + this.opts.lookahead + 1;
+    const until = t + (this.opts.horizonSec ?? 0);
+    while (end < this.claims.length && this.claims[end].range.start <= until) end++;
+    return this.claims.slice(current, end);
   }
 
   /** Все начатые проверки закончились (для тестов и текста статьи) */

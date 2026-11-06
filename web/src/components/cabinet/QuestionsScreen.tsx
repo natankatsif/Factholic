@@ -9,6 +9,7 @@ import { useCabinetText } from "./dictionary";
 import type { CabinetFixture } from "./fixtures";
 import { CaretDownIcon, EyeIcon, SearchIcon, SpinnerIcon, StackIcon } from "./icons";
 import { POPOVER_PANEL, PopoverItem, usePopover } from "./Popover";
+import { QuestionMenu } from "./QuestionMenu";
 import type { CabinetLimits, ClaimScope, ClaimStatus, QuestionRow } from "./types";
 import { CheckBox, Pill, StatusPill } from "./ui";
 
@@ -252,6 +253,7 @@ export function QuestionsScreen({
             <div className="w-[70px] shrink-0">{text.columns.checks}</div>
             <div className="w-[130px] shrink-0">{text.columns.last}</div>
             <div className="w-[154px] shrink-0">{text.columns.state}</div>
+            <div className="w-8 shrink-0" />
           </div>
           {rows.map((row) => (
             <div key={row.id} className={`${ROW} min-h-[84px] shrink-0 py-3`}>
@@ -289,6 +291,8 @@ export function QuestionsScreen({
               <div className="flex w-[154px] shrink-0 flex-col items-start gap-1.5">
                 {row.runningStep ? (
                   <Pill className="bg-cabinet-blue/10 text-cabinet-blue">{t.panel.checkRunning}</Pill>
+                ) : row.searching ? (
+                  <Pill className="bg-cabinet-blue/10 text-cabinet-blue">{t.questionMenu.searching}</Pill>
                 ) : (
                   <StatusPill status={row.status} />
                 )}
@@ -297,6 +301,14 @@ export function QuestionsScreen({
                     <EyeIcon className="h-3.5 w-3.5" />
                     {text.watchedBadge}
                   </span>
+                )}
+              </div>
+              <div className="flex w-8 shrink-0 justify-end">
+                {!row.runningStep && (
+                  <QuestionMenu
+                    searching={row.searching}
+                    onRepeat={() => void actions.repeatSearch(row.id)}
+                  />
                 )}
               </div>
             </div>

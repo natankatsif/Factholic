@@ -34,6 +34,7 @@ import type {
   RunningCheck,
   SuggestionView,
 } from "./types";
+import { Video } from "lucide-react";
 
 interface NarrativeRequest {
   claimIds: string[];
@@ -167,7 +168,7 @@ function RunningList({ checks }: { checks: RunningCheck[] }) {
             </span>
           </div>
           <Link
-            href={`/cabinet/checks/${check.id}`}
+            href={check.video ? `/cabinet/videos/${check.id}` : `/cabinet/checks/${check.id}`}
             className="flex items-center gap-1 text-[13px] font-extrabold"
           >
             {t.running.openCanvas}
@@ -396,6 +397,7 @@ function TopBar({
 function LeftMenu({
   session,
   scope,
+  videos,
   narrativeId,
   newCheckActive,
   className,
@@ -403,6 +405,7 @@ function LeftMenu({
 }: {
   session?: CabinetSession;
   scope?: ClaimScope;
+  videos?: boolean;
   narrativeId?: string;
   newCheckActive?: boolean;
   className?: string;
@@ -448,6 +451,23 @@ function LeftMenu({
           </Link>
         );
       })}
+      <Link href="/cabinet/videos" className={cn(row, videos && "bg-primary")}>
+        <Video
+          className={cn("h-[17px] w-[17px] shrink-0", videos ? "text-white" : "text-cabinet-ink-mid")}
+          strokeWidth={2.4}
+        />
+        <span className={cn("flex-1 text-[14px] font-extrabold", videos && "text-white")}>
+          {t.menu.videos}
+        </span>
+        <span
+          className={cn(
+            "whitespace-nowrap text-[13px] font-extrabold",
+            videos ? "text-white" : "text-cabinet-ink-mid",
+          )}
+        >
+          {session?.counts.videos}
+        </span>
+      </Link>
       <div className="flex w-full items-center justify-between px-3 pb-1.5 pt-5">
         <span className="whitespace-nowrap text-[15px] font-black">{t.menu.narratives}</span>
         <button
@@ -512,6 +532,8 @@ export interface CabinetShellProps {
   narrativeId?: string;
   /** Страница новой проверки: подсвечен свой пункт, меню закрыто и выезжает при наведении */
   newCheck?: boolean;
+  /** Открыт раздел видео: подсветить его в меню */
+  videos?: boolean;
   /** Страница дерева: меню закрыто и выезжает при наведении, дереву нужно место */
   tree?: boolean;
   /** Данные грузятся: вместо имени организации скелетон */
@@ -525,6 +547,7 @@ export function CabinetShell({
   session,
   pinnedMenu,
   scope,
+  videos,
   narrativeId,
   newCheck,
   tree,
@@ -573,6 +596,7 @@ export function CabinetShell({
             <LeftMenu
               session={session}
               scope={scope}
+              videos={videos}
               narrativeId={narrativeId}
               newCheckActive={newCheck}
               onShowSuggestion={setSuggestion}
@@ -597,6 +621,7 @@ export function CabinetShell({
               <LeftMenu
                 session={session}
                 scope={scope}
+                videos={videos}
                 newCheckActive={newCheck}
                 onShowSuggestion={setSuggestion}
                 className="border-r-2 border-border"

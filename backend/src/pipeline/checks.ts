@@ -20,7 +20,7 @@ import type {
 import { config } from "../config.ts";
 import type { TranscriptSegment } from "../stages/02-transcription/index.ts";
 import type { Claim } from "../stages/03-claim-extraction/index.ts";
-import { searchSources, type SourceCopy } from "../stages/04-source-search/index.ts";
+import { searchSources, type PreviousSearch, type SourceCopy } from "../stages/04-source-search/index.ts";
 import {
   buildProvenanceTree,
   copiesForTree,
@@ -38,8 +38,10 @@ import { messagesFor } from "../messages.ts";
 import { allow } from "./guard.ts";
 import { CheckScheduler } from "./scheduler.ts";
 
-/** Сколько утверждений после текущего в плеере проверять заранее */
+/** Сколько утверждений после текущего в плеере проверять заранее как минимум */
 export const LOOKAHEAD_CLAIMS = 2;
+/** На сколько секунд вперёд от плеера проверять: поиск и дерево занимают время, итог должен успеть до момента */
+export const LOOKAHEAD_SEC = 120;
 /** Сколько соседних предложений давать этапу 08 (стороны) как контекст тезиса */
 const SURROUNDING_SEGMENTS = 2;
 const MAX_SURROUNDING_CHARS = 1500;
@@ -59,7 +61,12 @@ export interface ClaimCheckerParams {
 export interface CheckerSnapshot {
   claims: Claim[];
   segments: TranscriptSegment[];
+  /** Прошлый поиск по утверждениям: кнопка «Найти ещё» его дополняет */
+  searches?: Record<string, PreviousSearch>;
 }
+
+/** На диске хватает начала страницы: её всё равно читают по кускам */
+const SAVED_PAGE_CHARS = 8_000;
 
 export class ClaimChecker {
   private readonly p: ClaimCheckerParams;
@@ -68,19 +75,22 @@ export class ClaimChecker {
   private segments: TranscriptSegment[] = [];
   /** Последнее состояние каждого утверждения — для job.completed */
   private readonly results = new Map<string, FactCheck>();
+  private readonly searches = new Map<string, PreviousSearch>();
+  /** Нажали «Найти ещё»: следующая проверка дополняет прошлый поиск */
+  private readonly extended = new Set<string>();
 
   constructor(p: ClaimCheckerParams) {
     this.p = p;
     const isShorts = Boolean(p.video && p.video.durationSec > 0 && p.video.durationSec <= 90);
+    const hasPlayer = !p.request.text && !p.request.imageDataUrl && p.video.durationSec > 0;
+    const maxChecks = hasPlayer ? config.limits.maxClaimsPerVideo : config.limits.maxClaimsPerJob;
     this.scheduler = new CheckScheduler<Claim>({
       run: (claim) => this.check(claim),
       concurrency: isShorts ? Math.max(config.limits.checkParallel, 4) : config.limits.checkParallel,
       lookahead: isShorts ? 6 : LOOKAHEAD_CLAIMS,
-      maxChecks: config.limits.maxClaimsPerJob,
-      onLimit: (claim) =>
-        p.ctx.log(
-          `${claim.id}: не проверяем — потолок ${config.limits.maxClaimsPerJob} проверок на материал`,
-        ),
+      horizonSec: LOOKAHEAD_SEC,
+      maxChecks,
+      onLimit: (claim) => p.ctx.log(`${claim.id}: не проверяем — потолок ${maxChecks} проверок на материал`),
     });
   }
 
@@ -107,6 +117,7 @@ export class ClaimChecker {
     this.segments = snapshot.segments;
     this.claims = [...snapshot.claims];
     for (const fc of factChecks) this.results.set(fc.id, fc);
+    for (const [id, search] of Object.entries(snapshot.searches ?? {})) this.searches.set(id, search);
     const done = new Set(
       factChecks.filter((fc) => fc.status === "done" || fc.status === "failed").map((f) => f.id),
     );
@@ -126,6 +137,15 @@ export class ClaimChecker {
         ? this.scheduler.retry(claimId)
         : this.scheduler.request(claimId);
     this.p.ctx.log(`${claimId}: запрошена проверка${ok ? "" : " — не принята"}`);
+    return ok;
+  }
+
+  /** Кнопка «Найти ещё». false — утверждение ещё проверяется */
+  more(claimId: string): boolean {
+    this.extended.add(claimId);
+    const ok = this.scheduler.again(claimId);
+    if (!ok) this.extended.delete(claimId);
+    this.p.ctx.log(`${claimId}: найти ещё${ok ? "" : " — не принято"}`);
     return ok;
   }
 
@@ -155,7 +175,17 @@ export class ClaimChecker {
   }
 
   snapshot(): CheckerSnapshot {
-    return { claims: this.claims, segments: this.segments };
+    const searches = [...this.searches].map(([id, search]) => [
+      id,
+      {
+        ...search,
+        copies: search.copies.map((copy) => ({
+          ...copy,
+          fullText: copy.fullText?.slice(0, SAVED_PAGE_CHARS),
+        })),
+      },
+    ]);
+    return { claims: this.claims, segments: this.segments, searches: Object.fromEntries(searches) };
   }
 
   whenIdle(): Promise<void> {
@@ -174,22 +204,28 @@ export class ClaimChecker {
    */
   private async check(claim: Claim): Promise<void> {
     const { ctx, signal, request, video } = this.p;
+    const extending = this.extended.delete(claim.id);
+    const previous = extending ? this.searches.get(claim.id) : undefined;
+    // прошлый результат остаётся на экране, пока идёт новый поиск, и после ошибки
+    const shown = extending ? this.results.get(claim.id) : undefined;
     // лимит на человека и дневной бюджет: не потратили — «не удалось» с причиной, по клику перепроверится
     const denied = allow("check", this.p.ownerIp, request.uiLanguage);
     if (denied) {
       ctx.log(`${claim.id}: не проверяем — ${denied}`);
       this.update(
-        toFactCheck({ kind: "failed", claim, error: denied, uiLanguage: request.uiLanguage }),
+        shown ?? toFactCheck({ kind: "failed", claim, error: denied, uiLanguage: request.uiLanguage }),
         "claim.checked",
       );
       return;
     }
-    this.update(toFactCheck({ kind: "pending", claim, uiLanguage: request.uiLanguage }), "claim.detected");
+    if (!shown)
+      this.update(toFactCheck({ kind: "pending", claim, uiLanguage: request.uiLanguage }), "claim.detected");
     let fc: FactCheck;
     try {
       this.progress(claim, "source_search");
       const t0 = Date.now();
       const {
+        queries,
         sources: found,
         copies,
         search,
@@ -199,9 +235,11 @@ export class ClaimChecker {
           claim,
           maxSources: 5,
           searchLanguages: [...new Set([claim.language, "ro", "ru", "en"])],
+          previous,
         },
         ctx,
       );
+      this.searches.set(claim.id, { queries, sources: found, search, copies: copies ?? [] });
       // copies заполняет real-реализация 04; пустые/неполные (и у старых моков) — добираем из sources
       const treeCopies = copiesForTree(copies, found);
       this.progress(
@@ -261,12 +299,14 @@ export class ClaimChecker {
     } catch (err) {
       if (signal.aborted) return;
       ctx.log("claim failed", err);
-      fc = toFactCheck({
-        kind: "failed",
-        claim,
-        error: messagesFor(request.uiLanguage).claimCheckFailed,
-        uiLanguage: request.uiLanguage,
-      });
+      fc =
+        shown ??
+        toFactCheck({
+          kind: "failed",
+          claim,
+          error: messagesFor(request.uiLanguage).claimCheckFailed,
+          uiLanguage: request.uiLanguage,
+        });
     }
     this.update(fc, "claim.checked");
   }

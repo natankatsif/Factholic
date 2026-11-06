@@ -19,6 +19,8 @@ import type { JobId, ServerEvent, StartAnalysisRequest, VideoReport } from "@new
 import type { CheckerSnapshot, ClaimChecker } from "./checks.ts";
 
 export interface JobRecord {
+  /** Задачу запустил кабинет: не отменять, когда со страницы ушли все зрители */
+  keepRunning?: boolean;
   id: JobId;
   request: StartAnalysisRequest;
   /** Ключ кэша: одно и то же видео → один ключ */

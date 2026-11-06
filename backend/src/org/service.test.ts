@@ -88,6 +88,10 @@ class FakeRunner implements JobRunner {
     this.listeners.set(id, listener);
     return () => undefined;
   }
+  moreAccepted = true;
+  more() {
+    return this.moreAccepted;
+  }
   finish(id: string, factChecks: FactCheck[]) {
     const report = { ...this.reports.get(id)!, status: "completed" as const, factChecks };
     this.reports.set(id, report);
@@ -423,4 +427,140 @@ test("проверка в работе не закрывается раньше 
   const check = service.startCheck("Текст");
   runner.finish(check.jobId, [factCheck("Первое", ["a"], { status: "checking" })]);
   assert.equal(service.getCheck(check.id).check.status, "running");
+});
+
+test("видео: свой список, в вопросы не попадает, готово после разбора", () => {
+  const ctx = setup();
+  const url = "https://www.youtube.com/watch?v=13R5R5nTcsk";
+  const check = ctx.service.startCheck(url);
+  assert.equal(check.kind, "video");
+  assert.equal(ctx.service.session().counts.running, 1);
+  assert.equal(ctx.service.session().running[0]?.kind, "video");
+
+  // разобрано: первое проверено, второе дальше 45 секунд, его ждёт плеер. Ждать его не надо
+  ctx.runner.finish(check.jobId, [
+    factCheck("Первое", ["a"]),
+    factCheck("Второе", [], { status: "found", range: { start: 60, end: 61 } }),
+  ]);
+  assert.equal(ctx.service.getCheck(check.id).check.status, "done");
+  assert.equal(ctx.service.listClaims("all").length, 0);
+
+  const [video] = ctx.service.listVideos();
+  assert.equal(video?.claims, 2);
+  assert.equal(video?.checked, 1);
+  assert.equal(ctx.service.session().counts.videos, 1);
+
+  // отчёт живой: утверждение, проверенное после разбора, видно сразу
+  const report = ctx.runner.reports.get(check.jobId)!;
+  ctx.runner.reports.set(check.jobId, {
+    ...report,
+    factChecks: report.factChecks.map((item) => ({ ...item, status: "done" as const })),
+  });
+  assert.equal(ctx.service.listVideos()[0]?.checked, 2);
+  assert.equal(ctx.service.getCheck(check.id).report?.factChecks[1]?.status, "done");
+});
+
+test("видео: повторная ссылка открывает готовое и не тратит лимит", () => {
+  const ctx = setup({ checksPerMonth: 1 });
+  const first = ctx.service.startCheck("https://youtu.be/13R5R5nTcsk");
+  const again = ctx.service.startCheck("https://www.youtube.com/watch?v=13R5R5nTcsk&t=5");
+  assert.equal(again.id, first.id);
+  assert.equal(ctx.runner.started.length, 1);
+});
+
+test("видео: пока начало не проверено, оно в процессе", () => {
+  const ctx = setup();
+  const check = ctx.service.startCheck("https://youtu.be/13R5R5nTcsk");
+  ctx.runner.finish(check.jobId, [factCheck("Первое", ["a"], { status: "checking" })]);
+  assert.equal(ctx.service.getCheck(check.id).check.status, "running");
+
+  const report = ctx.runner.reports.get(check.jobId)!;
+  const factCheckDone = { ...report.factChecks[0]!, status: "done" as const };
+  ctx.runner.reports.set(check.jobId, { ...report, factChecks: [factCheckDone] });
+  ctx.runner.listeners.get(check.jobId)?.({
+    type: "job.completed",
+    jobId: check.jobId,
+    report: ctx.runner.reports.get(check.jobId)!,
+  });
+  assert.equal(ctx.service.getCheck(check.id).check.status, "done");
+});
+
+test("«Найти ещё» дополняет готовую проверку и считается в лимит", () => {
+  const ctx = setup({ checksPerMonth: 2 });
+  const claim = checked(ctx, "Сгорел ТЦ", ["a"]);
+  const check = ctx.service.getCheck(claim.latestCheckId).check;
+  const id = `fc_${claim.text}`;
+
+  ctx.service.searchMore(check.id, id);
+  assert.deepEqual(ctx.service.getCheck(check.id).searchingMore, [id]);
+  assert.equal(ctx.service.session().limits.checksUsed, 2);
+
+  const after = factCheck(claim.text, ["a", "b", "c"]);
+  ctx.runner.reports.set(check.jobId, { ...ctx.runner.reports.get(check.jobId)!, factChecks: [after] });
+  ctx.runner.listeners.get(check.jobId)?.({ type: "claim.checked", jobId: check.jobId, factCheck: after });
+
+  const detail = ctx.service.getCheck(check.id);
+  assert.deepEqual(detail.searchingMore, []);
+  assert.equal(detail.check.status, "done");
+  assert.equal(detail.check.lastMore?.found, 2);
+  assert.equal(detail.report?.factChecks[0]?.provenance?.nodes.length, 3);
+  assert.throws(
+    () => ctx.service.searchMore(check.id, id),
+    (err: OrgError) => err.code === "CHECK_LIMIT",
+  );
+});
+
+test("«Найти ещё» не считается, если утверждение ещё проверяется", () => {
+  const ctx = setup();
+  const claim = checked(ctx, "Сгорел ТЦ", ["a"]);
+  const check = ctx.service.getCheck(claim.latestCheckId).check;
+  ctx.runner.moreAccepted = false;
+  assert.throws(
+    () => ctx.service.searchMore(check.id, `fc_${claim.text}`),
+    (err: OrgError) => err.code === "BAD_REQUEST",
+  );
+  assert.deepEqual(ctx.service.getCheck(check.id).searchingMore, []);
+  assert.equal(ctx.service.session().limits.checksUsed, 1);
+});
+
+test("вопрос убирается из нарратива, но остаётся в кабинете", () => {
+  const ctx = setup();
+  const a = checked(ctx, "Первое", ["a"]);
+  const b = checked(ctx, "Второе", ["b"]);
+  const narrative = ctx.service.createNarrative({
+    title: "История",
+    description: "",
+    claimIds: [a.id, b.id],
+  });
+
+  const updated = ctx.service.removeFromNarrative(narrative.id, a.id);
+
+  assert.deepEqual(updated.claimIds, [b.id]);
+  assert.equal(ctx.service.getNarrative(narrative.id).claims.length, 1);
+  const kept = ctx.service.listClaims("all").find((claim) => claim.id === a.id);
+  assert.equal(kept?.narrativeId, undefined);
+  assert.ok(ctx.service.listClaims("ungrouped").some((claim) => claim.id === a.id));
+});
+
+test("повторный поиск из списка идёт по последней проверке и виден в вопросе", () => {
+  const ctx = setup();
+  const claim = checked(ctx, "Сгорел ТЦ", ["a"]);
+  ctx.service.repeatSearch(claim.id);
+  assert.equal(ctx.service.listClaims("all")[0]?.searching, true);
+  assert.deepEqual(ctx.service.getCheck(claim.latestCheckId).searchingMore, [claim.factCheckId]);
+
+  const session = ctx.service.session();
+  assert.equal(session.counts.running, 1);
+  assert.equal(session.running[0]?.id, claim.latestCheckId);
+  assert.equal(session.running[0]?.stepKey, "search");
+
+  const jobId = ctx.service.getCheck(claim.latestCheckId).check.jobId;
+  const event = { type: "claim.progress", jobId, claimId: claim.factCheckId, stage: "provenance" } as const;
+  ctx.runner.listeners.get(jobId)?.(event);
+  assert.equal(ctx.service.session().running[0]?.stepKey, "tree");
+
+  const factCheckDone = factCheck(claim.text, ["a"]);
+  ctx.runner.listeners.get(jobId)?.({ type: "claim.checked", jobId, factCheck: factCheckDone });
+  assert.equal(ctx.service.session().counts.running, 0);
+  assert.equal(ctx.service.listClaims("all")[0]?.checksCount, 2);
 });

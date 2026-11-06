@@ -5,7 +5,6 @@ import { useCabinetText } from "./dictionary";
 import {
   CaretDownIcon,
   CheckCircleIcon,
-  ClockIcon,
   FitViewIcon,
   MinusIcon,
   PlusIcon,
@@ -89,17 +88,8 @@ export function CanvasToolbar({
             <TreeIcon className="h-[15px] w-[15px]" />
             {t.canvas.tree}
           </div>
-          {/* Экрана хронологии в дизайне нет: переключатель показан, но не работает */}
-          <button
-            type="button"
-            disabled
-            className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-extrabold text-cabinet-ink-mid"
-          >
-            <ClockIcon className="h-[15px] w-[15px]" />
-            {t.canvas.timeline}
-          </button>
         </div>
-        {status === "done" && (
+        {status === "done" && onToggleSearch && (
           <button
             type="button"
             onClick={onToggleSearch}

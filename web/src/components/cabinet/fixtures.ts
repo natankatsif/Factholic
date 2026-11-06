@@ -62,7 +62,7 @@ export const FIXTURE_SESSION: CabinetSession = {
   alerts: [],
   clarifications: [],
   running: [],
-  counts: { all: 24, mine: 9, watched: 7, running: 2, ungrouped: 19 },
+  counts: { all: 24, mine: 9, watched: 7, running: 2, ungrouped: 19, videos: 0 },
   narratives: [
     { id: "fires", title: "Скрывают масштаб пожаров", count: 3 },
     { id: "pensions", title: "Пенсии только через приложение", count: 2 },

@@ -9,7 +9,14 @@ export interface SourceSearchInput {
   maxSources: number;
   /** На каких языках искать: язык видео + "en" как минимум */
   searchLanguages: LanguageCode[];
+  /** Кнопка «Найти ещё»: прошлый поиск. Новый его дополняет и не повторяет те же запросы */
+  previous?: PreviousSearch;
 }
+
+/** Что осталось от прошлого поиска по утверждению */
+export type PreviousSearch = Pick<SourceSearchOutput, "queries" | "sources" | "search"> & {
+  copies: SourceCopy[];
+};
 
 // ===================== ВЫХОД =====================
 

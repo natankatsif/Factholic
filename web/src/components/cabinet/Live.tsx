@@ -3,7 +3,12 @@
 /** Экраны на настоящем API и обёртка демо-данных. Данные перечитываются по событиям /api/org/events */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { ClientMessage, VideoReport } from "@news/contracts";
+import type { ClaimCheck } from "../../../../backend/src/org/types";
+import { subscribeJob, type JobSubscription } from "../../lib/jobs";
+import { VerificationScreen } from "../verification/VerificationScreen";
 import { ActionsContext, demoActions, type CabinetActions } from "./actions";
 import { CabinetApiError, cabinetApi, subscribeCabinet } from "./api";
 import { CheckScreen } from "./CheckScreen";
@@ -19,13 +24,19 @@ import {
   toQuestionRow,
   toRunningRow,
   toSession,
+  toVideoRow,
   toWatchRow,
 } from "./live-map";
 import { NarrativeScreen } from "./NarrativeScreen";
 import { QuestionsScreen } from "./QuestionsScreen";
 import type { ClaimScope, WatchDuration, WatchForm } from "./types";
+import { VideosScreen } from "./VideosScreen";
 import { WatchesScreen } from "./WatchesScreen";
 import { DEFAULT_WATCH_FORM } from "./WatchSettings";
+
+/** Видео живёт в своём разделе, остальное — на холсте */
+const checkPath = (check: ClaimCheck) =>
+  check.kind === "video" ? `/cabinet/videos/${check.id}` : `/cabinet/checks/${check.id}`;
 
 const DURATION_DAYS: Record<WatchDuration, number | undefined> = { d7: 7, d30: 30, forever: undefined };
 
@@ -90,18 +101,21 @@ function useLiveActions(reload: () => Promise<void>, picker: CabinetActions["pic
         run(async () => {
           const started = await cabinetApi.startCheck(input, t.locale);
           // если модель спросила, вопрос появится в верхней панели
-          if ("check" in started) router.push(`/cabinet/checks/${started.check.id}`);
+          if ("check" in started) router.push(checkPath(started.check));
         }),
       answerClarification: (id, answer, text) =>
         run(async () => {
           const check = await cabinetApi.answerClarification(id, answer, text);
-          router.push(`/cabinet/checks/${check.id}`);
+          router.push(checkPath(check));
         }),
       retryCheck: (id) =>
         run(async () => {
           const check = await cabinetApi.retryCheck(id);
-          router.push(`/cabinet/checks/${check.id}`);
+          router.push(checkPath(check));
         }),
+      searchMore: (id, factCheckId) => run(() => cabinetApi.searchMore(id, factCheckId)),
+      repeatSearch: (claimId) => run(() => cabinetApi.repeatSearch(claimId)),
+      removeFromNarrative: (id, claimId) => run(() => cabinetApi.removeFromNarrative(id, claimId)),
       createWatch: (claimId, form) => run(() => cabinetApi.createWatch(watchRequest(claimId, form))),
       watchClaims: (claimIds) =>
         run(async () => {
@@ -208,13 +222,15 @@ export function LiveCheck({ id, showAlert }: { id: string; showAlert: boolean })
   });
   const noClaims = data?.detail.check.noClaims;
   const missing = Boolean(failed) && !data;
+  const isVideo = data?.detail.check.kind === "video";
   useEffect(() => {
-    if (noClaims) router.replace(`/cabinet?noClaims=${id}`);
+    if (isVideo) router.replace(`/cabinet/videos/${id}`);
+    else if (noClaims) router.replace(`/cabinet?noClaims=${id}`);
     else if (missing) router.replace("/cabinet");
-  }, [noClaims, missing, id, router]);
+  }, [isVideo, noClaims, missing, id, router]);
   // пока неизвестно, есть ли в тексте утверждения, холст не показываем: дерева может и не быть
   const waitingClaims = data?.detail.check.status === "running" && !data.detail.report?.factChecks.length;
-  if (!data || noClaims || waitingClaims) {
+  if (!data || isVideo || noClaims || waitingClaims) {
     return (
       <LiveFrame reload={reload}>
         <CabinetShell tree loading>
@@ -246,6 +262,7 @@ export function LiveQuestions({ scope }: { scope: ClaimScope }) {
   const view = data && {
     session: toSession(data.session, data.alerts, t),
     questions: [
+      // идущие, и видео тоже: такие строки видны только в «В процессе»
       ...data.session.running.map((run) => toRunningRow(run, data.session, t)),
       ...data.claims.map((claim) =>
         toQuestionRow(
@@ -289,6 +306,87 @@ export function LiveWatches() {
           <ListSkeleton />
         </CabinetShell>
       )}
+    </LiveFrame>
+  );
+}
+
+export function LiveVideos() {
+  const t = useCabinetText();
+  const { data, failed, reload } = useLive(async () => {
+    const [common, videos] = await Promise.all([loadCommon(), cabinetApi.videos()]);
+    return { ...common, videos };
+  });
+  const view = data && {
+    session: toSession(data.session, data.alerts, t),
+    videos: data.videos.map((video) => toVideoRow(video, t)),
+  };
+  return (
+    <LiveFrame reload={reload} claims={data?.claims}>
+      {data || failed ? (
+        <VideosScreen fixture={view} />
+      ) : (
+        <CabinetShell pinnedMenu videos loading>
+          <ListSkeleton />
+        </CabinetShell>
+      )}
+    </LiveFrame>
+  );
+}
+
+/** Плеер и лента — те же, что на сайте. Позицию плеера шлём в задачу: бэкенд проверяет текущее и ближайшие утверждения */
+export function LiveVideo({ id }: { id: string }) {
+  const t = useCabinetText();
+  const router = useRouter();
+  const { data, failed, reload } = useLive(async () => {
+    const [common, detail] = await Promise.all([loadCommon(), cabinetApi.check(id)]);
+    return { ...common, detail };
+  });
+  const jobId = data?.detail.check.jobId;
+  const [report, setReport] = useState<VideoReport | null>(null);
+  const [jobError, setJobError] = useState<string>();
+  const subscription = useRef<JobSubscription | null>(null);
+  // плеер шлёт позицию при первой отрисовке, раньше подписки: потеряем — проверки не начнутся
+  const unsent = useRef<ClientMessage[]>([]);
+  const send = useCallback((msg: ClientMessage) => {
+    if (subscription.current) subscription.current.send(msg);
+    else unsent.current.push(msg);
+  }, []);
+  useEffect(() => {
+    if (!jobId) return;
+    const sub = subscribeJob(jobId, setReport, (err) => setJobError(err.message));
+    subscription.current = sub;
+    for (const msg of unsent.current.splice(0)) sub.send(msg);
+    return () => {
+      subscription.current = null;
+      sub.unsubscribe();
+    };
+  }, [jobId]);
+  useEffect(() => {
+    if (failed && !data) router.replace("/cabinet/videos");
+  }, [failed, data, router]);
+
+  const shown = report ?? data?.detail.report;
+  const session = data && toSession(data.session, data.alerts, t);
+  const failure = jobError ?? (data?.detail.check.status === "failed" ? t.videos.failed : undefined);
+  return (
+    <LiveFrame reload={reload} claims={data?.claims}>
+      <CabinetShell session={session} tree videos loading={!data}>
+        {failure ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+            <p className="max-w-[420px] text-[16px] font-extrabold">{failure}</p>
+            <Link
+              href="/cabinet/videos"
+              className="rounded-full bg-primary px-5 py-2.5 text-[14px] font-extrabold text-white"
+            >
+              {t.videos.title}
+            </Link>
+          </div>
+        ) : shown ? (
+          <VerificationScreen embedded report={shown} onSend={send} />
+        ) : (
+          <ListSkeleton />
+        )}
+      </CabinetShell>
     </LiveFrame>
   );
 }

@@ -4,17 +4,20 @@
  */
 import { createHash, randomUUID } from "node:crypto";
 import {
+  type ClaimStage,
   type FactCheck,
   type JobId,
   type ServerEvent,
   type StartAnalysisRequest,
   type VideoReport,
 } from "@news/contracts";
+import { isPendingCheck } from "@news/contracts";
 import { mixesAlphabets, type Clarifier, type ClarifyResult } from "./clarify.ts";
 import { compareChecks, daysBetween, isQuiet, sidesOf, type Signal } from "./compare.ts";
 import type { CabinetDb } from "./db.ts";
 import { suggestGroups } from "./suggest.ts";
 import type {
+  OrgVideo,
   Alert,
   ClaimCheck,
   Clarification,
@@ -39,6 +42,12 @@ import type {
 } from "./types.ts";
 
 const STEP_KEYS: OrgStepKey[] = ["claims", "search", "traces", "tree", "stances", "done"];
+/** Этап проверки утверждения → шаг в «В процессе» */
+const MORE_STEPS: Partial<Record<ClaimStage, OrgStepKey>> = {
+  source_search: "search",
+  provenance: "tree",
+  stances: "stances",
+};
 const MAX_INPUT_CHARS = 20_000;
 const MAX_NARRATIVE_QUOTES = 12;
 const QUOTES_PER_CLAIM = 4;
@@ -48,6 +57,8 @@ const USUAL_WINDOW_DAYS = 30;
 const FREQUENCY_DAYS = { daily: 1, weekly: 7 };
 /** Утверждение застряло в очереди: завершаем проверку с тем, что есть */
 const SETTLE_TIMEOUT_MS = 15 * 60 * 1000;
+/** Видео считается готовым, когда проверены утверждения этих первых секунд (хотя бы одно) */
+const VIDEO_BEGINNING_SEC = 45;
 
 export class OrgError extends Error {
   constructor(
@@ -62,6 +73,8 @@ export class OrgError extends Error {
 export interface JobRunner {
   start(request: StartAnalysisRequest, fresh: boolean): JobId;
   report(jobId: JobId): VideoReport | undefined;
+  /** «Найти ещё» по готовому утверждению. false — оно сейчас проверяется */
+  more(jobId: JobId, claimId: string): boolean;
   subscribe(jobId: JobId, listener: (event: ServerEvent) => void): () => void;
 }
 
@@ -87,6 +100,9 @@ interface StoredReport {
   report: VideoReport;
 }
 
+const publicationCount = (factCheck?: FactCheck) =>
+  factCheck?.provenance?.nodes.filter((node) => node.role !== "target").length ?? 0;
+
 const normalize = (text: string) =>
   text
     .toLowerCase()
@@ -98,10 +114,29 @@ function isUrl(input: string): boolean {
   return /^https?:\/\/\S+$/i.test(input.trim());
 }
 
+/** id ролика YouTube, если это ссылка на него: такую проверку ведём как видео */
+function youtubeId(input: string): string | undefined {
+  if (!isUrl(input)) return undefined;
+  return input.match(
+    /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/,
+  )?.[1];
+}
+
+/** Те же условия, что у загрузки на видео в кабинете: web/src/components/verification/VerificationScreen.tsx */
+function videoBeginningChecked(report: VideoReport): boolean {
+  if (report.status !== "completed") return false;
+  const early = report.factChecks.filter((factCheck) => factCheck.range.start < VIDEO_BEGINNING_SEC);
+  const needed = early.length ? early : report.factChecks.slice(0, 1);
+  return !needed.some(isPendingCheck);
+}
+
 function toRequest(input: string, locale: string): StartAnalysisRequest {
   const url = isUrl(input);
+  const videoId = youtubeId(input);
   return {
-    video: { pageUrl: url ? input.trim() : "text://cabinet", platform: "generic" },
+    video: videoId
+      ? { pageUrl: input.trim(), platform: "youtube", platformVideoId: videoId }
+      : { pageUrl: url ? input.trim() : "text://cabinet", platform: "generic" },
     mode: "remote",
     startFrom: 0,
     uiLanguage: locale,
@@ -111,6 +146,8 @@ function toRequest(input: string, locale: string): StartAnalysisRequest {
 
 export class CabinetService {
   private stopSubscriptions = new Map<string, () => void>();
+  /** Идущие «Найти ещё»: `${checkId}:${factCheckId}` → шаг. Только в памяти: сервер перезапустился — поиска уже нет */
+  private searchingMore = new Map<string, OrgStepKey>();
 
   constructor(
     private db: CabinetDb,
@@ -142,7 +179,10 @@ export class CabinetService {
 
   private checksUsed(): number {
     const { start } = this.period();
-    return this.db.list<ClaimCheck>("check").filter((check) => new Date(check.startedAt) >= start).length;
+    return this.db
+      .list<ClaimCheck>("check")
+      .filter((check) => new Date(check.startedAt) >= start)
+      .reduce((used, check) => used + 1 + (check.moreSearches ?? 0), 0);
   }
 
   private assertChecksLeft(): void {
@@ -205,6 +245,10 @@ export class CabinetService {
     const text = input?.trim();
     if (!text) throw new OrgError(400, "BAD_REQUEST", "пустой текст");
     if (text.length > MAX_INPUT_CHARS) throw new OrgError(400, "BAD_REQUEST", "текст слишком длинный");
+    const videoId = youtubeId(text);
+    // то же видео уже разобрано: открываем его, лимит не тратим
+    const known = videoId && this.knownVideo(videoId, locale);
+    if (known) return known;
     this.assertChecksLeft();
     // слежению нужен новый поиск; обычная проверка того же текста может взять готовое
     const jobId = this.runner.start(toRequest(text, locale), Boolean(watchClaimId));
@@ -220,10 +264,47 @@ export class CabinetService {
       watchClaimId,
       createdBy: MEMBER_ID,
       startedAt: this.now().toISOString(),
+      ...(videoId ? { kind: "video" as const } : {}),
     };
     this.db.put("check", check);
     this.follow(check);
     return check;
+  }
+
+  private videoChecks(): ClaimCheck[] {
+    return this.db
+      .list<ClaimCheck>("check")
+      .filter((check) => check.kind === "video")
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  }
+
+  private knownVideo(videoId: string, locale: string): ClaimCheck | undefined {
+    return this.videoChecks().find(
+      (check) => check.status !== "failed" && check.locale === locale && youtubeId(check.input) === videoId,
+    );
+  }
+
+  /** Отчёт видео: живой, потому что утверждения проверяются и после разбора, по ходу просмотра */
+  private videoReport(check: ClaimCheck): VideoReport | undefined {
+    return this.runner.report(check.jobId) ?? this.db.get<StoredReport>("report", check.id)?.report;
+  }
+
+  listVideos(): OrgVideo[] {
+    return this.videoChecks().map((check) => {
+      const report = this.videoReport(check);
+      const factChecks = report?.factChecks ?? [];
+      return {
+        id: check.id,
+        url: check.input,
+        title: report?.video.title ?? "",
+        thumbnailUrl: report?.video.thumbnailUrl,
+        durationSec: report?.video.durationSec ?? 0,
+        status: check.status,
+        claims: factChecks.length,
+        checked: factChecks.filter((factCheck) => factCheck.status === "done").length,
+        startedAt: check.startedAt,
+      };
+    });
   }
 
   retryCheck(id: string): ClaimCheck {
@@ -279,6 +360,7 @@ export class CabinetService {
     if (!check || check.status !== "running") return;
     const report = this.runner.report(check.jobId);
     if (!report) return;
+    if (check.kind === "video") return this.settleVideo(check, report, force);
     // «found» не ждём: утверждение сверх лимита не проверится никогда, и проверка зависла бы
     const busy = report.factChecks.some((factCheck) => factCheck.status === "checking");
     if (!force && (report.status !== "completed" || busy)) return;
@@ -300,6 +382,22 @@ export class CabinetService {
     this.refreshSuggestions();
     this.unfollow(id);
     this.emit({ type: "check.finished", checkId: id });
+  }
+
+  /**
+   * Видео готово, когда разобрано и проверено его начало: до этого оно «в процессе», как и экран с загрузкой.
+   * Остальное плеер просит по ходу просмотра. В общие вопросы утверждения не идут
+   */
+  private settleVideo(check: ClaimCheck, report: VideoReport, force: boolean): void {
+    if (!force && !videoBeginningChecked(report)) return;
+    this.db.put<StoredReport>("report", { id: check.id, report });
+    check.status = "done";
+    check.finishedAt = this.now().toISOString();
+    check.noClaims = report.factChecks.length === 0;
+    check.steps = check.steps.map((step) => ({ ...step, status: "done" }));
+    this.db.put("check", check);
+    this.unfollow(check.id);
+    this.emit({ type: "check.finished", checkId: check.id });
   }
 
   private upsertClaim(check: ClaimCheck, factCheck: FactCheck, report: VideoReport): TrackedClaim {
@@ -331,7 +429,10 @@ export class CabinetService {
   getCheck(id: string): OrgCheckDetail {
     const check = this.db.get<ClaimCheck>("check", id);
     if (!check) throw new OrgError(404, "NOT_FOUND", "проверка не найдена");
-    const report = this.db.get<StoredReport>("report", id)?.report ?? this.runner.report(check.jobId) ?? null;
+    const report =
+      (check.kind === "video"
+        ? this.videoReport(check)
+        : (this.db.get<StoredReport>("report", id)?.report ?? this.runner.report(check.jobId))) ?? null;
     const ids = check.watchClaimId ? [check.watchClaimId] : check.claimIds;
     const claims = ids.flatMap((claimId) => this.db.get<TrackedClaim>("claim", claimId) ?? []);
     return {
@@ -340,24 +441,130 @@ export class CabinetService {
       claims,
       watches: this.watches().filter((watch) => ids.includes(watch.claimId)),
       alerts: this.alerts().filter((alert) => ids.includes(alert.claimId)),
+      searchingMore: [...this.searchingMore.keys()]
+        .filter((key) => key.startsWith(`${id}:`))
+        .map((key) => key.slice(id.length + 1)),
     };
   }
 
+  /** «Найти ещё»: прошлые публикации остаются, новые дополняют то же дерево */
+  searchMore(id: string, factCheckId: string): { ok: true } {
+    const check = this.db.get<ClaimCheck>("check", id);
+    if (!check) throw new OrgError(404, "NOT_FOUND", "проверка не найдена");
+    const key = `${id}:${factCheckId}`;
+    if (this.searchingMore.has(key)) return { ok: true };
+    this.assertChecksLeft();
+    const before = publicationCount(this.reportFactCheck(check, factCheckId));
+    // подписка сначала отдаёт историю: ждём только событие нового поиска
+    let live = false;
+    const finish = () => {
+      clearTimeout(timer);
+      stop();
+      this.searchingMore.delete(key);
+    };
+    const timer = setTimeout(finish, SETTLE_TIMEOUT_MS);
+    timer.unref?.();
+    const stop = this.runner.subscribe(check.jobId, (event) => {
+      if (!live) return;
+      if (event.type === "claim.progress" && event.claimId === factCheckId) {
+        this.searchingMore.set(key, MORE_STEPS[event.stage] ?? "search");
+        this.emit({ type: "check.step", checkId: id });
+      }
+      if (event.type !== "claim.checked" || event.factCheck.id !== factCheckId) return;
+      finish();
+      this.finishMore(id, event.factCheck, before);
+    });
+    live = true;
+    this.searchingMore.set(key, "search");
+    if (!this.runner.more(check.jobId, factCheckId)) {
+      finish();
+      throw new OrgError(400, "BAD_REQUEST", "утверждение ещё проверяется");
+    }
+    this.db.put("check", { ...check, moreSearches: (check.moreSearches ?? 0) + 1 });
+    this.emit({ type: "check.step", checkId: id });
+    return { ok: true };
+  }
+
+  /** Три точки у вопроса: поиск по последней проверке */
+  repeatSearch(claimId: string): { ok: true } {
+    const claim = this.db.get<TrackedClaim>("claim", claimId);
+    if (!claim) throw new OrgError(404, "NOT_FOUND", "утверждение не найдено");
+    return this.searchMore(claim.latestCheckId, claim.factCheckId);
+  }
+
+  private withSearching(claim: TrackedClaim): TrackedClaim {
+    const searching = this.searchingMore.has(`${claim.latestCheckId}:${claim.factCheckId}`);
+    return searching ? { ...claim, searching } : claim;
+  }
+
+  private reportFactCheck(check: ClaimCheck, factCheckId: string): FactCheck | undefined {
+    const report = this.runner.report(check.jobId) ?? this.db.get<StoredReport>("report", check.id)?.report;
+    return report?.factChecks.find((item) => item.id === factCheckId);
+  }
+
+  private finishMore(id: string, after: FactCheck, before: number): void {
+    const check = this.db.get<ClaimCheck>("check", id);
+    if (!check) return;
+    const now = this.now().toISOString();
+    const report = this.runner.report(check.jobId);
+    if (report) this.db.put<StoredReport>("report", { id, report });
+    const found = Math.max(0, publicationCount(after) - before);
+    this.db.put("check", { ...check, lastMore: { found, at: now } });
+    const ids = check.watchClaimId ? [check.watchClaimId] : check.claimIds;
+    for (const claimId of ids) {
+      const claim = this.db.get<TrackedClaim>("claim", claimId);
+      if (claim?.factCheckId === after.id)
+        this.db.put<TrackedClaim>("claim", {
+          ...claim,
+          checksCount: claim.checksCount + 1,
+          lastCheckAt: now,
+          sides: sidesOf(after),
+        });
+    }
+    this.emit({ type: "check.finished", checkId: id });
+  }
+
+  /** Повторный поиск виден в «В процессе» так же, как обычная проверка */
+  private runningMore(): OrgRunningCheck[] {
+    return [...this.searchingMore].flatMap(([key, stepKey]) => {
+      const separator = key.indexOf(":");
+      const check = this.db.get<ClaimCheck>("check", key.slice(0, separator));
+      const factCheck = check && this.reportFactCheck(check, key.slice(separator + 1));
+      if (!check || !factCheck) return [];
+      return [
+        {
+          id: check.id,
+          claim: factCheck.claim.slice(0, 120),
+          step: STEP_KEYS.indexOf(stepKey) + 1,
+          totalSteps: STEP_KEYS.length,
+          stepKey,
+          found: publicationCount(factCheck),
+          kind: check.kind,
+        },
+      ];
+    });
+  }
+
   private running(): OrgRunningCheck[] {
-    return this.db
+    const checks = this.db
       .list<ClaimCheck>("check")
       .filter((check) => check.status === "running")
       .map((check) => {
         const index = Math.max(check.steps.filter((step) => step.status !== "waiting").length - 1, 0);
         return {
           id: check.id,
-          claim: check.input.slice(0, 120),
+          claim: ((check.kind === "video" && this.videoReport(check)?.video.title) || check.input).slice(
+            0,
+            120,
+          ),
           step: index + 1,
           totalSteps: check.steps.length,
           stepKey: check.steps[index]!.key,
           found: check.steps.find((step) => step.key === "search")?.found ?? 0,
+          kind: check.kind,
         };
       });
+    return [...checks, ...this.runningMore()];
   }
 
   // ---------- утверждения ----------
@@ -378,7 +585,8 @@ export class CabinetService {
         .filter((check) => check.status === "running" && check.watchClaimId)
         .map((check) => check.watchClaimId),
     );
-    return this.claims().filter((claim) => {
+    const list = this.claims().map((claim) => this.withSearching(claim));
+    return list.filter((claim) => {
       if (scope === "mine") return claim.createdBy === MEMBER_ID;
       if (scope === "watched") return watched.has(claim.id);
       if (scope === "running") return running.has(claim.id);
@@ -647,10 +855,25 @@ export class CabinetService {
     return this.db.put("narrative", { ...narrative, claimIds: all, quotes: this.quotesOf(all) });
   }
 
+  /** Вопрос остаётся в кабинете, уходит только из нарратива */
+  removeFromNarrative(id: string, claimId: string): Narrative {
+    const narrative = this.db.get<Narrative>("narrative", id);
+    if (!narrative) throw new OrgError(404, "NOT_FOUND", "нарратив не найден");
+    const claim = this.db.get<TrackedClaim>("claim", claimId);
+    if (claim?.narrativeId === id) this.db.put("claim", { ...claim, narrativeId: undefined });
+    const rest = narrative.claimIds.filter((item) => item !== claimId);
+    const updated = this.db.put("narrative", { ...narrative, claimIds: rest, quotes: this.quotesOf(rest) });
+    this.refreshSuggestions();
+    return updated;
+  }
+
   getNarrative(id: string): OrgNarrativeDetail {
     const narrative = this.db.get<Narrative>("narrative", id);
     if (!narrative) throw new OrgError(404, "NOT_FOUND", "нарратив не найден");
-    const claims = narrative.claimIds.flatMap((claimId) => this.db.get<TrackedClaim>("claim", claimId) ?? []);
+    const claims = narrative.claimIds.flatMap((claimId) => {
+      const claim = this.db.get<TrackedClaim>("claim", claimId);
+      return claim ? [this.withSearching(claim)] : [];
+    });
     const factChecks = claims.flatMap((claim) => this.factCheckOf(claim) ?? []);
     const urls = new Set(
       factChecks.flatMap((factCheck) =>
@@ -723,6 +946,7 @@ export class CabinetService {
       watched: this.listClaims("watched").length,
       running: this.running().length,
       ungrouped: this.listClaims("ungrouped").length,
+      videos: this.videoChecks().length,
     };
     return {
       organization: { id: ORGANIZATION_ID, name: this.options.organizationName },

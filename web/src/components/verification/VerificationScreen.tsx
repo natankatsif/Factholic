@@ -5,7 +5,7 @@ import { VerificationHeader } from "./VerificationHeader";
 import { ClaimTextPanel, findQuoteInText } from "./ClaimTextPanel";
 import { AnalysisCard } from "./AnalysisCard";
 import { ConsensusBar } from "./ConsensusBar";
-import { TreeView } from "./TreeView";
+import { ClaimTree } from "./ClaimTree";
 import { VideoClaimFeed } from "./VideoClaimFeed";
 import { VideoPlayerPanel, type VideoPlayerHandle } from "./VideoPlayerPanel";
 import { materialKind } from "./material";
@@ -20,8 +20,23 @@ const TWO_COLUMNS =
 const TREE_MAIN =
   "mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col overflow-y-auto px-6 pb-5 sm:px-10 lg:px-20 lg:overflow-hidden";
 
+/** В кабинете видео стартует, когда проверены утверждения этих первых секунд (хотя бы одно) */
+const HOLD_WINDOW_SEC = 45;
+
+/** Ничего не идёт столько времени (например, кончился лимит проверок) — не держим видео, запускаем */
+const HOLD_STALL_MS = 20_000;
+
+/** Как часто сообщать позицию плеера бэкенду, секунд просмотра */
+const PLAYBACK_REPORT_SEC = 15;
+
+/** Внутри кабинета: у него своя шапка и поля, места меньше */
+const inCabinet = (layout: string) =>
+  `${layout.replace("max-w-[1440px]", "").replace("lg:px-20", "lg:px-8").replace("pt-1", "")} pt-4`;
+
 export interface VerificationScreenProps {
   report: VideoReport;
+  /** Экран вставлен в кабинет: без шапки сайта и чудика, в высоту родителя */
+  embedded?: boolean;
   /** Вид экрана. Если задан вместе с onViewChange — управляется снаружи (например, через ?view=tree в адресе) */
   view?: VerificationView;
   onViewChange?: (view: VerificationView) => void;
@@ -44,6 +59,7 @@ export interface VerificationScreenProps {
  */
 export function VerificationScreen({
   report,
+  embedded = false,
   view,
   onViewChange,
   onGoHome,
@@ -51,6 +67,8 @@ export function VerificationScreen({
   onSend,
 }: VerificationScreenProps) {
   const youtubeId = reportYoutubeId(report.video);
+  const twoColumns = embedded ? inCabinet(TWO_COLUMNS) : TWO_COLUMNS;
+  const treeMain = embedded ? inCabinet(TREE_MAIN) : TREE_MAIN;
 
   // Сортируем все тезисы строго по порядку их появления в тексте (сверху вниз), у видео — по таймкодам
   const factChecks = useMemo(() => {
@@ -115,7 +133,9 @@ export function VerificationScreen({
       ? "checking"
       : currentClaim.consensus;
 
-  // Видео дошло до другого утверждения (или перемотали) — бэкенд проверяет его и два следующих
+  // Бэкенд проверяет текущее утверждение и всё, что впереди на две минуты. Окно едет за плеером,
+  // поэтому позицию шлём при смене утверждения, при перемотке и просто по ходу просмотра
+  const playbackTick = Math.floor(videoTime / PLAYBACK_REPORT_SEC);
   const videoTimeRef = useRef(videoTime);
   videoTimeRef.current = videoTime;
   const sendRef = useRef(onSend);
@@ -123,7 +143,7 @@ export function VerificationScreen({
   useEffect(() => {
     if (!youtubeId) return;
     sendRef.current?.({ type: "playback", currentTime: videoTimeRef.current, playing: true, rate: 1 });
-  }, [youtubeId, videoClaimId]);
+  }, [youtubeId, videoClaimId, playbackTick]);
 
   // Открыли найденное, но не проверенное утверждение — проверить первым.
   // Упавшее (поиск был недоступен) — перепроверить, но один раз за сессию: упадёт снова — не зацикливаемся
@@ -137,6 +157,37 @@ export function VerificationScreen({
       sendRef.current?.({ type: "claim.check", claimId: selectedClaimId });
   }, [selectedClaimId, selectedStatus]);
 
+  // Кабинет: сначала проверяем начало, потом запускаем видео, чтобы итоги были готовы к моменту, когда до них дойдёт
+  const earlyClaims = factChecks.filter((fc) => fc.range.start < HOLD_WINDOW_SEC);
+  const holdClaims = earlyClaims.length ? earlyClaims : factChecks.slice(0, 1);
+  const finished = report.status === "completed";
+  const beginningRead =
+    finished ||
+    report.processedUntil >= Math.min(HOLD_WINDOW_SEC, report.video.durationSec || HOLD_WINDOW_SEC);
+  const beginningChecked =
+    (finished && factChecks.length === 0) ||
+    (beginningRead && holdClaims.length > 0 && !holdClaims.some(isPendingCheck));
+  const [holdDone, setHoldDone] = useState(false);
+  useEffect(() => {
+    if (beginningChecked) setHoldDone(true);
+  }, [beginningChecked]);
+  // загрузка не должна стоять вечно: проверка могла не начаться совсем
+  const holdState = holdClaims.map((fc) => fc.status).join();
+  const holdActive = holdClaims.some((fc) => fc.status === "checking");
+  useEffect(() => {
+    if (!embedded || holdDone || !beginningRead || holdActive) return;
+    const timer = setTimeout(() => setHoldDone(true), HOLD_STALL_MS);
+    return () => clearTimeout(timer);
+  }, [embedded, holdDone, beginningRead, holdActive, holdState]);
+  const hold =
+    embedded && !holdDone && !beginningChecked
+      ? {
+          checked: holdClaims.filter((fc) => !isPendingCheck(fc)).length,
+          total: holdClaims.length,
+          onSkip: () => setHoldDone(true),
+        }
+      : undefined;
+
   const openTree = (claimId: string) => {
     setSelectedClaimId(claimId);
     setView("tree");
@@ -146,14 +197,20 @@ export function VerificationScreen({
     report.summary?.totalSources ?? new Set(factChecks.flatMap((fc) => fc.sources.map((s) => s.url))).size;
 
   return (
-    <div className="flex min-h-[100svh] flex-col bg-[#F1EBE9] font-sans text-[#4A3333] lg:h-[100svh] lg:overflow-hidden">
-      <VerificationHeader onGoHome={onGoHome} currentJobId={report.jobId} />
+    <div
+      className={
+        embedded
+          ? "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto font-sans text-[#4A3333] lg:overflow-hidden"
+          : "flex min-h-[100svh] flex-col bg-[#F1EBE9] font-sans text-[#4A3333] lg:h-[100svh] lg:overflow-hidden"
+      }
+    >
+      {!embedded && <VerificationHeader onGoHome={onGoHome} currentJobId={report.jobId} />}
 
       {youtubeId ? (
         // Видео: один <main> на оба вида — плеер остаётся тем же элементом (YouTube не перезагружается),
         // в дереве он становится мини-плеером в углу, на месте ленты — дерево
         <>
-          <main className={isTreeView && currentClaim ? TREE_MAIN : TWO_COLUMNS}>
+          <main className={isTreeView && currentClaim ? treeMain : twoColumns}>
             <VideoPlayerPanel
               ref={playerRef}
               videoId={youtubeId}
@@ -163,12 +220,14 @@ export function VerificationScreen({
               onTime={setVideoTime}
               onOpenTree={openTree}
               mini={isTreeView && Boolean(currentClaim)}
+              hold={hold}
               onExpand={() => setView("analysis")}
             />
             {isTreeView && currentClaim ? (
-              <TreeView
+              <ClaimTree
+                key={currentClaim.id}
+                jobId={report.jobId}
                 factCheck={currentClaim}
-                material={materialKind(report.video)}
                 onBack={() => setView("analysis")}
               />
             ) : (
@@ -187,7 +246,7 @@ export function VerificationScreen({
             )}
           </main>
 
-          {!isTreeView && (
+          {!isTreeView && !embedded && (
             <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center overflow-visible">
               <div className="relative w-full max-w-[1440px] px-6 sm:px-10 lg:px-20 overflow-visible">
                 <div className="flex justify-end lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(380px,35.6vw,456px)] lg:gap-8 overflow-visible">
@@ -204,15 +263,16 @@ export function VerificationScreen({
         </>
       ) : isTreeView && currentClaim ? (
         // lg+: колонка во всю высоту экрана, прокрутка — внутри холста и панели дерева; мобильные — обычная прокрутка
-        <main className={TREE_MAIN}>
-          <TreeView
+        <main className={treeMain}>
+          <ClaimTree
+            key={currentClaim.id}
+            jobId={report.jobId}
             factCheck={currentClaim}
-            material={materialKind(report.video)}
             onBack={() => setView("analysis")}
           />
         </main>
       ) : (
-        <main className={TWO_COLUMNS}>
+        <main className={twoColumns}>
           <div className="flex min-h-0 flex-col gap-5 lg:gap-[22px]">
             <ClaimTextPanel
               factChecks={factChecks}

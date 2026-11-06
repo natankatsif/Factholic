@@ -1,12 +1,16 @@
 "use client";
 
 /** Нарратив: группа вопросов, собранная человеком из реальных цитат. Экран 14 */
+import { useState } from "react";
 import Link from "next/link";
 import { useCabinetActions } from "./actions";
 import { CabinetShell, useOpenNarrativeDialog } from "./CabinetShell";
+import { ConfirmDialog } from "./Dialogs";
 import { useCabinetText } from "./dictionary";
 import type { CabinetFixture } from "./fixtures";
 import { ArrowLeftIcon, ArrowRightIcon, PlusIcon, ScalesIcon } from "./icons";
+import { QuestionMenu } from "./QuestionMenu";
+import type { NarrativeQuestion } from "./types";
 import { Avatar, Pill, SidesBar, SidesLegend, StatusPill } from "./ui";
 
 function Stat({
@@ -52,6 +56,7 @@ export function NarrativeScreen({
   const text = t.narrative;
   const narrative = fixture.narrative;
   const count = narrative.questions.length;
+  const [removing, setRemoving] = useState<NarrativeQuestion>();
   return (
     <CabinetShell session={fixture.session} pinnedMenu narrativeId={narrative.id} overlay={fixture.overlay}>
       <main className="flex h-full min-w-0 flex-1 flex-col items-start gap-[18px] overflow-y-auto overscroll-none px-8 py-7">
@@ -98,7 +103,16 @@ export function NarrativeScreen({
                 >
                   <div className="flex w-full items-start gap-3">
                     <div className="flex-1 text-[16px] font-black leading-5">{question.text}</div>
-                    <StatusPill status={question.status} className="px-2.5 py-[3px] text-[12px]" />
+                    {question.searching ? (
+                      <Pill className="bg-cabinet-blue/10 text-cabinet-blue">{t.questionMenu.searching}</Pill>
+                    ) : (
+                      <StatusPill status={question.status} className="px-2.5 py-[3px] text-[12px]" />
+                    )}
+                    <QuestionMenu
+                      searching={question.searching}
+                      onRepeat={() => void actions.repeatSearch(question.id)}
+                      onRemove={() => setRemoving(question)}
+                    />
                   </div>
                   <SidesBar sides={question.sides} />
                   <div className="flex w-full items-center justify-between">
@@ -138,6 +152,19 @@ export function NarrativeScreen({
             </div>
           </div>
         </div>
+        {removing && (
+          <ConfirmDialog
+            title={t.questionMenu.removeTitle}
+            text={t.questionMenu.removeText(removing.text)}
+            confirm={t.questionMenu.remove}
+            cancel={t.questionMenu.cancel}
+            onClose={() => setRemoving(undefined)}
+            onConfirm={() => {
+              setRemoving(undefined);
+              void actions.removeFromNarrative(narrative.id, removing.id);
+            }}
+          />
+        )}
       </main>
     </CabinetShell>
   );

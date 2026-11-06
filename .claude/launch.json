@@ -53,6 +53,7 @@
         "CABINET_MEMBER_NAME=Ирина К.",
         "MAX_CLAIMS_PER_CHUNK=1",
         "MAX_CLAIMS_PER_JOB=1",
+        "MAX_CLAIMS_PER_VIDEO=20",
         "STAGE_INGEST=real",
         "STAGE_TRANSCRIPTION=real",
         "STAGE_CLAIM_EXTRACTION=real",

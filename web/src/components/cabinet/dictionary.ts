@@ -53,6 +53,7 @@ const ru = {
     watched: "На слежении",
     running: "В процессе",
     ungrouped: "Без группы",
+    videos: "Видео",
     narratives: "Нарративы",
     addNarrative: "Добавить нарратив",
     suggestionTitle: "Похоже на одну историю",
@@ -60,7 +61,6 @@ const ru = {
   },
   canvas: {
     tree: "Дерево",
-    timeline: "Хронология",
     searchDone: "Ход поиска: готово",
     fit: "Показать всё",
     zoomIn: "Приблизить",
@@ -186,6 +186,12 @@ const ru = {
     checkFailed: "Ошибка поиска",
   },
   feed: {
+    findMore: "Найти ещё",
+    findingMore: "Ищем ещё…",
+    findMoreHint:
+      "Новые запросы по словам из найденных страниц. Найденное добавится к дереву, поиск считается как проверка.",
+    moreFound: (count: number) => `Новых публикаций: ${count}`,
+    moreNothing: "Новых публикаций нет",
     claimsFoundTitle: "Найдены утверждения",
     claimsFoundOne: "В тексте одно проверяемое утверждение. Взяли его в работу.",
     claimsFoundMany: (count: number) => `В тексте ${count} утверждения. Выберите, какое вести дальше.`,
@@ -274,6 +280,17 @@ const ru = {
     debunked: "Есть разборы",
     fading: "Затухает",
   },
+  questionMenu: {
+    label: "Действия с вопросом",
+    repeatSearch: "Повторить поиск",
+    searching: "Ищем…",
+    removeFromNarrative: "Убрать из нарратива",
+    removeTitle: "Убрать вопрос из нарратива?",
+    removeText: (question: string) =>
+      `Вы уверены? ${question} уйдёт из нарратива, но останется в списке вопросов.`,
+    remove: "Убрать",
+    cancel: "Отмена",
+  },
   questions: {
     subtitle: (count: number, word: string) =>
       `${count} ${word}. К любому можно вернуться: дерево и прошлые проверки остаются.`,
@@ -326,6 +343,27 @@ const ru = {
     fresh: (count: number) => `+${count}`,
     toggle: { active: "Вкл", paused: "Пауза", finished: "Выкл" },
     more: "Ещё",
+  },
+  videos: {
+    title: "Видео",
+    subtitle: (count: number, word: string) => `${count} ${word}. Утверждения проверяются по ходу просмотра.`,
+    word: { one: "видео", few: "видео", many: "видео", other: "видео" } as PluralForms,
+    placeholder: "Вставьте ссылку на видео YouTube",
+    submit: "Разобрать",
+    notYoutube: "Пока поддерживаем только ссылки на YouTube",
+    emptyTitle: "Видео пока нет",
+    emptyText: "Вставьте ссылку: откроется плеер, а утверждения рядом с текущим моментом проверятся сами.",
+    claims: (count: number, word: string) => `${count} ${word}`,
+    claimsWord: {
+      one: "утверждение",
+      few: "утверждения",
+      many: "утверждений",
+      other: "утверждения",
+    } as PluralForms,
+    checked: (count: number) => `проверено ${count}`,
+    running: "Разбираем",
+    failed: "Не удалось разобрать видео",
+    retry: "Повторить",
   },
   narrative: {
     back: "Все вопросы",

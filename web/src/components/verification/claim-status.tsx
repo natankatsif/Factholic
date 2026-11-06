@@ -6,6 +6,7 @@ import React from "react";
 import type { ClaimConsensus, FactCheck } from "@news/contracts";
 import { Flag, History, TrendingUp, type LucideIcon } from "lucide-react";
 import { useSiteText, type SiteDictionary } from "../../i18n/site";
+import { formatCountdown, useCountdown } from "../../lib/use-countdown";
 
 /** Плашка позиции: не вывод «правда/ложь», а что говорят источники */
 const PILL: Record<ClaimConsensus, { dot: string; bg: string }> = {
@@ -28,14 +29,7 @@ export function StatusPill({ factCheck: fc }: { factCheck: FactCheck }) {
       </span>
     );
   }
-  if (fc.status === "checking") {
-    return (
-      <span className={`${base} bg-[#EEE8E6] text-[#8C7471]`}>
-        <span className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-[#A27C7A] border-t-transparent" />
-        {t.status.checking}
-      </span>
-    );
-  }
+  if (fc.status === "checking") return <CheckingPill id={fc.id} className={base} />;
   if (fc.status === "failed") {
     return <span className={`${base} bg-[#EEE8E6] text-[#8C7471]`}>{t.status.failed}</span>;
   }
@@ -56,6 +50,21 @@ export function StatusPill({ factCheck: fc }: { factCheck: FactCheck }) {
       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: st.dot }} />
       {t.status.pill[consensus]}
       {share && <span className="font-black tabular-nums">· {t.status.percentFor(share.percent)}</span>}
+    </span>
+  );
+}
+
+/** Примерно столько длится проверка одного утверждения, секунд: поиск, дерево, стороны */
+export const CHECK_ESTIMATE_SEC = 60;
+
+/** «Проверяем… ~0:42»: время примерное, вышло — говорим, что осталось немного */
+function CheckingPill({ id, className }: { id: string; className: string }) {
+  const t = useSiteText();
+  const left = useCountdown(`claim:${id}`, CHECK_ESTIMATE_SEC);
+  return (
+    <span className={`${className} bg-[#EEE8E6] tabular-nums text-[#8C7471]`}>
+      <span className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-[#A27C7A] border-t-transparent" />
+      {left > 0 ? t.status.checkingLeft(formatCountdown(left)) : t.status.checkingAlmost}
     </span>
   );
 }

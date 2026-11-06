@@ -144,3 +144,54 @@ describe("CheckScheduler", () => {
     assert.equal(s.status("c0"), "done");
   });
 });
+
+describe("CheckScheduler: окно по времени", () => {
+  const horizon = (horizonSec: number) => {
+    const started: string[] = [];
+    const s = new CheckScheduler<C>({
+      run: (c) => {
+        started.push(c.id);
+        return new Promise<void>(() => {});
+      },
+      concurrency: 100,
+      lookahead: 1,
+      horizonSec,
+      maxChecks: 100,
+    });
+    return { s, started };
+  };
+
+  it("берёт всё, что начнётся в пределах окна, а не только lookahead следующих", () => {
+    const { s, started } = horizon(120);
+    const dense = Array.from({ length: 10 }, (_, i) => claim(`d${i}`, i * 30));
+    s.add(dense);
+    s.playhead(5);
+    // 5 + 120 с: до 125-й секунды — d0…d4; d5 на 150-й ещё подождёт
+    assert.deepEqual(started, ["d0", "d1", "d2", "d3", "d4"]);
+  });
+
+  it("редкие утверждения: lookahead работает как минимум, даже если следующее дальше окна", () => {
+    const { s, started } = horizon(120);
+    s.add([claim("a", 0), claim("b", 600), claim("c", 1200)]);
+    s.playhead(0);
+    assert.deepEqual(started, ["a", "b"]);
+  });
+
+  it("окно едет за плеером", () => {
+    const { s, started } = horizon(60);
+    s.add(CLAIMS);
+    s.playhead(0);
+    s.playhead(120);
+    assert.deepEqual(started, ["c0", "c1", "c2", "c3"]);
+  });
+
+  it("повторяет готовое утверждение по кнопке, даже если потолок выбран", async () => {
+    const { s, started, release } = setup({ maxChecks: 1 });
+    s.add([claim("a", 0)]);
+    s.request("a");
+    assert.equal(s.again("a"), false, "пока идёт проверка, повторять нечего");
+    await release("a");
+    assert.equal(s.again("a"), true);
+    assert.deepEqual(started, ["a", "a"]);
+  });
+});

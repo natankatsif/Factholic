@@ -89,6 +89,11 @@ export function createOrgApi(runner: JobRunner) {
         return send(res, 201, await service.requestCheck(input, locale));
       }
       if (method === "GET" && id) return send(res, 200, service.getCheck(id));
+      if (method === "POST" && id && action === "more") {
+        const { factCheckId } = await readJson<{ factCheckId: string }>(req);
+        guard(req);
+        return send(res, 202, service.searchMore(id, factCheckId));
+      }
       if (method === "POST" && id && action === "retry") {
         guard(req);
         return send(res, 201, service.retryCheck(id));
@@ -99,6 +104,13 @@ export function createOrgApi(runner: JobRunner) {
       const { answer, text } = await readJson<{ answer: ClarificationAnswer; text?: string }>(req);
       guard(req);
       return send(res, 201, service.answerClarification(id, answer, text));
+    }
+
+    if (area === "videos" && method === "GET" && !id) return send(res, 200, service.listVideos());
+
+    if (area === "claims" && method === "POST" && id && action === "search") {
+      guard(req);
+      return send(res, 202, service.repeatSearch(id));
     }
 
     if (area === "claims" && method === "GET") {
@@ -133,6 +145,9 @@ export function createOrgApi(runner: JobRunner) {
       if (method === "GET" && id) return send(res, 200, service.getNarrative(id));
       if (method === "POST" && !id) {
         return send(res, 201, service.createNarrative(await readJson<CreateNarrativeRequest>(req)));
+      }
+      if (method === "DELETE" && id && action === "claims" && part[3]) {
+        return send(res, 200, service.removeFromNarrative(id, part[3]));
       }
       if (method === "PATCH" && id) {
         const { claimIds } = await readJson<{ claimIds: string[] }>(req);

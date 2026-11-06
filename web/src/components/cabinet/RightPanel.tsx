@@ -133,6 +133,7 @@ export interface FeedActions {
   onShowAlert: (target?: AlertTarget, nodeId?: string) => void;
   onConfigure: () => void;
   onRetry: () => void;
+  onFindMore: () => void;
   claimChoice: number;
   onChooseClaim: (index: number) => void;
 }
@@ -473,6 +474,33 @@ function ClaimStatusLine({ check }: { check: CheckView }) {
   );
 }
 
+/** Доступна всегда, когда проверка закончилась: даже хорошее дерево можно дополнить */
+function FindMore({ check, onFindMore }: { check: CheckView; onFindMore: () => void }) {
+  const t = useCabinetText();
+  const searching = Boolean(check.searchingMore);
+  const result =
+    check.moreFound === undefined
+      ? t.feed.findMoreHint
+      : check.moreFound > 0
+        ? t.feed.moreFound(check.moreFound)
+        : t.feed.moreNothing;
+  return (
+    <div className="flex w-full flex-col gap-2 rounded-[20px] bg-canvas p-4">
+      <button
+        type="button"
+        onClick={onFindMore}
+        disabled={searching}
+        aria-busy={searching}
+        className={cn(BUTTON_DARK, "w-full disabled:opacity-70")}
+      >
+        <SearchIcon className={cn("h-[15px] w-[15px]", searching && "animate-pulse")} />
+        {searching ? t.feed.findingMore : t.feed.findMore}
+      </button>
+      {!searching && <div className="text-[13px] font-bold leading-[17px]">{result}</div>}
+    </div>
+  );
+}
+
 export function CheckFeedPanel({
   check,
   offerHidden,
@@ -490,6 +518,9 @@ export function CheckFeedPanel({
         <ClaimStatusLine check={check} />
       </PanelHeader>
       <div className="flex min-h-0 w-full flex-1 flex-col items-start gap-[22px] overflow-y-auto overscroll-none p-[22px]">
+        {check.factCheckId && check.status !== "running" && (
+          <FindMore check={check} onFindMore={actions.onFindMore} />
+        )}
         {items.map((item, index) => (
           <FeedEntry key={index} item={item} actions={actions} />
         ))}

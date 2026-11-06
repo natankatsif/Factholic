@@ -75,6 +75,8 @@ export interface TrackedClaim {
   lastCheckAt: ISODateString;
   narrativeId?: string;
   sides?: OrgSides;
+  /** Идёт повторный поиск. Считается при выдаче, в базе не хранится */
+  searching?: boolean;
 }
 
 /** Вопрос модели перед проверкой: ждёт ответа сотрудника */
@@ -107,11 +109,33 @@ export interface ClaimCheck {
   claimIds: string[];
   /** Проверка слежения: какое утверждение перепроверяли */
   watchClaimId?: string;
+  /** Сколько раз нажали «Найти ещё»: каждый поиск платный и считается в лимит */
+  moreSearches?: number;
+  /** Чем закончился последний такой поиск */
+  lastMore?: { found: number; at: ISODateString };
   createdBy: string;
   startedAt: ISODateString;
   finishedAt?: ISODateString;
   /** В тексте нет проверяемых утверждений */
   noClaims?: boolean;
+  /**
+   * Видео: живёт отдельным списком, утверждения в общие вопросы не попадают. Разбор на утверждения считается
+   * проверкой целиком, а сами утверждения проверяются по ходу просмотра: текущее и ближайшие
+   */
+  kind?: "video";
+}
+
+/** GET /api/org/videos: видео организации */
+export interface OrgVideo {
+  id: string;
+  url: string;
+  title: string;
+  thumbnailUrl?: string;
+  durationSec: number;
+  status: OrgCheckStatus;
+  claims: number;
+  checked: number;
+  startedAt: ISODateString;
 }
 
 export interface Watch {
@@ -201,12 +225,13 @@ export interface OrgRunningCheck {
   totalSteps: number;
   stepKey: OrgStepKey;
   found: number;
+  kind?: ClaimCheck["kind"];
 }
 
 export interface OrgSession {
   organization: { id: string; name: string };
   member: { id: string; name: string; role: "member" | "admin" };
-  counts: Record<OrgClaimScope, number>;
+  counts: Record<OrgClaimScope | "videos", number>;
   unreadAlerts: number;
   clarifications: Clarification[];
   running: OrgRunningCheck[];
@@ -229,6 +254,8 @@ export interface OrgCheckDetail {
   claims: TrackedClaim[];
   watches: Watch[];
   alerts: Alert[];
+  /** Для каких утверждений отчёта сейчас идёт «Найти ещё» */
+  searchingMore: string[];
 }
 
 /** GET /api/org/narratives/:id */

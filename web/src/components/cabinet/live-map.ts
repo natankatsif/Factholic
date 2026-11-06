@@ -1,10 +1,17 @@
 /** Данные бэкенда → данные экранов. Подписи берутся из словаря, цвета кружков считаются из названия */
-import type { FactCheck, ProvenanceEdge, ProvenanceNode, SourceStance } from "@news/contracts";
+import {
+  formatTimecode,
+  type FactCheck,
+  type ProvenanceEdge,
+  type ProvenanceNode,
+  type SourceStance,
+} from "@news/contracts";
 import type {
   Alert,
   OrgCheckDetail,
   OrgNarrativeDetail,
   OrgSession,
+  OrgVideo,
   TrackedClaim,
 } from "../../../../backend/src/org/types";
 import type { WatchWithClaim } from "./api";
@@ -25,6 +32,7 @@ import type {
   Stance,
   TreeEdge,
   TreeNode,
+  VideoRow,
   WatchRow,
 } from "./types";
 
@@ -302,6 +310,7 @@ export function toCheckView(detail: OrgCheckDetail, claimIndex: number, t: Cabin
   const watch = detail.watches.find((item) => item.claimId === claim?.id);
   const reportFound = check.steps.find((step) => step.key === "search")?.found ?? 0;
   const quote = factCheck?.quote ?? report?.factChecks[0]?.quote ?? check.input;
+  const target = factCheck ?? report?.factChecks.find((item) => item.status === "failed");
   return {
     id: check.id,
     status: check.status,
@@ -330,6 +339,27 @@ export function toCheckView(detail: OrgCheckDetail, claimIndex: number, t: Cabin
           }
         : { publications: reportFound },
     feed: buildFeed(detail, factCheck, t),
+    factCheckId: target?.id,
+    searchingMore: target ? detail.searchingMore.includes(target.id) : false,
+    moreFound: check.lastMore?.found,
+  };
+}
+
+/** Дерево одного утверждения вне проверки кабинета: сайт и видео. Ленты и статуса проверки у него нет */
+export function toClaimCanvas(factCheck: FactCheck, t: CabinetDictionary): CheckView {
+  const tree = treeOf(factCheck, t);
+  return {
+    id: factCheck.id,
+    status: "done",
+    claim: factCheck.claim,
+    ...tree,
+    placeholders: 0,
+    stats: {
+      publications: tree.nodes.filter((node) => node.kind === "publication").length + tree.unlinked.length,
+      links: tree.edges.length,
+      changes: tree.edges.filter((edge) => edge.kind === "changed").length,
+    },
+    feed: [],
   };
 }
 
@@ -352,6 +382,7 @@ export function toQuestionRow(
     last: whenLabel(claim.lastCheckAt, t),
     ageDays: ageInDays(claim.lastCheckAt),
     status: claim.status,
+    searching: claim.searching,
     scopes: [
       "all",
       "mine",
@@ -417,6 +448,7 @@ export function toSession(session: OrgSession, alerts: Alert[], t: CabinetDictio
       step: item.step,
       totalSteps: item.totalSteps,
       message: t.search.steps[item.stepKey].toLowerCase(),
+      video: item.kind === "video",
       found: item.found,
     })),
     counts: session.counts,
@@ -479,6 +511,7 @@ export function toNarrativeView(detail: OrgNarrativeDetail, t: CabinetDictionary
       text: `«${claim.text}»`,
       status: claim.status,
       sides: claim.sides ?? { for: 0, against: 0, partial: 0, neutral: 0 },
+      searching: claim.searching,
     })),
     quotes: narrative.quotes.map((quote, index) => ({
       id: String(index),
@@ -487,5 +520,19 @@ export function toNarrativeView(detail: OrgNarrativeDetail, t: CabinetDictionary
       date: quote.date,
       text: quote.text,
     })),
+  };
+}
+
+export function toVideoRow(video: OrgVideo, t: CabinetDictionary): VideoRow {
+  return {
+    id: video.id,
+    url: video.url,
+    title: video.title || video.url,
+    thumbnailUrl: video.thumbnailUrl,
+    duration: video.durationSec ? formatTimecode(video.durationSec) : "",
+    status: video.status,
+    claims: video.claims,
+    checked: video.checked,
+    date: whenLabel(video.startedAt, t),
   };
 }

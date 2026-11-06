@@ -82,7 +82,10 @@ export interface TreeCanvasProps {
   /** Блоки, к которым привело обновление из ленты */
   focusIds: string[];
   searchOpen: boolean;
-  onToggleSearch: () => void;
+  /** Без своего фона и границ: холст лежит прямо на странице, узлы не обрезаются по его краю */
+  bare?: boolean;
+  /** Нет — у дерева нет хода поиска (сайт, видео): кнопки на панели не будет */
+  onToggleSearch?: () => void;
 }
 
 export function TreeCanvas({
@@ -94,6 +97,7 @@ export function TreeCanvas({
   highlightAlert,
   focusIds,
   searchOpen,
+  bare = false,
   onToggleSearch,
 }: TreeCanvasProps) {
   const t = useCabinetText();
@@ -192,7 +196,10 @@ export function TreeCanvas({
     setView({
       zoom: READABLE_ZOOM,
       x: FIT_MARGIN.side - bounds.x * READABLE_ZOOM,
-      y: box.clientHeight / 2 - (start.y + ROOT_MIDDLE_Y) * READABLE_ZOOM,
+      // холст без границ: от верха, иначе высокое дерево откроется поверх заголовка
+      y: bare
+        ? FIT_MARGIN.top - bounds.y * READABLE_ZOOM
+        : box.clientHeight / 2 - (start.y + ROOT_MIDDLE_Y) * READABLE_ZOOM,
     });
     // только при открытии проверки: дальше холстом управляет сотрудник
   }, [check.id, heights]);
@@ -370,8 +377,11 @@ export function TreeCanvas({
       onPointerDown={startPan}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      style={gridStyle(view.x, view.y, view.zoom)}
-      className="relative h-full min-w-0 flex-1 cursor-grab touch-none select-none overflow-hidden active:cursor-grabbing"
+      style={bare ? undefined : gridStyle(view.x, view.y, view.zoom)}
+      className={cn(
+        "relative h-full min-w-0 flex-1 cursor-grab touch-none select-none active:cursor-grabbing",
+        !bare && "overflow-hidden",
+      )}
     >
       <div
         className="absolute left-0 top-0 origin-top-left"
@@ -506,7 +516,7 @@ export function TreeCanvas({
       </div>
 
       <div className="cursor-auto" onPointerDown={(event) => event.stopPropagation()}>
-        <CanvasToolbar stats={check.stats} status={check.status} onToggleSearch={onToggleSearch} />
+        {!bare && <CanvasToolbar stats={check.stats} status={check.status} onToggleSearch={onToggleSearch} />}
         <CanvasFooter
           legend
           zoom={view.zoom}
@@ -515,7 +525,11 @@ export function TreeCanvas({
           onZoomOut={() => zoomAt(view.zoom - ZOOM_STEP)}
         />
         {check.steps && (check.status !== "done" || searchOpen) && (
-          <SearchProgress steps={check.steps} open={searchOpen} onToggle={onToggleSearch} />
+          <SearchProgress
+            steps={check.steps}
+            open={searchOpen}
+            onToggle={onToggleSearch ?? (() => undefined)}
+          />
         )}
         {selectedNode && selectedRect && (
           <PublicationDetailCard

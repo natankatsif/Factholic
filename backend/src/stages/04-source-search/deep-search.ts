@@ -30,7 +30,7 @@ export function mergeCopies(claimId: string, lists: SourceCopy[][]): SourceCopy[
 export interface DeepSearchSteps {
   /** Новые запросы по тому, что уже искали и нашли. Пусто — искать больше нечего */
   plan: (used: string[], found: SourceCopy[]) => Promise<PlannedQuery[]>;
-  run: (queries: PlannedQuery[]) => Promise<CopiesResult>;
+  run: (queries: PlannedQuery[], used: string[]) => Promise<CopiesResult>;
   log: (message: string) => void;
 }
 
@@ -51,7 +51,7 @@ export async function searchUntilFound(
       `04: ${claimId}: публикаций ${copies.length}, заход ${passes}: ${queries.map((q) => q.text).join("; ")}`,
     );
     tried.push(...queries.map((q) => q.text));
-    copies = mergeCopies(claimId, [copies, (await run(queries)).copies]);
+    copies = mergeCopies(claimId, [copies, (await run(queries, tried)).copies]);
   }
   return { ...first, copies, passes };
 }

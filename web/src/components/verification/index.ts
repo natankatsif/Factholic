@@ -6,4 +6,4 @@ export { AnalysisCard } from "./AnalysisCard";
 export { ConsensusBar } from "./ConsensusBar";
 export { CornerEmojis } from "./CornerEmojis";
 export { AssistantChat } from "./AssistantChat";
-export { TreeView } from "./TreeView";
+export { ClaimTree } from "./ClaimTree";

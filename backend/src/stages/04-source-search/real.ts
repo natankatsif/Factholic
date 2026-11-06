@@ -5,7 +5,7 @@ import { dateFromHtml, dateFromUrl, findCopiesWithTraces, type CopiesResult } fr
 import { factCheckSearch, limited, tavilySearch, type Candidate } from "./engines.ts";
 import { forEachPage, openPage } from "./pages.ts";
 import { planFollowUpQueries, planQueries, type PlannedQuery } from "./queries.ts";
-import { searchSearxng } from "./searxng.ts";
+import { searchMore, searxngOrNothing } from "./search-more.ts";
 import { dedupe, enrich, registrableDomain, selectDiverse, toFoundSource, type Enriched } from "./select.ts";
 import { assessSufficiency, type Sufficiency } from "./sufficiency.ts";
 import { keywordStems } from "./text.ts";
@@ -39,6 +39,8 @@ export const searchSourcesReal: Stage<SourceSearchInput, SourceSearchOutput> = a
       `SEARCH_PROVIDER="${config.providers.search.provider}" не поддерживается: этап 04 написан под tavily`,
     );
   }
+
+  if (input.previous) return searchMore(input, input.previous, ctx);
 
   const t0 = Date.now();
   const planned = await planQueries(input, ctx);
@@ -156,12 +158,15 @@ function deepen(
           ctx,
           RETRY_QUERIES,
         ),
-      run: (queries) =>
-        findCopiesWithTraces(claim, queries, ctx, undefined, Promise.resolve(relevant), (q) =>
-          searchSearxng(q, ctx).catch((err: unknown) => {
-            ctx.log("04 searxng: источник недоступен", String(err));
-            return [];
-          }),
+      run: (queries, used) =>
+        findCopiesWithTraces(
+          claim,
+          queries,
+          ctx,
+          undefined,
+          Promise.resolve(relevant),
+          searxngOrNothing(ctx),
+          used,
         ).catch((err: unknown): CopiesResult => {
           if (!ctx.signal.aborted) ctx.log("04: повторный заход упал", String(err));
           return { copies: [] };

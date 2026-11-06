@@ -24,6 +24,8 @@ const BACKEND_ENV = {
   SEARXNG_URL: `http://127.0.0.1:${SEARXNG_PORT}`,
   MAX_CLAIMS_PER_CHUNK: "1",
   MAX_CLAIMS_PER_JOB: "1",
+  // видео проверяется за плеером: начало и две минуты вперёд, одной проверки на ролик мало
+  MAX_CLAIMS_PER_VIDEO: "20",
   STAGE_INGEST: "real",
   STAGE_TRANSCRIPTION: "real",
   STAGE_CLAIM_EXTRACTION: "real",

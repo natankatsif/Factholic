@@ -122,6 +122,15 @@ export async function requestClaimCheck(jobId: JobId, claimId: ClaimId): Promise
   ).catch(() => {});
 }
 
+/** «Найти ещё» у готового утверждения: новый поиск дополняет прошлый. false — запрос не принят */
+export async function requestMoreSearch(jobId: JobId, claimId: ClaimId): Promise<boolean> {
+  if (DATA_SOURCE !== "backend") return false;
+  const path = `/api/jobs/${encodeURIComponent(jobId)}/claims/${encodeURIComponent(claimId)}/more`;
+  const res = await fetch(`${BACKEND_URL}${path}`, { method: "POST" }).catch(() => null);
+  const body = (await res?.json().catch(() => null)) as { queued?: boolean } | null | undefined;
+  return body?.queued === true;
+}
+
 export interface JobSubscription {
   unsubscribe: () => void;
   /**

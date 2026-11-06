@@ -26,7 +26,7 @@ export const DUP_THRESHOLD = 0.9;
 export const SHINGLE_THRESHOLD = 0.5;
 export const SHINGLE_SIZE = 5;
 /** Сколько копий читает LLM на шаге 1; остальные остаются в дереве, но без структуры и атрибуций */
-export const MAX_COPIES = 20;
+export const MAX_COPIES = 40;
 /** Сколько символов excerpt читаем (LLM, эмбеддинги, шинглы) — по контракту 04 он и так до ~2000 */
 export const MAX_EXCERPT_CHARS = 2000;
 /** Издатель узла "video" */

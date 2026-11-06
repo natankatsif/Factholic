@@ -94,6 +94,9 @@ export function CheckScreen({
             },
             onConfigure: () => setSettingsOpen(true),
             onRetry: () => void actions.retryCheck(check.id),
+            onFindMore: () => {
+              if (check.factCheckId) void actions.searchMore(check.id, check.factCheckId);
+            },
             claimChoice,
             onChooseClaim: (index) => {
               setClaimChoice(index);

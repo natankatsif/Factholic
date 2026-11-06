@@ -1,12 +1,7 @@
 "use client";
 
 import React, { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
-import {
-  formatTimecode,
-  isPendingCheck,
-  type FactCheck,
-  type VideoInfo,
-} from "@news/contracts";
+import { formatTimecode, isPendingCheck, type FactCheck, type VideoInfo } from "@news/contracts";
 import {
   ArrowUpRight,
   Captions,
@@ -30,7 +25,8 @@ import {
 } from "lucide-react";
 import { YT_STATE, loadYoutubeApi, qualityLabel, type YTPlayer } from "../../lib/youtube";
 import { CONSENSUS_STYLE } from "./AnalysisCard";
-import { FlagList, StatusPill, summaryLine } from "./claim-status";
+import { CHECK_ESTIMATE_SEC, FlagList, StatusPill, summaryLine } from "./claim-status";
+import { formatCountdown, useCountdown } from "../../lib/use-countdown";
 import { cleanQuote } from "./ClaimTextPanel";
 import { hasProvenanceTree } from "./material";
 import { LOCALE_TAGS, type Locale } from "../../i18n/locale";
@@ -62,6 +58,8 @@ export interface VideoPlayerPanelProps {
   mini?: boolean;
   /** Клик «развернуть» в мини-плеере — обратно к разбору */
   onExpand?: () => void;
+  /** Видео ждёт проверки начала: плеер не создаётся, вместо него загрузка. Сняли — запускается само */
+  hold?: { checked: number; total: number; onSkip: () => void };
 }
 
 type PlayState = "unstarted" | "playing" | "paused" | "buffering" | "ended";
@@ -106,6 +104,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
       onOpenTree,
       mini = false,
       onExpand,
+      hold,
     },
     ref,
   ) {
@@ -117,6 +116,8 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
     onTimeRef.current = onTime;
 
     const t = useSiteText();
+    // размеров ролика в отчёте нет: вертикальные узнаём по адресу Shorts
+    const vertical = /\/shorts\//i.test(video.pageUrl);
     const [time, setTime] = useState(startAt);
     const [duration, setDuration] = useState(video.durationSec || 0);
     const [state, setState] = useState<PlayState>("unstarted");
@@ -140,7 +141,9 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
     // ---------- плеер YouTube ----------
 
     // YT заменяет переданный элемент на iframe — создаём его сами внутри host, чтобы React не столкнулся с чужим DOM
+    const held = Boolean(hold);
     useEffect(() => {
+      if (held) return;
       let cancelled = false;
       let poll: ReturnType<typeof setInterval> | null = null;
       const host = hostRef.current;
@@ -229,7 +232,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
         host.replaceChildren();
       };
       // startAt и autoplay нужны только при создании плеера
-    }, [videoId]);
+    }, [videoId, held]);
 
     // ---------- действия ----------
 
@@ -515,13 +518,19 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                 }`
               : fullscreen
                 ? "h-full w-full"
-                : "aspect-video w-full rounded-[24px] lg:aspect-auto lg:min-h-[260px] lg:flex-1"
+                : `${vertical ? "aspect-[4/5]" : "aspect-video"} w-full rounded-[24px] lg:aspect-auto lg:min-h-[260px] lg:flex-1`
           } ${showControls || mini ? "" : "cursor-none"}`}
         >
-          {/* Видео вписано в 16:9 внутри плеера. Как у Vidstack: iframe в 10 раз выше рамки и отцентрован —
+          {/* Видео вписано в 16:9 (Shorts — в 9:16) внутри плеера. Как у Vidstack: iframe в 10 раз выше рамки и отцентрован —
               YouTube вписывает видео по ширине, и оно остаётся на месте, а шапка с названием и каналом и полоса
               «Ещё видео» уезжают далеко за края и обрезаются. Мышь забирает наш слой сверху. */}
-          <div className="relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] shrink-0 overflow-hidden">
+          <div
+            className={`relative shrink-0 overflow-hidden ${
+              vertical
+                ? "aspect-[9/16] w-[min(100cqw,calc(100cqh*9/16))]"
+                : "aspect-video w-[min(100cqw,calc(100cqh*16/9))]"
+            }`}
+          >
             <div
               ref={hostRef}
               className="pointer-events-none absolute inset-0 flex items-center [&>iframe]:h-[1000%] [&>iframe]:w-full [&>iframe]:shrink-0"
@@ -603,7 +612,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
           )}
 
           {/* центр: большая кнопка, пока видео стоит; загрузка (в мини — свои кнопки) */}
-          {mini
+          {mini || hold
             ? null
             : state === "buffering" || !ready
               ? !loadError && (
@@ -626,6 +635,8 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
                     )}
                   </button>
                 )}
+
+          {hold && <HoldOverlay hold={hold} videoId={videoId} />}
 
           {loadError && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm font-semibold text-white/80">
@@ -908,6 +919,39 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
  * Управление мини-плеера: при наведении — пауза по центру, «развернуть» и «закрыть» сверху, текущее
  * утверждение; тонкая полоса прогресса видна всегда.
  */
+/** Сколько утверждений проверяется одновременно (CHECK_MAX_PARALLEL): для оценки времени */
+const PARALLEL_CHECKS = 3;
+
+/** Загрузка на видео, пока проверяется его начало */
+function HoldOverlay({
+  hold,
+  videoId,
+}: {
+  hold: NonNullable<VideoPlayerPanelProps["hold"]>;
+  videoId: string;
+}) {
+  const t = useSiteText();
+  const rounds = Math.max(1, Math.ceil(hold.total / PARALLEL_CHECKS));
+  const left = useCountdown(`hold:${videoId}`, rounds * CHECK_ESTIMATE_SEC);
+  return (
+    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-[#1E1515]/70 p-6 text-center text-white">
+      <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-white/30 border-t-white" />
+      <span className="text-[17px] font-black">{t.player.holdTitle}</span>
+      <span className="text-sm font-semibold tabular-nums text-white/80">
+        {hold.total > 0 ? t.player.holdProgress(hold.checked, hold.total) : t.player.holdFinding}
+        {left > 0 && ` · ${t.player.holdLeft(formatCountdown(left))}`}
+      </span>
+      <button
+        type="button"
+        onClick={hold.onSkip}
+        className="cursor-pointer rounded-full border-none bg-white px-4 py-2 text-xs font-extrabold text-[#4A3333]"
+      >
+        {t.player.holdSkip}
+      </button>
+    </div>
+  );
+}
+
 function MiniOverlay({
   isPlaying,
   progress,

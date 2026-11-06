@@ -74,6 +74,8 @@ export interface CopiesResult {
   traces?: TraceReport;
 }
 
+const queryKey = (text: string) => text.trim().toLowerCase();
+
 /** Точка входа этапа: прежний поиск или поиск по следам (TRACE_SEARCH=on) */
 export function findCopiesWithTraces(
   claim: Claim,
@@ -84,11 +86,13 @@ export function findCopiesWithTraces(
   sourcePages: Promise<Enriched[]> = Promise.resolve([]),
   /** Дополнительный источник первого круга: он есть только в повторных заходах */
   extraSearch?: (q: PlannedQuery) => Promise<Candidate[]>,
+  /** Запросы прошлых заходов: второй раз за них не платим */
+  used: string[] = [],
 ): Promise<CopiesResult> {
   const country = claimCountry(claim);
   const regional = planned.map((q) => (country ? { ...q, country } : q));
   return traceMode
-    ? traceCopies(claim, regional, ctx, sourcePages, extraSearch)
+    ? traceCopies(claim, regional, ctx, sourcePages, extraSearch, used)
     : findCopies(claim, regional, ctx).then((copies) => ({ copies }));
 }
 
@@ -472,9 +476,13 @@ async function traceCopies(
   ctx: StageContext,
   sourcePages: Promise<Enriched[]>,
   extraSearch?: (q: PlannedQuery) => Promise<Candidate[]>,
+  used: string[] = [],
 ): Promise<CopiesResult> {
   const queries = queriesByLanguage(planned, MAX_COPY_QUERIES + 1);
-  const firstRound = [...queries, ...debunkQueries(planned), ...extraQueries(claim, queries)];
+  const repeated = new Set(used.map(queryKey));
+  const firstRound = [...queries, ...debunkQueries(planned), ...extraQueries(claim, queries)].filter(
+    (q) => queries.includes(q) || !repeated.has(queryKey(q.text)),
+  );
   ctx.log(
     `04 traces: ${claim.id}: страна ${queries[0]?.country ?? "не задана"}, запросы`,
     firstRound.map((q) => `${q.language}/${q.intent}: ${q.text}`),

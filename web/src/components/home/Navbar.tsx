@@ -1,10 +1,53 @@
 import React from "react";
 import Link from "next/link";
-import { Github, History } from "lucide-react";
+import { ChevronDown, Github, History } from "lucide-react";
 import { GITHUB_URL } from "./HackathonPill";
 import { useCabinetText } from "../cabinet/dictionary";
+import { usePopover } from "../cabinet/Popover";
 import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 import { useSiteText } from "../../i18n/site";
+
+/** «Для редакций» и «Для бизнеса» одним меню: в шапке на два пункта нет места */
+function PartnerMenu({ onSelect }: { onSelect: (item: "editorial" | "business") => void }) {
+  const t = useSiteText();
+  const { open, setOpen, ref } = usePopover();
+  const item = (id: "editorial" | "business", label: string) => (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={() => {
+        setOpen(false);
+        onSelect(id);
+      }}
+      className="block w-full cursor-pointer whitespace-nowrap rounded-[14px] border-none bg-transparent px-3 py-2 text-left text-[15px] font-extrabold text-[#4A3333] hover:bg-[#F1EBE9]"
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div ref={ref} className="relative hidden md:block">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer"
+      >
+        {t.nav.partnering}
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-[calc(100%+10px)] z-40 rounded-[20px] bg-[#FBF8F7] p-1.5 shadow-[0_10px_30px_#4A333333]"
+        >
+          {item("editorial", t.nav.editorial)}
+          {item("business", t.nav.business)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export interface NavbarProps {
   onGoHome?: () => void;
@@ -37,21 +80,7 @@ export function Navbar({ onGoHome, onLogin, onNavClick, onOpenHistory }: NavbarP
         data-pencil-name="Nav"
         className="box-border w-fit shrink-0 h-fit flex flex-row gap-2.5 sm:gap-5 lg:gap-6 xl:gap-[40px] justify-start items-center"
       >
-        <button
-          type="button"
-          onClick={() => onNavClick?.("editorial")}
-          className="text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer hidden lg:block"
-        >
-          {t.nav.editorial}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavClick?.("business")}
-          className="text-sm sm:text-base lg:text-[17px] leading-normal box-border text-[#A27C7A] hover:text-[#4A3333] font-bold text-left whitespace-nowrap transition-colors bg-transparent border-none p-0 cursor-pointer hidden lg:block"
-        >
-          {t.nav.business}
-        </button>
+        <PartnerMenu onSelect={(item) => onNavClick?.(item)} />
 
         <Link
           href="/cabinet"

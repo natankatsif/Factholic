@@ -43,6 +43,7 @@ export const ro: CabinetDictionary = {
     watched: "Monitorizate",
     running: "În curs",
     ungrouped: "Fără grup",
+    videos: "Video",
     narratives: "Narative",
     addNarrative: "Adaugă un narativ",
     suggestionTitle: "Pare o singură poveste",
@@ -50,7 +51,6 @@ export const ro: CabinetDictionary = {
   },
   canvas: {
     tree: "Arbore",
-    timeline: "Cronologie",
     searchDone: "Mersul căutării: gata",
     fit: "Arată tot",
     zoomIn: "Apropie",
@@ -156,6 +156,12 @@ export const ro: CabinetDictionary = {
     checkFailed: "Eroare de căutare",
   },
   feed: {
+    findMore: "Găsește mai multe",
+    findingMore: "Căutăm în continuare…",
+    findMoreHint:
+      "Căutări noi după cuvintele din paginile găsite. Rezultatele se adaugă la arbore, iar căutarea contează ca o verificare.",
+    moreFound: (count: number) => `Publicații noi: ${count}`,
+    moreNothing: "Nu există publicații noi",
     claimsFoundTitle: "Afirmații găsite",
     claimsFoundOne: "Textul are o singură afirmație verificabilă. Am început lucrul cu ea.",
     claimsFoundMany: (count) => `Textul are ${count} afirmații. Alege pe care o urmărim mai departe.`,
@@ -245,6 +251,17 @@ export const ro: CabinetDictionary = {
     debunked: "Există analize",
     fading: "Se stinge",
   },
+  questionMenu: {
+    label: "Acțiuni pentru întrebare",
+    repeatSearch: "Repetă căutarea",
+    searching: "Căutăm…",
+    removeFromNarrative: "Elimină din narativ",
+    removeTitle: "Eliminați întrebarea din narativ?",
+    removeText: (question: string) =>
+      `Sunteți sigur? ${question} va fi eliminată din narativ, dar rămâne în lista de întrebări.`,
+    remove: "Elimină",
+    cancel: "Anulează",
+  },
   questions: {
     subtitle: (count, word) =>
       `${count} ${word}. Te poți întoarce la oricare: arborele și verificările trecute rămân.`,
@@ -290,6 +307,23 @@ export const ro: CabinetDictionary = {
     fresh: (count) => `+${count}`,
     toggle: { active: "Activ", paused: "Pauză", finished: "Oprit" },
     more: "Mai mult",
+  },
+  videos: {
+    title: "Video",
+    subtitle: (count, word) => `${count} ${word}. Afirmațiile se verifică pe parcursul vizionării.`,
+    word: forms("video", "video"),
+    placeholder: "Inserează un link către un video YouTube",
+    submit: "Analizează",
+    notYoutube: "Deocamdată acceptăm doar linkuri YouTube",
+    emptyTitle: "Încă nu sunt video",
+    emptyText:
+      "Inserează un link: se deschide playerul, iar afirmațiile din jurul momentului curent se verifică singure.",
+    claims: (count, word) => `${count} ${word}`,
+    claimsWord: forms("afirmație", "afirmații"),
+    checked: (count) => `verificate: ${count}`,
+    running: "Analizăm",
+    failed: "Videoclipul nu a putut fi analizat",
+    retry: "Reîncearcă",
   },
   narrative: {
     back: "Toate întrebările",

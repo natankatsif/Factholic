@@ -200,6 +200,11 @@ export interface CheckView {
   feed: FeedItem[];
   rootUnknown?: boolean;
   alertGroup?: AlertGroup;
+  /** Утверждение отчёта, по которому работает «Найти ещё» */
+  factCheckId?: string;
+  searchingMore?: boolean;
+  /** Сколько новых публикаций дал последний такой поиск */
+  moreFound?: number;
 }
 
 export interface RunningCheck {
@@ -209,6 +214,8 @@ export interface RunningCheck {
   totalSteps: number;
   message: string;
   found: number;
+  /** Разбор видео: открывается в разделе видео */
+  video?: boolean;
 }
 
 export interface CabinetLimits {
@@ -280,7 +287,7 @@ export interface CabinetSession {
   alerts: AlertItem[];
   clarifications: ClarificationView[];
   running: RunningCheck[];
-  counts: Record<ClaimScope, number>;
+  counts: Record<ClaimScope | "videos", number>;
   narratives: NarrativeLink[];
   suggestions: SuggestionView[];
   limits: CabinetLimits;
@@ -315,6 +322,8 @@ export interface QuestionRow {
   last: string;
   status: ClaimStatus;
   scopes: ClaimScope[];
+  /** Идёт повторный поиск */
+  searching?: boolean;
 }
 
 export interface WatchRow {
@@ -334,6 +343,8 @@ export interface NarrativeQuestion {
   text: string;
   status: ClaimStatus;
   sides: SidesSummary;
+  /** Идёт повторный поиск */
+  searching?: boolean;
 }
 
 export interface NarrativeQuote {
@@ -369,4 +380,17 @@ export interface OverlayState {
   /** Подсветить новые публикации, остальное приглушить */
   highlightAlert?: boolean;
   selectedQuestionIds?: string[];
+}
+
+/** Строка списка видео */
+export interface VideoRow {
+  id: string;
+  url: string;
+  title: string;
+  thumbnailUrl?: string;
+  duration: string;
+  status: "running" | "done" | "failed";
+  claims: number;
+  checked: number;
+  date: string;
 }
