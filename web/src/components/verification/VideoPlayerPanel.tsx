@@ -514,7 +514,11 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
           }
           className={`group/player relative flex select-none items-center justify-center overflow-hidden bg-[#1E1515] outline-none [container-type:size] ${
             mini
-              ? `!fixed z-50 aspect-video w-[min(360px,calc(100vw-2.5rem))] rounded-[18px] shadow-[0px_18px_50px_rgba(30,21,21,0.38)] touch-none select-none ${
+              ? `!fixed z-50 ${
+                  vertical
+                    ? "aspect-[9/16] w-[min(220px,calc(100vw-2.5rem))]"
+                    : "aspect-video w-[min(360px,calc(100vw-2.5rem))]"
+                } rounded-[18px] shadow-[0px_18px_50px_rgba(30,21,21,0.38)] touch-none select-none ${
                   isDragging
                     ? "cursor-grabbing transition-none"
                     : "cursor-grab transition-[opacity,scale] duration-[350ms]"
@@ -572,6 +576,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
           {mini && (
             <MiniOverlay
               isPlaying={isPlaying}
+              showPause={showControls}
               progress={percent(time)}
               current={current}
               onTogglePlay={togglePlay}
@@ -971,6 +976,7 @@ function HoldOverlay({
 
 function MiniOverlay({
   isPlaying,
+  showPause,
   progress,
   current,
   onTogglePlay,
@@ -979,6 +985,8 @@ function MiniOverlay({
   isDragging,
 }: {
   isPlaying: boolean;
+  /** Пауза появляется при движении мыши: после запуска кнопка не мешает смотреть */
+  showPause: boolean;
   progress: string;
   current: FactCheck | undefined;
   onTogglePlay: () => void;
@@ -1021,7 +1029,7 @@ function MiniOverlay({
         }}
         aria-label={isPlaying ? t.player.pause : t.player.watch}
         className={`absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-none bg-[#FBF8F7]/95 text-[#4A3333] shadow-lg ${
-          isPlaying ? hover : ""
+          isPlaying ? `transition-opacity duration-200 ${showPause ? "opacity-100" : "opacity-0"}` : ""
         }`}
       >
         {isPlaying ? (
