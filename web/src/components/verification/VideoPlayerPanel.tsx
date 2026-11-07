@@ -146,6 +146,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
       if (held) return;
       let cancelled = false;
       let poll: ReturnType<typeof setInterval> | null = null;
+      let instance: YTPlayer | null = null;
       const host = hostRef.current;
       if (!host) return;
       const mount = document.createElement("div");
@@ -154,7 +155,8 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
       loadYoutubeApi()
         .then((YT) => {
           if (cancelled) return;
-          playerRef.current = new YT.Player(mount, {
+          // методы у плеера появляются только к onReady: до этого управлять им нельзя
+          instance = new YT.Player(mount, {
             videoId,
             width: "100%",
             height: "100%",
@@ -175,6 +177,7 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
               onReady: (e) => {
                 if (cancelled) return;
                 const p = e.target;
+                playerRef.current = p;
                 setReady(true);
                 const d = p.getDuration();
                 if (d > 0) setDuration(d);
@@ -232,8 +235,8 @@ export const VideoPlayerPanel = forwardRef<VideoPlayerHandle, VideoPlayerPanelPr
       return () => {
         cancelled = true;
         if (poll) clearInterval(poll);
-        playerRef.current?.destroy();
         playerRef.current = null;
+        instance?.destroy?.();
         host.replaceChildren();
       };
       // startAt и autoplay нужны только при создании плеера
